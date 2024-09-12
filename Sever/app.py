@@ -81,6 +81,8 @@ class Login(Resource):
         password = data['password']
 
         user = User.query.filter_by(email=email).first()
+        #check if admin email exists
+        user = Admin.query.filter_by(email=email).first()
 
         if user and check_password_hash(user.password_hash, password):
             token = create_access_token(
