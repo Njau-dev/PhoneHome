@@ -20,3 +20,13 @@
 # cors = CORS(app)
 # api = Api(app)
 # jwt = JWTManager(app)
+
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+cloudinary.config(
+  cloud_name = 'dzag5lm0e',   
+  api_key = '768311535983232',
+  api_secret = 'xWcspYk6pgg5wC21WzxYG_T-pd8'
+)

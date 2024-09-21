@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, jsonify, request
 from flask_restful import Resource, Api
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager, get_jwt
@@ -7,10 +7,28 @@ from flask_migrate import Migrate
 from flask_cors import CORS
 from datetime import timedelta
 from functools import wraps
-from models import db, User, Admin, Category, Brand, Phone, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog
+from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog
+import cloudinary
+import cloudinary.uploader
+from flask.views import MethodView
+import os
+import cloudinary.api
+from dotenv import load_dotenv
+import logging
+
+load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
+
+cloudinary.config(
+    cloud_name = os.getenv ("CLOUDINARY_CLOUD_NAME"),
+    api_key = os.getenv ("CLOUDINARY_API_KEY"),
+    api_secret = os.getenv ("CLOUDINARY_API_SECRET"),
+    debug = True,
+    secure = True
+)
+
 
 # Configuration
 app.config['SECRET_KEY'] = '9b5d1a90246ca41fd5d81cf8debdc4ecb5bb82d7b7fb69a46aad44c2ca55e8ae'
@@ -92,6 +110,59 @@ class Login(Resource):
             return {"Message": "Login Successful!", "token": token}, 200
         else:
             return {"Error": "Invalid Email or Password!"}, 401
+        
+
+class ProfileView(MethodView):
+    decorators = [jwt_required()]
+
+    def get(self):
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        user_data = {
+            "username": user.username,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "address": user.address,
+            "created_at": user.created_at.isoformat()
+        }
+
+        return jsonify(user_data), 200
+
+    def put(self):
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        data = request.get_json()
+
+        # Basic Input Validation
+        if 'email' in data:
+            if not self.validate_email(data['email']):
+                return jsonify({"error": "Invalid email format"}), 400
+
+        user.username = data.get('username', user.username)
+        user.email = data.get('email', user.email)
+        user.phone_number = data.get('phone_number', user.phone_number)
+        user.address = data.get('address', user.address)
+
+        try:
+            db.session.commit()
+            return jsonify({"message": "Profile updated successfully"}), 200
+        except Exception as e:
+            db.session.rollback()
+            # Ideally, log the exception here
+            return jsonify({"error": "An error occurred while updating the profile."}), 500
+
+    @staticmethod
+    def validate_email(email):
+        email_regex = r'^\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        return re.match(email_regex, email) is not None
 
 # Logout Resource (with persistent token blacklisting)
 class Logout(Resource):
@@ -132,8 +203,8 @@ class CategoryResource(Resource):
 
 # Single Category Resource for managing a specific category
 class SingleCategoryResource(Resource):
-    @jwt_required()
-    @admin_required
+    # @jwt_required()
+    # @admin_required
     def get(self, category_id):
         category = Category.query.get_or_404(category_id)
         return {"id": category.id, "name": category.name}, 200
@@ -173,8 +244,8 @@ class BrandResource(Resource):
 
 # Single Brand Resource for managing a specific brand
 class SingleBrandResource(Resource):
-    @jwt_required()
-    @admin_required
+    # @jwt_required()
+    # @admin_required
     def get(self, brand_id):
         brand = Brand.query.get_or_404(brand_id)
         return {"id": brand.id, "name": brand.name}, 200
@@ -206,7 +277,8 @@ class PhoneResource(Resource):
                 "name": phone.name,
                 "price": phone.price,
                 "category": phone.category.name,
-                "brand": phone.brand.name
+                "brand": phone.brand.name,
+                "image_urls": phone.image_urls_list,
             }
             for phone in phones
         ], 200
@@ -214,30 +286,96 @@ class PhoneResource(Resource):
     @jwt_required()
     @admin_required
     def post(self):
-        data = request.get_json()
-        category = Category.query.get_or_404(data['category_id'])
-        brand = Brand.query.get_or_404(data['brand_id'])
-        new_phone = Phone(
-            name=data['name'],
-            price=data['price'],
-            description=data['description'],
-            image_urls=','.join(data['image_urls']),
-            ram=data['ram'],
-            storage=data['storage'],
-            battery=data['battery'],
-            main_camera=data['main_camera'],
-            front_camera=data['front_camera'],
-            display=data['display'],
-            processor=data['processor'],
-            connectivity=data['connectivity'],
-            colors=','.join(data['colors']),
-            os=data['os'],
-            category=category,
-            brand=brand
-        )
-        db.session.add(new_phone)
-        db.session.commit()
-        return {"Message": "Phone Added Successfully!"}, 201
+        try:
+            # Access form data as dictionary
+            name = request.form.get('name')
+            price = request.form.get('price')
+            description = request.form.get('description')
+            ram = request.form.get('ram')
+            storage = request.form.get('storage')
+            battery = request.form.get('battery')
+            main_camera = request.form.get('main_camera')
+            front_camera = request.form.get('front_camera')
+            display = request.form.get('display')
+            processor = request.form.get('processor')
+            connectivity = request.form.get('connectivity')
+            colors = request.form.get('colors')
+            os = request.form.get('os')
+            category_id = request.form.get('category_id')
+            brand_id = request.form.get('brand_id')
+
+            # # Handle file upload
+            # image_file = request.files['image_urls']  # Handle file upload
+            
+            # # Upload image to Cloudinary
+            # try:
+            #     print("Uploading image to Cloudinary...")
+            #     result = cloudinary.uploader.upload(image_file)
+            #     file_url = result['secure_url']
+            #     print(f"Image uploaded to: {file_url}")
+            # except Exception as e:
+            #     print(f"Cloudinary upload failed: {e}")
+            #     return {"Error": f"Image upload failed: {str(e)}"}, 500
+            
+            image_files = request.files.getlist('image_urls')
+
+            # Validate file types
+            ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+            def allowed_file(filename):
+                return '.' in filename and \
+                       filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+            
+            # Upload images to Cloudinary
+            uploaded_urls = []
+            for image_file in image_files:
+                if image_file and allowed_file(image_file.filename):
+                    try:
+                        logger.info(f"Uploading {image_file.filename} to Cloudinary...")
+                        result = cloudinary.uploader.upload(image_file)
+                        uploaded_urls.append(result['secure_url'])
+                        logger.info(f"Uploaded to: {result['secure_url']}")
+                    except cloudinary.exceptions.Error as e:
+                        logger.error(f"Cloudinary upload failed for {image_file.filename}: {e}")
+                        return {"Error": f"Image upload failed for {image_file.filename}: {str(e)}"}, 500
+                else:
+                    return {"Error": f"Invalid file type for {image_file.filename}."}, 400
+
+            if not uploaded_urls:
+                return {"Error": "No valid images were uploaded."}, 400
+            # Create new phone record
+            category = Category.query.get_or_404(category_id)
+            brand = Brand.query.get_or_404(brand_id)
+            # Process colors
+            colors_list = [color.strip() for color in colors.split(",")]
+            colors_str = ",".join(colors_list)
+
+            new_phone = Phone(
+                name=name,
+                price=price,
+                description=description,
+                image_urls=uploaded_urls,  # Store the Cloudinary URL
+                ram=ram,
+                storage=storage,
+                battery=battery,
+                main_camera=main_camera,
+                front_camera=front_camera,
+                display=display,
+                processor=processor,
+                connectivity=connectivity,
+                colors=colors_str,  # Stored as comma-separated string
+                os=os,
+                category=category,
+                brand=brand
+            )
+            
+            db.session.add(new_phone)
+            db.session.commit()
+            return {"Message": "Phone added successfully!"}, 201
+
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return {"Error": "An error occurred while adding the phone", "Details": str(e)}, 500
+
 # Single Phone Resource
 class SinglePhoneResource(Resource):
     @jwt_required()
@@ -698,6 +836,388 @@ def internal_server_error(e):
 def handle_exception(e):
     return {"Error": "An unexpected error occurred."}, 500
 
+
+# laptop Resource
+class LaptopResource(Resource):
+    def get(self):
+        laptop = Laptop.query.all()
+        return [
+            {
+                "id": laptop.id,
+                "name": laptop.name,
+                "price": laptop.price,
+                "category": laptop.category.name,
+                "brand": laptop.brand.name
+            }
+            for laptop in laptop
+        ], 200
+
+    @jwt_required()
+    @admin_required
+    def post(self):
+        try:
+            # Access form data as dictionary
+            name = request.form.get('name')
+            price = request.form.get('price')
+            description = request.form.get('description')
+            ram = request.form.get('ram')
+            storage = request.form.get('storage')
+            battery = request.form.get('battery')
+            display = request.form.get('display')
+            processor = request.form.get('processor')
+            os = request.form.get('os')
+            category_id = request.form.get('category_id')
+            brand_id = request.form.get('brand_id')
+
+            image_files = request.files.getlist('image_urls')
+
+            # Validate file types
+            ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+            def allowed_file(filename):
+                return '.' in filename and \
+                       filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+            
+            # Upload images to Cloudinary
+            uploaded_urls = []
+            for image_file in image_files:
+                if image_file and allowed_file(image_file.filename):
+                    try:
+                        logger.info(f"Uploading {image_file.filename} to Cloudinary...")
+                        result = cloudinary.uploader.upload(image_file)
+                        uploaded_urls.append(result['secure_url'])
+                        logger.info(f"Uploaded to: {result['secure_url']}")
+                    except cloudinary.exceptions.Error as e:
+                        logger.error(f"Cloudinary upload failed for {image_file.filename}: {e}")
+                        return {"Error": f"Image upload failed for {image_file.filename}: {str(e)}"}, 500
+                else:
+                    return {"Error": f"Invalid file type for {image_file.filename}."}, 400
+
+            if not uploaded_urls:
+                return {"Error": "No valid images were uploaded."}, 400
+
+            # Create new laptop record
+            category = Category.query.get_or_404(category_id)
+            brand = Brand.query.get_or_404(brand_id)
+            
+            new_laptop = Laptop(
+                name=name,
+                price=price,
+                description=description,
+                image_urls=uploaded_urls,  # Store the Cloudinary URL
+                ram=ram,
+                storage=storage,
+                battery=battery,
+                display=display,
+                processor=processor,
+                os=os,
+                category=category,
+                brand=brand
+            )
+            
+            db.session.add(new_laptop)
+            db.session.commit()
+            return {"Message": "laptop added successfully!"}, 201
+
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return {"Error": "An error occurred while adding the laptop", "Details": str(e)}, 500
+
+# Single LaptopResource
+class SingleLaptopResource(Resource):
+    @jwt_required()
+    def get(self, laptop_id):
+        laptop  =Laptop.query.get_or_404(laptop_id)
+        return {
+            "id": laptop.id,
+            "name": laptop.name,
+            "price": laptop.price,
+            "category": laptop.category.name,
+            "brand": laptop.brand.name
+        }, 200
+
+    @jwt_required()
+    @admin_required
+    def put(self, laptop_id):
+        data = request.get_json()
+        laptop = Laptop.query.get_or_404(laptop_id)
+        laptop.name = data['name']
+        laptop.price = data['price']
+        laptop.description = data['description']
+        laptop.image_urls = ','.join(data['image_urls'])
+        laptop.ram = data['ram']
+        laptop.storage = data['storage']
+        laptop.battery = data['battery']
+        laptop.display = data['display']
+        laptop.processor = data['processor']
+        laptop.os = data['os']
+        laptop.category_id = data['category_id']
+        laptop.brand_id = data['brand_id']
+        db.session.commit()
+        return {"Message": "Laptop Updated Successfully!"}, 200
+
+    @jwt_required()
+    @admin_required
+    def delete(self, laptop_id):
+        laptop =  Laptop.query.get_or_404(laptop_id)
+        db.session.delete(laptop)
+        db.session.commit()
+        return {"Message": "Laptop Deleted Successfully!"}, 200
+
+
+
+# Tablet Resource   
+class TabletResource(Resource):
+    def get(self):
+        tablet = Tablet.query.all()
+        return [
+            {
+                "id": tablet.id,
+                "name": tablet.name,
+                "price": tablet.price,
+                "category": tablet.category.name,
+                "brand": tablet.brand.name
+            }
+            for tablet in tablet
+        ], 200
+
+    @jwt_required()
+    @admin_required
+    def post(self):
+        try:
+            # Access form data as dictionary
+            name = request.form.get('name')
+            price = request.form.get('price')
+            description = request.form.get('description')
+            ram = request.form.get('ram')
+            storage = request.form.get('storage')
+            battery = request.form.get('battery')
+            main_camera = request.form.get('main_camera')
+            front_camera = request.form.get('front_camera')
+            display = request.form.get('display')
+            processor = request.form.get('processor')
+            connectivity = request.form.get('connectivity')
+            colors = request.form.get('colors')
+            os = request.form.get('os')
+            category_id = request.form.get('category_id')
+            brand_id = request.form.get('brand_id')
+
+            image_files = request.files.getlist('image_urls')
+
+            # Validate file types
+            ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+            def allowed_file(filename):
+                return '.' in filename and \
+                       filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+            
+            # Upload images to Cloudinary
+            uploaded_urls = []
+            for image_file in image_files:
+                if image_file and allowed_file(image_file.filename):
+                    try:
+                        logger.info(f"Uploading {image_file.filename} to Cloudinary...")
+                        result = cloudinary.uploader.upload(image_file)
+                        uploaded_urls.append(result['secure_url'])
+                        logger.info(f"Uploaded to: {result['secure_url']}")
+                    except cloudinary.exceptions.Error as e:
+                        logger.error(f"Cloudinary upload failed for {image_file.filename}: {e}")
+                        return {"Error": f"Image upload failed for {image_file.filename}: {str(e)}"}, 500
+                else:
+                    return {"Error": f"Invalid file type for {image_file.filename}."}, 400
+
+            if not uploaded_urls:
+                return {"Error": "No valid images were uploaded."}, 400
+
+            # Create new laptop record
+            category = Category.query.get_or_404(category_id)
+            brand = Brand.query.get_or_404(brand_id)
+            # Process colors
+            colors_list = [color.strip() for color in colors.split(",")]
+            colors_str = ",".join(colors_list)
+
+            new_tablet = Tablet(
+                name=name,
+                price=price,
+                description=description,
+                image_urls=uploaded_urls,  # Store the Cloudinary URL
+                ram=ram,
+                storage=storage,
+                battery=battery,
+                main_camera=main_camera,
+                front_camera=front_camera,
+                display=display,
+                processor=processor,
+                connectivity=connectivity,
+                colors=colors_str,
+                os=os,
+                category=category,
+                brand=brand
+            )
+            
+            db.session.add(new_tablet)
+            db.session.commit()
+            return {"Message": "tablet added successfully!"}, 201
+
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return {"Error": "An error occurred while adding the tablet", "Details": str(e)}, 500
+
+# Single Phone Resource
+class SingleTabletResource(Resource):
+    @jwt_required()
+    def get(self, tablet_id):
+        tablet  =Tablet.query.get_or_404(tablet_id)
+        return {
+            "id": tablet.id,
+            "name": tablet.name,
+            "price": tablet.price,
+            "category": tablet.category.name,
+            "brand": tablet.brand.name
+        }, 200
+
+    @jwt_required()
+    @admin_required
+    def put(self, tablet_id):
+        data = request.get_json()
+        tablet= Tablet.query.get_or_404(tablet_id)
+        tablet.name = data['name']
+        tablet.price = data['price']
+        tablet.description = data['description']
+        tablet.image_urls = ','.join(data['image_urls'])
+        tablet.ram = data['ram']
+        tablet.storage = data['storage']
+        tablet.battery = data['battery']
+        tablet.main_camera = data['main_camera']
+        tablet.front_camera = data['front_camera']
+        tablet.display = data['display']
+        tablet.processor = data['processor']
+        tablet.connectivity = data['connectivity']
+        tablet.colors = ','.join(data['colors'])
+        tablet.os = data['os']
+        tablet.category_id = data['category_id']
+        tablet.brand_id = data['brand_id']
+        db.session.commit()
+        return {"Message": "tablet Updated Successfully!"}, 200
+
+    @jwt_required()
+    @admin_required
+    def delete(self, tablet_id):
+        tablet =  Tablet.query.get_or_404(tablet_id)
+        db.session.delete(tablet)
+        db.session.commit()
+        return {"Message": "tablet Deleted Successfully!"}, 200
+
+
+#Audio
+class AudioResource(Resource):
+    def get(self):
+        audio = Audio.query.all()
+        return [
+            {
+                "id": audio.id,
+                "name": audio.name,
+                "price": audio.price,
+                "category": audio.category.name,
+                "brand": audio.brand.name
+            }
+            for audio in audio
+        ], 200
+
+    @jwt_required()
+    @admin_required
+    def post(self):
+        try:
+            # Access form data as dictionary
+            name = request.form.get('name')
+            price = request.form.get('price')
+            description = request.form.get('description')
+            category_id = request.form.get('category_id')
+            brand_id = request.form.get('brand_id')
+            
+            image_files = request.files.getlist('image_urls')
+
+            # Validate file types
+            ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+            def allowed_file(filename):
+                return '.' in filename and \
+                       filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+            
+            # Upload images to Cloudinary
+            uploaded_urls = []
+            for image_file in image_files:
+                if image_file and allowed_file(image_file.filename):
+                    try:
+                        logger.info(f"Uploading {image_file.filename} to Cloudinary...")
+                        result = cloudinary.uploader.upload(image_file)
+                        uploaded_urls.append(result['secure_url'])
+                        logger.info(f"Uploaded to: {result['secure_url']}")
+                    except cloudinary.exceptions.Error as e:
+                        logger.error(f"Cloudinary upload failed for {image_file.filename}: {e}")
+                        return {"Error": f"Image upload failed for {image_file.filename}: {str(e)}"}, 500
+                else:
+                    return {"Error": f"Invalid file type for {image_file.filename}."}, 400
+
+            if not uploaded_urls:
+                return {"Error": "No valid images were uploaded."}, 400
+
+            # Create new  Audio record
+            category = Category.query.get_or_404(category_id)
+            brand = Brand.query.get_or_404(brand_id)
+            
+            new_audio = Audio(
+                name=name,
+                price=price,
+                description=description,
+                image_urls=uploaded_urls,  # Store the Cloudinary URL
+                category=category,
+                brand=brand
+            )
+            
+            db.session.add(new_audio)
+            db.session.commit()
+            return {"Message": "tablet added successfully!"}, 201
+
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return {"Error": "An error occurred while adding the tablet", "Details": str(e)}, 500
+
+# Single Phone Resource
+class SingleAudioResource(Resource):
+    @jwt_required()
+    def get(self, audio_id):
+        audio  =Audio.query.get_or_404(audio_id)
+        return {
+            "id": audio.id,
+            "name": audio.name,
+            "price": audio.price,
+            "category": audio.category.name,
+            "brand": audio.brand.name
+        }, 200
+
+    @jwt_required()
+    @admin_required
+    def put(self, audio_id):
+        data = request.get_json()
+        audio= Audio.query.get_or_404(audio_id)
+        audio.name = data['name']
+        audio.price = data['price']
+        audio.description = data['description']
+        audio.image_urls = ','.join(data['image_urls'])
+        audio.battery = data['battery']
+        audio.category_id = data['category_id']
+        audio.brand_id = data['brand_id']
+        db.session.commit()
+        return {"Message": "audio Updated Successfully!"}, 200
+
+    @jwt_required()
+    @admin_required
+    def delete(self, audio_id):
+        audio =  Audio.query.get_or_404(audio_id)
+        db.session.delete(audio)
+        db.session.commit()
+        return {"Message": "audio Deleted Successfully!"}, 200
+
+
+
 # Register all the resources with Flask-Restful
 api.add_resource(SignUp, '/signup')
 api.add_resource(Login, '/login')
@@ -714,6 +1234,19 @@ api.add_resource(SingleBrandResource, '/brands/<int:brand_id>')
 # Phone routes
 api.add_resource(PhoneResource, '/phones')
 api.add_resource(SinglePhoneResource, '/phones/<int:phone_id>')
+
+# Laptop routes
+api.add_resource(LaptopResource, '/laptop')
+api.add_resource(SingleLaptopResource, '/laptop/<int:laptop_id>')
+
+# tablet routes
+api.add_resource(TabletResource, '/tablet')
+api.add_resource(SingleTabletResource, '/tablet/<int:laptop_id>')
+
+# Audio routes
+api.add_resource(AudioResource, '/audio')
+api.add_resource(SingleAudioResource, '/audio/<int:laptop_id>')
+
 
 # Cart routes
 api.add_resource(CartResource, '/cart')
