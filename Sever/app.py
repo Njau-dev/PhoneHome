@@ -2,12 +2,11 @@ from flask import Flask, jsonify, request
 from flask_restful import Resource, Api
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager, get_jwt
-from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
 from datetime import timedelta
 from functools import wraps
-from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog
+from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog, Address, Payment, Shipment, Product
 import cloudinary
 import cloudinary.uploader
 from flask.views import MethodView
@@ -15,9 +14,10 @@ import os
 import cloudinary.api
 from dotenv import load_dotenv
 import logging
+import traceback
 
 load_dotenv()
-
+logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__)
 
@@ -32,9 +32,10 @@ cloudinary.config(
 
 # Configuration
 app.config['SECRET_KEY'] = '9b5d1a90246ca41fd5d81cf8debdc4ecb5bb82d7b7fb69a46aad44c2ca55e8ae'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///phonehub.db'
-app.config['JWT_SECRET_KEY'] = 'b4506f4f33d07a7467281fc9d373de85cc97b4c104334d0c7553fad7c6deea1b'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')  # PostgreSQL connection URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = 'b4506f4f33d07a7467281fc9d373de85cc97b4c104334d0c7553fad7c6deea1b'
+ 
 
 # Initialize Extensions
 db.init_app(app)
@@ -58,7 +59,8 @@ def is_token_blacklisted(jwt_payload):
 def check_if_token_in_blacklist(jwt_header, jwt_payload):
     return is_token_blacklisted(jwt_payload)
 
-# SignUp Resource
+
+# Sign Up
 class SignUp(Resource):
     def post(self):
         try:
@@ -89,9 +91,10 @@ class SignUp(Resource):
             return {"Message": "Sign-Up Successful!"}, 201
 
         except Exception as e:
+            logger.error(f"Error during Sign Up: {e}")
             return {"Error": "Internal Server Error"}, 500
 
-# Login Resource
+# Login
 class Login(Resource):
     def post(self):
         data = request.get_json()
@@ -99,19 +102,14 @@ class Login(Resource):
         password = data['password']
 
         user = User.query.filter_by(email=email).first()
-        #check if admin email exists
-        user = Admin.query.filter_by(email=email).first()
 
         if user and check_password_hash(user.password_hash, password):
-            token = create_access_token(
-                identity=user.id,
-                expires_delta=timedelta(days=2)
-            )
+            token = create_access_token(identity=user.id, expires_delta=timedelta(days=2))
             return {"Message": "Login Successful!", "token": token}, 200
         else:
             return {"Error": "Invalid Email or Password!"}, 401
-        
 
+# Profile View and Update
 class ProfileView(MethodView):
     decorators = [jwt_required()]
 
@@ -141,11 +139,6 @@ class ProfileView(MethodView):
 
         data = request.get_json()
 
-        # Basic Input Validation
-        if 'email' in data:
-            if not self.validate_email(data['email']):
-                return jsonify({"error": "Invalid email format"}), 400
-
         user.username = data.get('username', user.username)
         user.email = data.get('email', user.email)
         user.phone_number = data.get('phone_number', user.phone_number)
@@ -156,24 +149,19 @@ class ProfileView(MethodView):
             return jsonify({"message": "Profile updated successfully"}), 200
         except Exception as e:
             db.session.rollback()
-            # Ideally, log the exception here
+            logger.error(f"Error updating profile: {e}")
             return jsonify({"error": "An error occurred while updating the profile."}), 500
 
-    @staticmethod
-    def validate_email(email):
-        email_regex = r'^\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-        return re.match(email_regex, email) is not None
-
-# Logout Resource (with persistent token blacklisting)
+# Logout
 class Logout(Resource):
     @jwt_required()
     def delete(self):
-        jti = get_jwt()['jti']
+        jti = get_jwt_identity()
         blacklisted_token = BlacklistToken(token=jti)
         db.session.add(blacklisted_token)
         db.session.commit()
         return {"Message": "Logout Successful!"}, 200
-
+    
 
 # Define the admin_required decorator
 def admin_required(f):
@@ -186,153 +174,118 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorator
 
-# Category Resource
-class CategoryResource(Resource):
+# Product (Phones, Laptops, Tablets, Audio) Management
+
+# Initialize logger
+logger = logging.getLogger(__name__)
+
+# Allowed extensions for file uploads
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Product Resource (Production-Ready Version)
+class ProductResource(Resource):
     def get(self):
-        categories = Category.query.all()
-        return [{"id": category.id, "name": category.name} for category in categories], 200
-
-    @jwt_required()
-    @admin_required
-    def post(self):
-        data = request.get_json()
-        new_category = Category(name=data['name'])
-        db.session.add(new_category)
-        db.session.commit()
-        return {"Message": "Category Created Successfully!"}, 201
-
-# Single Category Resource for managing a specific category
-class SingleCategoryResource(Resource):
-    # @jwt_required()
-    # @admin_required
-    def get(self, category_id):
-        category = Category.query.get_or_404(category_id)
-        return {"id": category.id, "name": category.name}, 200
-
-    @jwt_required()
-    @admin_required
-    def put(self, category_id):
-        data = request.get_json()
-        category = Category.query.get_or_404(category_id)
-        category.name = data['name']
-        db.session.commit()
-        return {"Message": "Category Updated Successfully!"}, 200
-
-    @jwt_required()
-    @admin_required
-    def delete(self, category_id):
-        category = Category.query.get_or_404(category_id)
-        db.session.delete(category)
-        db.session.commit()
-        return {"Message": "Category Deleted Successfully!"}, 200
-
-# Brand Resource
-class BrandResource(Resource):
-    def get(self):
-        brands = Brand.query.all()
-        return [{"id": brand.id, "name": brand.name} for brand in brands], 200
-
-    @jwt_required()
-    @admin_required
-    def post(self):
-        data = request.get_json()
-        new_brand = Brand(name=data['name'])
-        db.session.add(new_brand)
-        db.session.commit()
-        return {"Message": "Brand Created Successfully!"}, 201
-
-
-# Single Brand Resource for managing a specific brand
-class SingleBrandResource(Resource):
-    # @jwt_required()
-    # @admin_required
-    def get(self, brand_id):
-        brand = Brand.query.get_or_404(brand_id)
-        return {"id": brand.id, "name": brand.name}, 200
-
-    @jwt_required()
-    @admin_required
-    def put(self, brand_id):
-        data = request.get_json()
-        brand = Brand.query.get_or_404(brand_id)
-        brand.name = data['name']
-        db.session.commit()
-        return {"Message": "Brand Updated Successfully!"}, 200
-
-    @jwt_required()
-    @admin_required
-    def delete(self, brand_id):
-        brand = Brand.query.get_or_404(brand_id)
-        db.session.delete(brand)
-        db.session.commit()
-        return {"Message": "Brand Deleted Successfully!"}, 200
-
-# Phone Resource
-class PhoneResource(Resource):
-    def get(self):
-        phones = Phone.query.all()
-        return [
-            {
-                "id": phone.id,
-                "name": phone.name,
-                "price": phone.price,
-                "category": phone.category.name,
-                "brand": phone.brand.name,
-                "image_urls": phone.image_urls_list,
+        try:
+            # Retrieve all products from the relevant tables
+            product_types = {
+                'phone': Phone.query.all(),
+                'laptop': Laptop.query.all(),
+                'tablet': Tablet.query.all(),
+                'audio': Audio.query.all()
             }
-            for phone in phones
-        ], 200
+
+            all_products = []
+            
+            def serialize_product(product, product_type):
+                base_data = {
+                    'id': product.id,
+                    'name': product.name,
+                    'price': product.price,
+                    'description': product.description,
+                    'image_urls': product.image_urls,
+                    'category': product.category.name,
+                    'brand': product.brand.name,
+                    'type': product_type
+                }
+                if product_type == 'phone':
+                    additional_data = {
+                        'ram': product.ram,
+                        'storage': product.storage,
+                        'battery': product.battery,
+                        'main_camera': product.main_camera,
+                        'front_camera': product.front_camera,
+                        'display': product.display,
+                        'processor': product.processor,
+                        'connectivity': product.connectivity,
+                        'colors': product.colors,
+                        'os': product.os
+                    }
+                elif product_type == 'laptop':
+                    additional_data = {
+                        'ram': product.ram,
+                        'storage': product.storage,
+                        'battery': product.battery,
+                        'display': product.display,
+                        'processor': product.processor,
+                        'os': product.os
+                    }
+                elif product_type == 'tablet':
+                    additional_data = {
+                        'ram': product.ram,
+                        'storage': product.storage,
+                        'battery': product.battery,
+                        'main_camera': product.main_camera,
+                        'front_camera': product.front_camera,
+                        'display': product.display,
+                        'processor': product.processor,
+                        'connectivity': product.connectivity,
+                        'colors': product.colors,
+                        'os': product.os
+                    }
+                elif product_type == 'audio':
+                    additional_data = {
+                        'battery': product.battery
+                    }
+                return {**base_data, **additional_data}
+            
+            # Iterate over all product types and serialize them
+            for product_type, products in product_types.items():
+                for product in products:
+                    all_products.append(serialize_product(product, product_type))
+            
+            return {'products': all_products}, 200
+
+        except Exception as e:
+            logger.error(f"Error fetching products: {e}")
+            return {"Error": "An error occurred while fetching products"}, 500
 
     @jwt_required()
-    @admin_required
     def post(self):
         try:
-            # Access form data as dictionary
+            # Validate input data
             name = request.form.get('name')
             price = request.form.get('price')
             description = request.form.get('description')
-            ram = request.form.get('ram')
-            storage = request.form.get('storage')
-            battery = request.form.get('battery')
-            main_camera = request.form.get('main_camera')
-            front_camera = request.form.get('front_camera')
-            display = request.form.get('display')
-            processor = request.form.get('processor')
-            connectivity = request.form.get('connectivity')
-            colors = request.form.get('colors')
-            os = request.form.get('os')
             category_id = request.form.get('category_id')
             brand_id = request.form.get('brand_id')
+            product_type = request.form.get('type')  # 'phone', 'laptop', 'tablet', 'audio'
+            image_files = request.files.getlist('image_urls')  # List of image files
 
-            # # Handle file upload
-            # image_file = request.files['image_urls']  # Handle file upload
-            
-            # # Upload image to Cloudinary
-            # try:
-            #     print("Uploading image to Cloudinary...")
-            #     result = cloudinary.uploader.upload(image_file)
-            #     file_url = result['secure_url']
-            #     print(f"Image uploaded to: {file_url}")
-            # except Exception as e:
-            #     print(f"Cloudinary upload failed: {e}")
-            #     return {"Error": f"Image upload failed: {str(e)}"}, 500
-            
-            image_files = request.files.getlist('image_urls')
+            # Ensure required fields are provided
+            if not all([name, price, description, category_id, brand_id, product_type, image_files]):
+                return {"Error": "Missing required fields"}, 400
 
-            # Validate file types
-            ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-            def allowed_file(filename):
-                return '.' in filename and \
-                       filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-            
-            # Upload images to Cloudinary
+            # Validate image files
             uploaded_urls = []
             for image_file in image_files:
                 if image_file and allowed_file(image_file.filename):
                     try:
                         logger.info(f"Uploading {image_file.filename} to Cloudinary...")
                         result = cloudinary.uploader.upload(image_file)
-                        uploaded_urls.append(result['secure_url'])
+                        uploaded_urls.append(result['secure_url'])  # Store secure URL from Cloudinary
                         logger.info(f"Uploaded to: {result['secure_url']}")
                     except cloudinary.exceptions.Error as e:
                         logger.error(f"Cloudinary upload failed for {image_file.filename}: {e}")
@@ -340,88 +293,166 @@ class PhoneResource(Resource):
                 else:
                     return {"Error": f"Invalid file type for {image_file.filename}."}, 400
 
+            # Ensure some images were uploaded
             if not uploaded_urls:
                 return {"Error": "No valid images were uploaded."}, 400
-            # Create new phone record
+
+            # Find category and brand
             category = Category.query.get_or_404(category_id)
             brand = Brand.query.get_or_404(brand_id)
-            # Process colors
-            colors_list = [color.strip() for color in colors.split(",")]
-            colors_str = ",".join(colors_list)
 
-            new_phone = Phone(
-                name=name,
-                price=price,
-                description=description,
-                image_urls=uploaded_urls,  # Store the Cloudinary URL
-                ram=ram,
-                storage=storage,
-                battery=battery,
-                main_camera=main_camera,
-                front_camera=front_camera,
-                display=display,
-                processor=processor,
-                connectivity=connectivity,
-                colors=colors_str,  # Stored as comma-separated string
-                os=os,
-                category=category,
-                brand=brand
-            )
-            
-            db.session.add(new_phone)
+            # Handle product creation based on type
+            if product_type == 'phone':
+                product = Phone(
+                    name=name,
+                    price=price,
+                    description=description,
+                    image_urls=uploaded_urls,  # Store the Cloudinary URLs
+                    ram=request.form.get('ram'),
+                    storage=request.form.get('storage'),
+                    battery=request.form.get('battery'),
+                    main_camera=request.form.get('main_camera'),
+                    front_camera=request.form.get('front_camera'),
+                    display=request.form.get('display'),
+                    processor=request.form.get('processor'),
+                    connectivity=request.form.get('connectivity'),
+                    colors=request.form.get('colors'),
+                    os=request.form.get('os'),
+                    category=category,
+                    brand=brand
+                )
+            elif product_type == 'laptop':
+                product = Laptop(
+                    name=name,
+                    price=price,
+                    description=description,
+                    image_urls=uploaded_urls,
+                    ram=request.form.get('ram'),
+                    storage=request.form.get('storage'),
+                    battery=request.form.get('battery'),
+                    display=request.form.get('display'),
+                    processor=request.form.get('processor'),
+                    os=request.form.get('os'),
+                    category=category,
+                    brand=brand
+                )
+            elif product_type == 'tablet':
+                product = Tablet(
+                    name=name,
+                    price=price,
+                    description=description,
+                    image_urls=uploaded_urls,
+                    ram=request.form.get('ram'),
+                    storage=request.form.get('storage'),
+                    battery=request.form.get('battery'),
+                    main_camera=request.form.get('main_camera'),
+                    front_camera=request.form.get('front_camera'),
+                    display=request.form.get('display'),
+                    processor=request.form.get('processor'),
+                    connectivity=request.form.get('connectivity'),
+                    colors=request.form.get('colors'),
+                    os=request.form.get('os'),
+                    category=category,
+                    brand=brand
+                )
+            elif product_type == 'audio':
+                product = Audio(
+                    name=name,
+                    price=price,
+                    description=description,
+                    image_urls=uploaded_urls,
+                    battery=request.form.get('battery'),
+                    category=category,
+                    brand=brand
+                )
+            else:
+                return {"Error": "Invalid product type"}, 400
+
+            # Add and commit product to the database
+            db.session.add(product)
             db.session.commit()
-            return {"Message": "Phone added successfully!"}, 201
+
+            logger.info(f"Product {name} added successfully")
+            return {"Message": f"{product_type.capitalize()} added successfully!"}, 201
 
         except Exception as e:
-            print(f"Unexpected error: {e}")
-            return {"Error": "An error occurred while adding the phone", "Details": str(e)}, 500
+            db.session.rollback()  # Rollback in case of error
+            logger.error(f"Error adding product: {e}")
+            return {"Error": "An error occurred while adding the product"}, 500
 
-# Single Phone Resource
-class SinglePhoneResource(Resource):
-    @jwt_required()
-    def get(self, phone_id):
-        phone = Phone.query.get_or_404(phone_id)
-        return {
-            "id": phone.id,
-            "name": phone.name,
-            "price": phone.price,
-            "category": phone.category.name,
-            "brand": phone.brand.name
-        }, 200
+# logger.error(f"Error adding product: {e}\n{traceback.format_exc()}")
 
-    @jwt_required()
-    @admin_required
-    def put(self, phone_id):
-        data = request.get_json()
-        phone = Phone.query.get_or_404(phone_id)
-        phone.name = data['name']
-        phone.price = data['price']
-        phone.description = data['description']
-        phone.image_urls = ','.join(data['image_urls'])
-        phone.ram = data['ram']
-        phone.storage = data['storage']
-        phone.battery = data['battery']
-        phone.main_camera = data['main_camera']
-        phone.front_camera = data['front_camera']
-        phone.display = data['display']
-        phone.processor = data['processor']
-        phone.connectivity = data['connectivity']
-        phone.colors = ','.join(data['colors'])
-        phone.os = data['os']
-        phone.category_id = data['category_id']
-        phone.brand_id = data['brand_id']
-        db.session.commit()
-        return {"Message": "Phone Updated Successfully!"}, 200
+# Get Products by Type (Phone, Laptop, Tablet, Audio)
+class GetProductsByType(Resource):
+    def get(self, product_type):
+        try:
+            if product_type == 'phone':
+                products = Phone.query.all()
+            elif product_type == 'laptop':
+                products = Laptop.query.all()
+            elif product_type == 'tablet':
+                products = Tablet.query.all()
+            elif product_type == 'audio':
+                products = Audio.query.all()
+            else:
+                return {"Error": "Invalid product type"}, 400
 
-    @jwt_required()
-    @admin_required
-    def delete(self, phone_id):
-        phone = Phone.query.get_or_404(phone_id)
-        db.session.delete(phone)
-        db.session.commit()
-        return {"Message": "Phone Deleted Successfully!"}, 200
+            return [
+                {
+                    "id": product.id,
+                    "name": product.name,
+                    "price": product.price,
+                    "category": product.category.name,
+                    "brand": product.brand.name,
+                    "image_urls": product.image_urls
+                }
+                for product in products
+            ], 200
 
-# Cart Resource
+        except Exception as e:
+            logger.error(f"Error fetching products by type: {e}")
+            return {"Error": "An error occurred while retrieving the products"}, 500
+
+# Get Products by Category
+class GetProductsByCategory(Resource):
+    def get(self, category_id):
+        try:
+            category = Category.query.get_or_404(category_id)
+            products = Product.query.filter_by(category_id=category.id).all()
+
+            return [
+                {
+                    "id": product.id,
+                    "name": product.name,
+                    "price": product.price,
+                    "type": product.type,
+                    "brand": product.brand.name,
+                    "image_urls": product.image_urls
+                }
+                for product in products
+            ], 200
+
+        except Exception as e:
+            logger.error(f"Error fetching products by category: {e}")
+            return {"Error": "An error occurred while retrieving the products"}, 500
+
+# Get Product by ID
+class GetProductById(Resource):
+    def get(self, product_id):
+        product = Product.query.get_or_404(product_id)
+        product_data = {
+            "id": product.id,
+            "name": product.name,
+            "price": product.price,
+            "type": product.type,
+            "brand": product.brand.name,
+            "category": product.category.name,
+            "description": product.description,
+            "image_urls": product.image_urls
+        }
+        return product_data, 200
+
+# Cart Management
 class CartResource(Resource):
     @jwt_required()
     def get(self):
@@ -432,9 +463,9 @@ class CartResource(Resource):
         cart_items = CartItem.query.filter_by(cart_id=cart.id).all()
         items = [
             {
-                "phone_name": item.phone.name,
+                "product_name": item.product.name,
                 "quantity": item.quantity,
-                "total_price": item.quantity * item.phone.price
+                "total_price": item.quantity * item.product.price
             } for item in cart_items
         ]
         return {"cart": items}, 200
@@ -450,41 +481,69 @@ class CartResource(Resource):
             db.session.add(cart)
             db.session.commit()
 
-        phone = Phone.query.get_or_404(data['phone_id'])
-        cart_item = CartItem.query.filter_by(cart_id=cart.id, phone_id=phone.id).first()
+        product = Product.query.get_or_404(data['product_id'])
+        cart_item = CartItem.query.filter_by(cart_id=cart.id, product_id=product.id).first()
 
         if cart_item:
             cart_item.quantity += data['quantity']
         else:
-            cart_item = CartItem(cart_id=cart.id, phone_id=phone.id, quantity=data['quantity'])
+            cart_item = CartItem(cart_id=cart.id, product_id=product.id, quantity=data['quantity'])
             db.session.add(cart_item)
 
         db.session.commit()
-        return {"Message": "Phone added to cart!"}, 201
+        return {"Message": "Product added to cart!"}, 201
 
     @jwt_required()
-    def delete(self, phone_id):
+    def delete(self, product_id):
         current_user_id = get_jwt_identity()
         cart = Cart.query.filter_by(user_id=current_user_id).first_or_404()
-        cart_item = CartItem.query.filter_by(cart_id=cart.id, phone_id=phone_id).first_or_404()
+        cart_item = CartItem.query.filter_by(cart_id=cart.id, product_id=product_id).first_or_404()
 
         db.session.delete(cart_item)
         db.session.commit()
-        return {"Message": "Phone removed from cart!"}, 200
+        return {"Message": "Product removed from cart!"}, 200
 
-# Single Cart Item Resource
-class SingleCartItemResource(Resource):
+# Wishlist Management
+class WishlistResource(Resource):
     @jwt_required()
-    def delete(self, phone_id):
+    def get(self):
         current_user_id = get_jwt_identity()
-        cart = Cart.query.filter_by(user_id=current_user_id).first_or_404()
-        cart_item = CartItem.query.filter_by(cart_id=cart.id, phone_id=phone_id).first_or_404()
-        db.session.delete(cart_item)
+        wishlist = WishList.query.filter_by(user_id=current_user_id).first()
+        if not wishlist:
+            return {"Error": "Wishlist is empty!"}, 404
+        wishlist_items = [{"product_name": product.name} for product in wishlist.products]
+        return {"wishlist": wishlist_items}, 200
+
+    @jwt_required()
+    def post(self):
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        product = Product.query.get_or_404(data['product_id'])
+
+        wishlist = WishList.query.filter_by(user_id=current_user_id).first()
+        if not wishlist:
+            wishlist = WishList(user_id=current_user_id)
+            db.session.add(wishlist)
+            db.session.commit()
+
+        wishlist.products.append(product)
         db.session.commit()
-        return {"Message": "Item removed from cart!"}, 200
+        return {"Message": "Product added to wishlist!"}, 201
 
+    @jwt_required()
+    def delete(self, product_id):
+        current_user_id = get_jwt_identity()
+        wishlist = WishList.query.filter_by(user_id=current_user_id).first_or_404()
+        product = Product.query.get_or_404(product_id)
 
-# Order Resource
+        if product not in wishlist.products:
+            return {"Error": "Product not found in wishlist!"}, 404
+
+        wishlist.products.remove(product)
+        db.session.commit()
+        return {"Message": "Product removed from wishlist!"}, 200
+
+# Order Management
 class OrderResource(Resource):
     @jwt_required()
     def get(self):
@@ -497,9 +556,9 @@ class OrderResource(Resource):
             items = OrderItem.query.filter_by(order_id=order.id).all()
             order_items = [
                 {
-                    "phone_name": item.phone.name,
+                    "product_name": item.product.name,
                     "quantity": item.quantity,
-                    "price": item.price
+                    "price": item.product.price
                 } for item in items
             ]
             order_list.append({
@@ -525,9 +584,8 @@ class OrderResource(Resource):
         for item in cart_items:
             new_order_item = OrderItem(
                 order_id=new_order.id,
-                phone_id=item.phone_id,
-                quantity=item.quantity,
-                price=item.phone.price
+                product_id=item.product_id,
+                quantity=item.quantity
             )
             db.session.add(new_order_item)
             db.session.delete(item)  # Remove items from the cart after ordering
@@ -535,80 +593,40 @@ class OrderResource(Resource):
         db.session.commit()
         return {"Message": "Order placed successfully!"}, 201
 
-# Wishlist Resource
-class WishlistResource(Resource):
-    @jwt_required()
-    def get(self):
-        current_user_id = get_jwt_identity()
-        wishlist = WishList.query.filter_by(user_id=current_user_id).first()
-        if not wishlist:
-            return {"Error": "Wishlist is empty!"}, 404
-        wishlist_items = [{"phone_name": phone.name} for phone in wishlist.phones]
-        return {"wishlist": wishlist_items}, 200
-
-    @jwt_required()
-    def post(self):
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        phone = Phone.query.get_or_404(data['phone_id'])
-
-        wishlist = WishList.query.filter_by(user_id=current_user_id).first()
-        if not wishlist:
-            wishlist = WishList(user_id=current_user_id)
-            db.session.add(wishlist)
-            db.session.commit()
-
-        wishlist.phones.append(phone)
-        db.session.commit()
-        return {"Message": "Phone added to wishlist!"}, 201
-
-    @jwt_required()
-    def delete(self, phone_id):
-        current_user_id = get_jwt_identity()
-        wishlist = WishList.query.filter_by(user_id=current_user_id).first_or_404()
-        phone = Phone.query.get_or_404(phone_id)
-
-        if phone not in wishlist.phones:
-            return {"Error": "Phone not found in wishlist!"}, 404
-
-        wishlist.phones.remove(phone)
-        db.session.commit()
-        return {"Message": "Phone removed from wishlist!"}, 200
-
-# Review Resource
+# Review Management
 class ReviewResource(Resource):
     @jwt_required()
-    def get(self, phone_id):
-        reviews = Review.query.filter_by(phone_id=phone_id).all()
+    def get(self, product_id):
+        reviews = Review.query.filter_by(product_id=product_id).all()
         if not reviews:
-            return {"Message": "No reviews found for this phone."}, 404
+            return {"Message": "No reviews found for this product."}, 404
         review_list = [
             {
                 "user": review.user.username,
                 "rating": review.rating,
                 "comment": review.comment,
-                "timestamp": review.timestamp
+                "timestamp": review.created_at.isoformat()
             } for review in reviews
         ]
         return {"reviews": review_list}, 200
 
     @jwt_required()
-    def post(self, phone_id):
+    def post(self, product_id):
         current_user_id = get_jwt_identity()
         data = request.get_json()
         rating = data.get('rating')
         comment = data.get('comment')
 
-        phone = Phone.query.get_or_404(phone_id)
+        product = Product.query.get_or_404(product_id)
 
-        # Check if user already reviewed the phone
-        existing_review = Review.query.filter_by(user_id=current_user_id, phone_id=phone.id).first()
+        # Check if user already reviewed the product
+        existing_review = Review.query.filter_by(user_id=current_user_id, product_id=product.id).first()
         if existing_review:
-            return {"Error": "You have already reviewed this phone."}, 400
+            return {"Error": "You have already reviewed this product."}, 400
 
         new_review = Review(
             user_id=current_user_id,
-            phone_id=phone.id,
+            product_id=product.id,
             rating=rating,
             comment=comment
         )
@@ -618,15 +636,15 @@ class ReviewResource(Resource):
         return {"Message": "Review added successfully!"}, 201
 
     @jwt_required()
-    def delete(self, phone_id):
+    def delete(self, product_id):
         current_user_id = get_jwt_identity()
-        review = Review.query.filter_by(user_id=current_user_id, phone_id=phone_id).first_or_404()
+        review = Review.query.filter_by(user_id=current_user_id, product_id=product_id).first_or_404()
 
         db.session.delete(review)
         db.session.commit()
         return {"Message": "Review deleted!"}, 200
 
-# Notifications Resource
+# Notifications
 class NotificationResource(Resource):
     @jwt_required()
     def get(self):
@@ -639,8 +657,8 @@ class NotificationResource(Resource):
         notification_list = [
             {
                 "message": notification.message,
-                "timestamp": notification.timestamp,
-                "read": notification.read
+                "created_at": notification.created_at.isoformat(),
+                "is_read": notification.is_read
             } for notification in notifications
         ]
         return {"notifications": notification_list}, 200
@@ -650,16 +668,15 @@ class NotificationResource(Resource):
         current_user_id = get_jwt_identity()
         notification = Notification.query.filter_by(id=notification_id, user_id=current_user_id).first_or_404()
 
-        notification.read = True
+        notification.is_read = True
         db.session.commit()
 
         return {"Message": "Notification marked as read."}, 200
 
-
-# Admin Notification Management
+# Admin Notifications Management
 class AdminNotificationResource(Resource):
     @jwt_required()
-    @admin_required
+    @admin_required  # Only admins can send notifications
     def post(self):
         data = request.get_json()
         message = data.get('message')
@@ -676,10 +693,10 @@ class AdminNotificationResource(Resource):
 
         return {"Message": "Notification sent to user!"}, 201
 
-# Admin Resource for managing Users
+# Admin Management Resource for managing Users
 class AdminUserManagement(Resource):
     @jwt_required()
-    @admin_required
+    @admin_required  # Admin-only access
     def get(self):
         users = User.query.all()
         user_list = [
@@ -774,24 +791,6 @@ class AdminManagementResource(Resource):
         db.session.commit()
         return {"Message": "Admin updated successfully!"}, 200
 
-# Password Change Resource
-class PasswordChangeResource(Resource):
-    @jwt_required()
-    def post(self):
-        current_user_id = get_jwt_identity()
-        user = User.query.get_or_404(current_user_id)
-        data = request.get_json()
-
-        old_password = data.get('old_password')
-        new_password = data.get('new_password')
-
-        if not check_password_hash(user.password_hash, old_password):
-            return {"Error": "Old password is incorrect!"}, 400
-
-        user.password_hash = generate_password_hash(new_password)
-        db.session.commit()
-        return {"Message": "Password updated successfully!"}, 200
-
 # Audit Logs Resource (Admin-only)
 class AuditLogResource(Resource):
     @jwt_required()
@@ -802,7 +801,7 @@ class AuditLogResource(Resource):
             {
                 "admin": log.admin.username,
                 "action": log.action,
-                "timestamp": log.timestamp
+                "created_at": log.created_at.isoformat()
             } for log in logs
         ]
         return {"audit_logs": log_list}, 200
@@ -823,6 +822,108 @@ class AuditLogResource(Resource):
 
         return {"Message": "Audit log added!"}, 201
 
+# Password Change Resource (for Users)
+class PasswordChangeResource(Resource):
+    @jwt_required()
+    def post(self):
+        current_user_id = get_jwt_identity()
+        user = User.query.get_or_404(current_user_id)
+        data = request.get_json()
+
+        old_password = data.get('old_password')
+        new_password = data.get('new_password')
+
+        if not check_password_hash(user.password_hash, old_password):
+            return {"Error": "Old password is incorrect!"}, 400
+
+        user.password_hash = generate_password_hash(new_password)
+        db.session.commit()
+        return {"Message": "Password updated successfully!"}, 200
+
+
+ 
+class CategoryResource(Resource):
+    def get(self):
+        # Fetch all categories
+        categories = Category.query.all()
+        category_list = [{"id": category.id, "name": category.name} for category in categories]
+        return {"categories": category_list}, 200
+
+    def post(self):
+        
+        # Create a new category
+        data = request.get_json()
+        name = data.get('name')
+
+        if not name:
+            return {"Error": "Category name is required"}, 400
+
+        category = Category(name=name)
+        db.session.add(category)
+        db.session.commit()
+        return {"Message": "Category created successfully!"}, 201
+
+    def put(self, category_id):
+        # Update an existing category
+        data = request.get_json()
+        category = Category.query.get_or_404(category_id)
+        name = data.get('name')
+
+        if not name:
+            return {"Error": "Category name is required"}, 400
+
+        category.name = name
+        db.session.commit()
+        return {"Message": "Category updated successfully!"}, 200
+
+    def delete(self, category_id):
+        # Delete a category
+        category = Category.query.get_or_404(category_id)
+        db.session.delete(category)
+        db.session.commit()
+        return {"Message": "Category deleted successfully!"}, 200
+    
+class BrandResource(Resource):
+    def get(self):
+        brands = Brand.query.all()
+        return [{"id": brand.id, "name": brand.name} for brand in brands], 200
+
+    @jwt_required()
+    # @admin_required
+    def post(self):
+        data = request.get_json()
+        new_brand = Brand(name=data['name'])
+        db.session.add(new_brand)
+        db.session.commit()
+        return {"Message": "Brand Created Successfully!"}, 201
+
+
+# Single Brand Resource for managing a specific brand
+class SingleBrandResource(Resource):
+    # @jwt_required()
+    # @admin_required
+    def get(self, brand_id):
+        brand = Brand.query.get_or_404(brand_id)
+        return {"id": brand.id, "name": brand.name}, 200
+
+    @jwt_required()
+    # @admin_required
+    def put(self, brand_id):
+        data = request.get_json()
+        brand = Brand.query.get_or_404(brand_id)
+        brand.name = data['name']
+        db.session.commit()
+        return {"Message": "Brand Updated Successfully!"}, 200
+
+    @jwt_required()
+    # @admin_required
+    def delete(self, brand_id):
+        brand = Brand.query.get_or_404(brand_id)
+        db.session.delete(brand)
+        db.session.commit()
+        return {"Message": "Brand Deleted Successfully!"}, 200
+
+
 # Error Handling
 @app.errorhandler(404)
 def resource_not_found(e):
@@ -837,442 +938,49 @@ def handle_exception(e):
     return {"Error": "An unexpected error occurred."}, 500
 
 
-# laptop Resource
-class LaptopResource(Resource):
-    def get(self):
-        laptop = Laptop.query.all()
-        return [
-            {
-                "id": laptop.id,
-                "name": laptop.name,
-                "price": laptop.price,
-                "category": laptop.category.name,
-                "brand": laptop.brand.name
-            }
-            for laptop in laptop
-        ], 200
-
-    @jwt_required()
-    @admin_required
-    def post(self):
-        try:
-            # Access form data as dictionary
-            name = request.form.get('name')
-            price = request.form.get('price')
-            description = request.form.get('description')
-            ram = request.form.get('ram')
-            storage = request.form.get('storage')
-            battery = request.form.get('battery')
-            display = request.form.get('display')
-            processor = request.form.get('processor')
-            os = request.form.get('os')
-            category_id = request.form.get('category_id')
-            brand_id = request.form.get('brand_id')
-
-            image_files = request.files.getlist('image_urls')
-
-            # Validate file types
-            ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-            def allowed_file(filename):
-                return '.' in filename and \
-                       filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-            
-            # Upload images to Cloudinary
-            uploaded_urls = []
-            for image_file in image_files:
-                if image_file and allowed_file(image_file.filename):
-                    try:
-                        logger.info(f"Uploading {image_file.filename} to Cloudinary...")
-                        result = cloudinary.uploader.upload(image_file)
-                        uploaded_urls.append(result['secure_url'])
-                        logger.info(f"Uploaded to: {result['secure_url']}")
-                    except cloudinary.exceptions.Error as e:
-                        logger.error(f"Cloudinary upload failed for {image_file.filename}: {e}")
-                        return {"Error": f"Image upload failed for {image_file.filename}: {str(e)}"}, 500
-                else:
-                    return {"Error": f"Invalid file type for {image_file.filename}."}, 400
-
-            if not uploaded_urls:
-                return {"Error": "No valid images were uploaded."}, 400
-
-            # Create new laptop record
-            category = Category.query.get_or_404(category_id)
-            brand = Brand.query.get_or_404(brand_id)
-            
-            new_laptop = Laptop(
-                name=name,
-                price=price,
-                description=description,
-                image_urls=uploaded_urls,  # Store the Cloudinary URL
-                ram=ram,
-                storage=storage,
-                battery=battery,
-                display=display,
-                processor=processor,
-                os=os,
-                category=category,
-                brand=brand
-            )
-            
-            db.session.add(new_laptop)
-            db.session.commit()
-            return {"Message": "laptop added successfully!"}, 201
-
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-            return {"Error": "An error occurred while adding the laptop", "Details": str(e)}, 500
-
-# Single LaptopResource
-class SingleLaptopResource(Resource):
-    @jwt_required()
-    def get(self, laptop_id):
-        laptop  =Laptop.query.get_or_404(laptop_id)
-        return {
-            "id": laptop.id,
-            "name": laptop.name,
-            "price": laptop.price,
-            "category": laptop.category.name,
-            "brand": laptop.brand.name
-        }, 200
-
-    @jwt_required()
-    @admin_required
-    def put(self, laptop_id):
-        data = request.get_json()
-        laptop = Laptop.query.get_or_404(laptop_id)
-        laptop.name = data['name']
-        laptop.price = data['price']
-        laptop.description = data['description']
-        laptop.image_urls = ','.join(data['image_urls'])
-        laptop.ram = data['ram']
-        laptop.storage = data['storage']
-        laptop.battery = data['battery']
-        laptop.display = data['display']
-        laptop.processor = data['processor']
-        laptop.os = data['os']
-        laptop.category_id = data['category_id']
-        laptop.brand_id = data['brand_id']
-        db.session.commit()
-        return {"Message": "Laptop Updated Successfully!"}, 200
-
-    @jwt_required()
-    @admin_required
-    def delete(self, laptop_id):
-        laptop =  Laptop.query.get_or_404(laptop_id)
-        db.session.delete(laptop)
-        db.session.commit()
-        return {"Message": "Laptop Deleted Successfully!"}, 200
-
-
-
-# Tablet Resource   
-class TabletResource(Resource):
-    def get(self):
-        tablet = Tablet.query.all()
-        return [
-            {
-                "id": tablet.id,
-                "name": tablet.name,
-                "price": tablet.price,
-                "category": tablet.category.name,
-                "brand": tablet.brand.name
-            }
-            for tablet in tablet
-        ], 200
-
-    @jwt_required()
-    @admin_required
-    def post(self):
-        try:
-            # Access form data as dictionary
-            name = request.form.get('name')
-            price = request.form.get('price')
-            description = request.form.get('description')
-            ram = request.form.get('ram')
-            storage = request.form.get('storage')
-            battery = request.form.get('battery')
-            main_camera = request.form.get('main_camera')
-            front_camera = request.form.get('front_camera')
-            display = request.form.get('display')
-            processor = request.form.get('processor')
-            connectivity = request.form.get('connectivity')
-            colors = request.form.get('colors')
-            os = request.form.get('os')
-            category_id = request.form.get('category_id')
-            brand_id = request.form.get('brand_id')
-
-            image_files = request.files.getlist('image_urls')
-
-            # Validate file types
-            ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-            def allowed_file(filename):
-                return '.' in filename and \
-                       filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-            
-            # Upload images to Cloudinary
-            uploaded_urls = []
-            for image_file in image_files:
-                if image_file and allowed_file(image_file.filename):
-                    try:
-                        logger.info(f"Uploading {image_file.filename} to Cloudinary...")
-                        result = cloudinary.uploader.upload(image_file)
-                        uploaded_urls.append(result['secure_url'])
-                        logger.info(f"Uploaded to: {result['secure_url']}")
-                    except cloudinary.exceptions.Error as e:
-                        logger.error(f"Cloudinary upload failed for {image_file.filename}: {e}")
-                        return {"Error": f"Image upload failed for {image_file.filename}: {str(e)}"}, 500
-                else:
-                    return {"Error": f"Invalid file type for {image_file.filename}."}, 400
-
-            if not uploaded_urls:
-                return {"Error": "No valid images were uploaded."}, 400
-
-            # Create new laptop record
-            category = Category.query.get_or_404(category_id)
-            brand = Brand.query.get_or_404(brand_id)
-            # Process colors
-            colors_list = [color.strip() for color in colors.split(",")]
-            colors_str = ",".join(colors_list)
-
-            new_tablet = Tablet(
-                name=name,
-                price=price,
-                description=description,
-                image_urls=uploaded_urls,  # Store the Cloudinary URL
-                ram=ram,
-                storage=storage,
-                battery=battery,
-                main_camera=main_camera,
-                front_camera=front_camera,
-                display=display,
-                processor=processor,
-                connectivity=connectivity,
-                colors=colors_str,
-                os=os,
-                category=category,
-                brand=brand
-            )
-            
-            db.session.add(new_tablet)
-            db.session.commit()
-            return {"Message": "tablet added successfully!"}, 201
-
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-            return {"Error": "An error occurred while adding the tablet", "Details": str(e)}, 500
-
-# Single Phone Resource
-class SingleTabletResource(Resource):
-    @jwt_required()
-    def get(self, tablet_id):
-        tablet  =Tablet.query.get_or_404(tablet_id)
-        return {
-            "id": tablet.id,
-            "name": tablet.name,
-            "price": tablet.price,
-            "category": tablet.category.name,
-            "brand": tablet.brand.name
-        }, 200
-
-    @jwt_required()
-    @admin_required
-    def put(self, tablet_id):
-        data = request.get_json()
-        tablet= Tablet.query.get_or_404(tablet_id)
-        tablet.name = data['name']
-        tablet.price = data['price']
-        tablet.description = data['description']
-        tablet.image_urls = ','.join(data['image_urls'])
-        tablet.ram = data['ram']
-        tablet.storage = data['storage']
-        tablet.battery = data['battery']
-        tablet.main_camera = data['main_camera']
-        tablet.front_camera = data['front_camera']
-        tablet.display = data['display']
-        tablet.processor = data['processor']
-        tablet.connectivity = data['connectivity']
-        tablet.colors = ','.join(data['colors'])
-        tablet.os = data['os']
-        tablet.category_id = data['category_id']
-        tablet.brand_id = data['brand_id']
-        db.session.commit()
-        return {"Message": "tablet Updated Successfully!"}, 200
-
-    @jwt_required()
-    @admin_required
-    def delete(self, tablet_id):
-        tablet =  Tablet.query.get_or_404(tablet_id)
-        db.session.delete(tablet)
-        db.session.commit()
-        return {"Message": "tablet Deleted Successfully!"}, 200
-
-
-#Audio
-class AudioResource(Resource):
-    def get(self):
-        audio = Audio.query.all()
-        return [
-            {
-                "id": audio.id,
-                "name": audio.name,
-                "price": audio.price,
-                "category": audio.category.name,
-                "brand": audio.brand.name
-            }
-            for audio in audio
-        ], 200
-
-    @jwt_required()
-    @admin_required
-    def post(self):
-        try:
-            # Access form data as dictionary
-            name = request.form.get('name')
-            price = request.form.get('price')
-            description = request.form.get('description')
-            category_id = request.form.get('category_id')
-            brand_id = request.form.get('brand_id')
-            
-            image_files = request.files.getlist('image_urls')
-
-            # Validate file types
-            ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-            def allowed_file(filename):
-                return '.' in filename and \
-                       filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-            
-            # Upload images to Cloudinary
-            uploaded_urls = []
-            for image_file in image_files:
-                if image_file and allowed_file(image_file.filename):
-                    try:
-                        logger.info(f"Uploading {image_file.filename} to Cloudinary...")
-                        result = cloudinary.uploader.upload(image_file)
-                        uploaded_urls.append(result['secure_url'])
-                        logger.info(f"Uploaded to: {result['secure_url']}")
-                    except cloudinary.exceptions.Error as e:
-                        logger.error(f"Cloudinary upload failed for {image_file.filename}: {e}")
-                        return {"Error": f"Image upload failed for {image_file.filename}: {str(e)}"}, 500
-                else:
-                    return {"Error": f"Invalid file type for {image_file.filename}."}, 400
-
-            if not uploaded_urls:
-                return {"Error": "No valid images were uploaded."}, 400
-
-            # Create new  Audio record
-            category = Category.query.get_or_404(category_id)
-            brand = Brand.query.get_or_404(brand_id)
-            
-            new_audio = Audio(
-                name=name,
-                price=price,
-                description=description,
-                image_urls=uploaded_urls,  # Store the Cloudinary URL
-                category=category,
-                brand=brand
-            )
-            
-            db.session.add(new_audio)
-            db.session.commit()
-            return {"Message": "tablet added successfully!"}, 201
-
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-            return {"Error": "An error occurred while adding the tablet", "Details": str(e)}, 500
-
-# Single Phone Resource
-class SingleAudioResource(Resource):
-    @jwt_required()
-    def get(self, audio_id):
-        audio  =Audio.query.get_or_404(audio_id)
-        return {
-            "id": audio.id,
-            "name": audio.name,
-            "price": audio.price,
-            "category": audio.category.name,
-            "brand": audio.brand.name
-        }, 200
-
-    @jwt_required()
-    @admin_required
-    def put(self, audio_id):
-        data = request.get_json()
-        audio= Audio.query.get_or_404(audio_id)
-        audio.name = data['name']
-        audio.price = data['price']
-        audio.description = data['description']
-        audio.image_urls = ','.join(data['image_urls'])
-        audio.battery = data['battery']
-        audio.category_id = data['category_id']
-        audio.brand_id = data['brand_id']
-        db.session.commit()
-        return {"Message": "audio Updated Successfully!"}, 200
-
-    @jwt_required()
-    @admin_required
-    def delete(self, audio_id):
-        audio =  Audio.query.get_or_404(audio_id)
-        db.session.delete(audio)
-        db.session.commit()
-        return {"Message": "audio Deleted Successfully!"}, 200
-
-
-
 # Register all the resources with Flask-Restful
 api.add_resource(SignUp, '/signup')
 api.add_resource(Login, '/login')
 api.add_resource(Logout, '/logout')
 
-# Category routes
-api.add_resource(CategoryResource, '/categories')
-api.add_resource(SingleCategoryResource, '/categories/<int:category_id>')
+# Profile routes
+profile_view = ProfileView.as_view('profile_view')
+app.add_url_rule('/profile', view_func=profile_view, methods=['GET', 'PUT'])
 
-# Brand routes
-api.add_resource(BrandResource, '/brands')
-api.add_resource(SingleBrandResource, '/brands/<int:brand_id>')
-
-# Phone routes
-api.add_resource(PhoneResource, '/phones')
-api.add_resource(SinglePhoneResource, '/phones/<int:phone_id>')
-
-# Laptop routes
-api.add_resource(LaptopResource, '/laptop')
-api.add_resource(SingleLaptopResource, '/laptop/<int:laptop_id>')
-
-# tablet routes
-api.add_resource(TabletResource, '/tablet')
-api.add_resource(SingleTabletResource, '/tablet/<int:laptop_id>')
-
-# Audio routes
-api.add_resource(AudioResource, '/audio')
-api.add_resource(SingleAudioResource, '/audio/<int:laptop_id>')
-
+# Product routes
+api.add_resource(ProductResource, '/products')
+api.add_resource(GetProductsByType, '/products/<string:product_type>')
+api.add_resource(GetProductsByCategory, '/products/category/<int:category_id>')
+api.add_resource(GetProductById, '/product/<int:product_id>')
 
 # Cart routes
 api.add_resource(CartResource, '/cart')
-api.add_resource(SingleCartItemResource, '/cart/<int:phone_id>')
+
+# Wishlist routes
+api.add_resource(WishlistResource, '/wishlist')
 
 # Order routes
 api.add_resource(OrderResource, '/orders')
 
 # Review routes
-api.add_resource(ReviewResource, '/phones/<int:phone_id>/reviews')
+api.add_resource(ReviewResource, '/reviews/<int:product_id>')
 
-# Wishlist routes
-api.add_resource(WishlistResource, '/wishlist')
-
-# Notifications routes
+# Notification routes
 api.add_resource(NotificationResource, '/notifications')
 api.add_resource(AdminNotificationResource, '/admin/notifications')
 
-# Admin routes
+# Admin and User Management routes
 api.add_resource(AdminUserManagement, '/admin/users', '/admin/users/<int:user_id>')
 api.add_resource(AdminManagementResource, '/admin/admins', '/admin/admins/<int:admin_id>')
-api.add_resource(AuditLogResource, '/admin/auditlogs')
 
-# Password change route
+# Password management
 api.add_resource(PasswordChangeResource, '/password/change')
 
+# Audit logs
+api.add_resource(AuditLogResource, '/admin/auditlogs')
+
+api.add_resource(BrandResource, '/brands')
+api.add_resource(SingleBrandResource, '/brands/<int:brand_id>')
 # Run the Flask app
 if __name__ == '__main__':
     app.run(debug=True)
