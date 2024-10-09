@@ -10,35 +10,37 @@ const ShopContextProvider = (props) => {
         laptops: [],
         audio: []
     });
-    const currency = 'Ksh';
+
+    const currency = 'Kshs';
     const delivery_fee = 200;
 
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(true);
 
     useEffect(() => {
-        //fetching data from multiple endpoints
-        
+        //fetching all data
+
         const fetchProducts = async () => {
             try {
-                const [phonesResponse, tabletsResponse, laptopsResponse, audioResponse] = await Promise.all([
-                    axios.get('http://127.0.0.1:5000/phones'),
-                    axios.get('http://127.0.0.1:5000/tablet'),
-                    axios.get('http://127.0.0.1:5000/laptop'),
-                    axios.get('http://127.0.0.1:5000/audio')
-                ]);
+                const response = await axios.get('http://127.0.0.1:5000/products');
+                const allProducts = response.data.products;
+
+                console.log(allProducts);
+
+
+                // Filter products by category
 
                 const fetchedProducts = {
-                    phones: phonesResponse.data,
-                    tablets: tabletsResponse.data,
-                    laptops: laptopsResponse.data,
-                    audio: audioResponse.data
+                    phones: allProducts.filter(product => product.category === 'Test'),
+                    tablets: allProducts.filter(product => product.category === 'Test 2'),
+                    laptops: allProducts.filter(product => product.category === 'laptop'),
+                    audio: allProducts.filter(product => product.category === 'audio')
                 };
-                
+
                 console.log('Fetched products:', fetchedProducts);
 
                 setProducts(fetchedProducts);
-                
+
             } catch (error) {
                 console.error('Error fetching products:', error);
             }
@@ -55,9 +57,9 @@ const ShopContextProvider = (props) => {
     }
 
     return (
-       <ShopContext.Provider value={value}> 
-           {props.children}
-       </ShopContext.Provider >   
+        <ShopContext.Provider value={value}>
+            {props.children}
+        </ShopContext.Provider >
     )
 }
 

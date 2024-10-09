@@ -8,7 +8,7 @@ const Product = () => {
   const { products } = useContext(ShopContext);
   const [productData, setProductData] = useState(false);
   const [image, setImage] = useState('');
-  
+
   const fetchProductData = async () => {
 
     const allProducts = [...products.phones, ...products.laptops, ...products.tablets, ...products.audio];
@@ -20,7 +20,7 @@ const Product = () => {
         setImage(item.image[0]);
 
         console.log(item);
-        
+
         return null;
       }
     })
@@ -36,7 +36,7 @@ const Product = () => {
   return productData ? (
 
     <div className='border-t-2 pt-10 transition-opacity ease-in duration-500 opacity-100'>
-      
+
       {/* product data  */}
       <div className='flex gap-12 sm:gap-12 flex-col sm:flex-row'>
 
@@ -46,20 +46,20 @@ const Product = () => {
 
             {
               productData.image.map((item, index) => (
-                <img src={item} key={index} onClick={()=>setImage(item)} className='w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer' alt="products"/>
+                <img src={item} key={index} onClick={() => setImage(item)} className='w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer' alt="products" />
               ))
             }
 
           </div>
 
           <div className='w-full sm:w-[80%]'>
-              <img src={image} className='w-full h-auto' alt="" />
+            <img src={image} className='w-full h-auto' alt="" />
           </div>
         </div>
       </div>
     </div>
 
-  ) : <div className="opacity-0"></div>
+  ) : <div className="opacity-0">Loading product</div>
 
 }
 
