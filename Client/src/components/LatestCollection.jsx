@@ -43,7 +43,7 @@ const LatestCollection = () => {
                 {
                     latestProducts.length > 0 ? (
                         latestProducts.map((product, index) => (
-                            <ProductItem key={index} id={product.id} image={product.image_urls} name={product.name} price={product.price} brand={product.brand} />
+                            <ProductItem key={index} id={product.id} image={product.image_urls} name={product.name} price={product.price} category={product.category} />
 
                         ))
                     ) : (

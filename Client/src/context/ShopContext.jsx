@@ -16,6 +16,12 @@ const ShopContextProvider = (props) => {
 
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(true);
+    const [cartItems, setCartItems] = useState({});
+
+    const addToCart = async (itemId,) => {
+
+    }
+
 
     useEffect(() => {
         //fetching all data
@@ -29,12 +35,13 @@ const ShopContextProvider = (props) => {
 
 
                 // Filter products by category
+                //change this code after adding categories
 
                 const fetchedProducts = {
                     phones: allProducts.filter(product => product.category === 'Test'),
                     tablets: allProducts.filter(product => product.category === 'Test 2'),
-                    laptops: allProducts.filter(product => product.category === 'laptop'),
-                    audio: allProducts.filter(product => product.category === 'audio')
+                    laptops: allProducts.filter(product => product.category === 'Laptops'),
+                    audio: allProducts.filter(product => product.category === 'Audio')
                 };
 
                 console.log('Fetched products:', fetchedProducts);
@@ -47,6 +54,7 @@ const ShopContextProvider = (props) => {
         };
 
         fetchProducts();
+
 
     }, []);
 
