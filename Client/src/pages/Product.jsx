@@ -28,10 +28,8 @@ const Product = () => {
       setImage(data.image_urls[0]);
 
       if (data.variations) {
-        setVariations(data.variations); // Ensure setVariations is properly defined in your state
+        setVariations(data.variations);
       }
-
-      console.log(data);
 
       setPrice(data.price)
       setLoading(false);
@@ -53,9 +51,9 @@ const Product = () => {
   }
 
   // Handle variation selection
-  const handleVariationSelect = (selectedVariation) => {
-    setVariations(selectedVariation);
-    setPrice(selectedVariation.price);
+  const handleVariationSelect = (variation) => {
+    setSelectedVariation(variation);
+    setPrice(variation.price);
   };
 
   // Quantity change
@@ -64,7 +62,6 @@ const Product = () => {
       value === 'increase' ? prevQuantity + 1 : prevQuantity > 1 ? prevQuantity - 1 : 1
     );
   };
-
 
 
   // Add to cart logic
@@ -189,11 +186,10 @@ const Product = () => {
                     <button
                       key={index}
                       onClick={() => {
-                        setSelectedVariation(item); // Set selected variation
-                        setPrice(item.price); // Update price based on selected variation
                         handleVariationSelect(item);
+                        selectedVariation
                       }}
-                      className={`border py-3 px-6 bg-border ${selectedVariation === item ? 'border-accent' : ''}`}
+                      className={`border border-border rounded-3xl py-3 px-6 ${selectedVariation?.id === item.id ? 'focus:bg-accent focus:text-bgdark' : ''}`}
                     >
                       {item.ram}/{item.storage}
                     </button>
@@ -220,11 +216,11 @@ const Product = () => {
           </p> */}
 
 
-          <div className="product-actions flex items-center mt-4 space-x-4">
+          <div className="product-actions  flex items-center mt-4 space-x-4">
 
             {/* Quantity Input */}
 
-            <div className="quantity-selector flex items-center border border-accent">
+            <div className="quantity-selector rounded-3xl flex items-center border border-accent">
               <button
                 onClick={() => handleQuantityChange('decrease')}
                 className="px-4 py-2 text-lg font-bold"
@@ -249,7 +245,8 @@ const Product = () => {
 
             <button
               onClick={handleAddToCart}
-              className="bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark font-semibold w-[60%] py-3 px-6 active:bg-accent active:text-bgdark rounded-lg"
+              disabled={!selectedVariation && variations.length > 0}
+              className="bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark font-semibold w-[60%] py-3 px-6 active:bg-accent active:text-bgdark rounded-3xl"
             >
               Add to Cart
             </button>
