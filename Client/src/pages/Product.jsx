@@ -12,7 +12,7 @@ const Product = () => {
   const [productData, setProductData] = useState(null);
   const [image, setImage] = useState('');
   const [loading, setLoading] = useState(true);
-  const { currency } = useContext(ShopContext);
+  const { currency, addToCart } = useContext(ShopContext);
   const [variations, setVariations] = useState([]);
   const [selectedVariation, setSelectedVariation] = useState(null);
   const [price, setPrice] = useState(0);
@@ -42,6 +42,7 @@ const Product = () => {
   // Fetch the product data when the productId changes
   useEffect(() => {
     fetchProductData();
+    setSelectedVariation(null)
   }, [productId]);
 
 
@@ -49,6 +50,7 @@ const Product = () => {
   if (loading) {
     return <div className="opacity-0">Loading product...</div>;
   }
+
 
   // Handle variation selection
   const handleVariationSelect = (variation) => {
@@ -63,16 +65,24 @@ const Product = () => {
     );
   };
 
+  // console.log(selectedVariation);
 
-  // Add to cart logic
+  // console.log(productData.variations);
+
+
+  const hasVariations = productData.variations && productData.variations.length > 0;
+
   const handleAddToCart = () => {
-
-    if (variations) {
-      console.log(`Added ${quantity} item(s) of variation: ${selectedVariation} to the cart`);
+    if (hasVariations && !selectedVariation) {
+      console.log("Please select a variation before adding to cart");
     } else {
-      console.log('Please select a variation before adding to cart');
+      // Proceed with adding to cart
+      addToCart(productId, selectedVariation, quantity);
+      console.log(`Added ${quantity} item(s) of variation: ${selectedVariation.storage} to the cart`);
     }
   };
+
+
 
   // Add to wishlist logic
   const handleAddToWishlist = () => {
@@ -125,7 +135,7 @@ const Product = () => {
           {/* ----- add stock quantity here afterwards ------ */}
 
 
-          <p className='mt-5 text-2xl font-medium text-accent'>{currency} {productData.price}</p>
+          <p className='mt-5 text-2xl font-medium text-accent'>{currency} {price}</p>
 
           {/* Product Key Features */}
           <div className='mt-4'>
@@ -183,13 +193,13 @@ const Product = () => {
                 <div className='flex flex-wrap gap-2'>
 
                   {productData.variations.map((item, index) => (
+
                     <button
                       key={index}
                       onClick={() => {
                         handleVariationSelect(item);
-                        selectedVariation
                       }}
-                      className={`border border-border rounded-3xl py-3 px-6 ${selectedVariation?.id === item.id ? 'focus:bg-accent focus:text-bgdark' : ''}`}
+                      className={`border border-border rounded-3xl py-3 px-6 ${selectedVariation === item ? 'bg-accent text-bgdark' : ''}`}
                     >
                       {item.ram}/{item.storage}
                     </button>
@@ -245,8 +255,8 @@ const Product = () => {
 
             <button
               onClick={handleAddToCart}
-              disabled={!selectedVariation && variations.length > 0}
-              className="bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark font-semibold w-[60%] py-3 px-6 active:bg-accent active:text-bgdark rounded-3xl"
+              disabled={variations && variations.length > 0 && !selectedVariation}
+              className={`bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark font-semibold w-[60%] py-3 px-6 active:bg-accent active:text-bgdark rounded-3xl ${(!selectedVariation && variations.length > 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               Add to Cart
             </button>
@@ -260,7 +270,6 @@ const Product = () => {
 
             <Square2StackIcon className="bg-bgdark h-12 hover:fill-accent text-accent font-semibold py-2 px-6 " /> Compare Devices
           </div>
-
 
 
         </div>

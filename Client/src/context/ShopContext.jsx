@@ -18,13 +18,46 @@ const ShopContextProvider = (props) => {
     const [showSearch, setShowSearch] = useState(true);
     const [cartItems, setCartItems] = useState({});
 
-    const addToCart = async (itemId,) => {
+    // Helper function to check if a product requires a variation
+    const productRequiresVariation = (productId) => {
+        // Search through each category to find the product
+        for (const category in products) {
+            const product = products[category].find(p => p.id === productId);
+            if (product) {
+                return product.variations;
+            }
+        }
+        return false; // Return false if product is not found
+    };
 
-    }
+
+    const addToCart = async (productId, variation = null, quantity = 1) => {
+        let cartData = structuredClone(cartItems);
+
+        // Check if the product requires a variation, but none was selected
+        if (variation === null && productRequiresVariation(productId)) {
+            console.log("Please select a variation before adding to cart.");
+            return;
+        }
+
+        // If product has variations, handle specific variation quantities
+        if (variation) {
+            if (!cartData[productId]) {
+                cartData[productId] = {};
+            }
+            cartData[productId][variation] = (cartData[productId][variation] || 0) + quantity;
+        }
+        // For products without variations, update quantity by productId
+        else {
+            cartData[productId] = (cartData[productId] || 0) + quantity;
+        }
+
+        setCartItems(cartData);
+    };
+
 
 
     useEffect(() => {
-        //fetching all data
 
         const fetchProducts = async () => {
             try {
@@ -58,10 +91,14 @@ const ShopContextProvider = (props) => {
 
     }, []);
 
+    useEffect(() => {
+        console.log(cartItems);
+    }, [cartItems])
+
     const value = {
         products, currency, delivery_fee,
-
-        search, setSearch, showSearch, setShowSearch
+        search, setSearch, showSearch, setShowSearch,
+        cartItems, addToCart
     }
 
     return (
