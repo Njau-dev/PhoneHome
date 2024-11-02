@@ -21,7 +21,7 @@ const RelatedProducts = ({ category, brand }) => {
                 ...products.audio
             ];
 
-            console.log('All Products:', allProducts);
+            // console.log('All Products:', allProducts);
 
             // Filter by category and brand
             let relatedProducts = allProducts.filter((item) => item.category === category);
@@ -31,7 +31,7 @@ const RelatedProducts = ({ category, brand }) => {
             // Log and set the related products (max 6)
             setRelated(relatedProducts.slice(0, 6));
 
-            console.log('Filtered related products:', relatedProducts);
+            // console.log('Filtered related products:', relatedProducts);
         }
     }, [products, category, brand])
     return (

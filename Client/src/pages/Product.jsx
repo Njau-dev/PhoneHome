@@ -6,6 +6,7 @@ import { ShopContext } from '../context/ShopContext';
 import { HeartIcon } from '@heroicons/react/24/outline';
 import RelatedProducts from '../components/RelatedProducts';
 import { data } from 'autoprefixer';
+import { toast } from 'react-toastify';
 
 const Product = () => {
   const { productId } = useParams();
@@ -65,32 +66,33 @@ const Product = () => {
     );
   };
 
-  // console.log(selectedVariation);
-
-  // console.log(productData.variations);
-
-
   const hasVariations = productData.variations && productData.variations.length > 0;
 
   const handleAddToCart = () => {
     if (hasVariations && !selectedVariation) {
-      console.log("Please select a variation before adding to cart");
+      toast.error('Please select a variation before adding to cart');
+    } else if (!hasVariations) {
+      addToCart(productId, null, quantity);
+      toast.success(`Added ${productData.name} to the cart`);
+      console.log(`Added ${productData.name} to the cart`);
+
+
     } else {
-      // Proceed with adding to cart
+      // For products with selected variation
       addToCart(productId, selectedVariation, quantity);
-      console.log(`Added ${quantity} item(s) of variation: ${selectedVariation.storage} to the cart`);
+
+      toast.success(`Added ${productData.name} with selected variation to the cart`);
     }
   };
-
 
 
   // Add to wishlist logic
   const handleAddToWishlist = () => {
     console.log('Added to wishlist');
+    toast.success(`Added ${productData.name} to the wishlist `);
   };
 
 
-  // Render the product details once data is available
   return productData ? (
     <div className='border-t-2 pt-10 border-border transition-opacity ease-in duration-500 opacity-100'>
       {/* Product data */}
@@ -255,7 +257,7 @@ const Product = () => {
 
             <button
               onClick={handleAddToCart}
-              disabled={variations && variations.length > 0 && !selectedVariation}
+              // disabled={variations && variations.length > 0 && !selectedVariation}
               className={`bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark font-semibold w-[60%] py-3 px-6 active:bg-accent active:text-bgdark rounded-3xl ${(!selectedVariation && variations.length > 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               Add to Cart

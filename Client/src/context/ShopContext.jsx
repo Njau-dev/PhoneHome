@@ -1,5 +1,6 @@
 import axios from "axios";
 import { createContext, useEffect, useState } from "react";
+import { toast } from "react-toastify";
 
 export const ShopContext = createContext();
 
@@ -30,25 +31,29 @@ const ShopContextProvider = (props) => {
         return false; // Return false if product is not found
     };
 
+    const generateVariationKey = (variation) => {
+        return `${variation.ram}-${variation.storage}`;
+    };
 
     const addToCart = async (productId, variation = null, quantity = 1) => {
-        let cartData = structuredClone(cartItems);
+        const cartData = structuredClone(cartItems);
 
         // Check if the product requires a variation, but none was selected
-        if (variation === null && productRequiresVariation(productId)) {
-            console.log("Please select a variation before adding to cart.");
+        if (!variation && productRequiresVariation(productId)) {
+            console.log('Select product variation before adding to cart');
             return;
         }
 
-        // If product has variations, handle specific variation quantities
-        if (variation) {
+        // Convert variation to a unique string key
+        const variationKey = variation ? `${variation.ram}-${variation.storage}` : null;
+
+        // Handle variations as unique keys under each product
+        if (variationKey) {
             if (!cartData[productId]) {
                 cartData[productId] = {};
             }
-            cartData[productId][variation] = (cartData[productId][variation] || 0) + quantity;
-        }
-        // For products without variations, update quantity by productId
-        else {
+            cartData[productId][variationKey] = (cartData[productId][variationKey] || 0) + quantity;
+        } else {
             cartData[productId] = (cartData[productId] || 0) + quantity;
         }
 
@@ -56,6 +61,27 @@ const ShopContextProvider = (props) => {
     };
 
 
+    const getCartCount = () => {
+        let totalCount = 0;
+
+        for (const productId in cartItems) {
+            const productData = cartItems[productId];
+
+            if (typeof productData === 'object') { // Product with variations
+                for (const variationKey in productData) {
+                    totalCount += productData[variationKey] || 0;
+                }
+            } else { // Product without variations
+                totalCount += productData;
+            }
+        }
+        return totalCount;
+    };
+
+
+    useEffect(() => {
+        console.log(cartItems);
+    }, [cartItems])
 
     useEffect(() => {
 
@@ -63,9 +89,6 @@ const ShopContextProvider = (props) => {
             try {
                 const response = await axios.get('http://127.0.0.1:5000/products');
                 const allProducts = response.data.products;
-
-                console.log(allProducts);
-
 
                 // Filter products by category
                 //change this code after adding categories
@@ -77,7 +100,7 @@ const ShopContextProvider = (props) => {
                     audio: allProducts.filter(product => product.category === 'Audio')
                 };
 
-                console.log('Fetched products:', fetchedProducts);
+                // console.log('Fetched products:', fetchedProducts);
 
                 setProducts(fetchedProducts);
 
@@ -91,14 +114,12 @@ const ShopContextProvider = (props) => {
 
     }, []);
 
-    useEffect(() => {
-        console.log(cartItems);
-    }, [cartItems])
 
     const value = {
         products, currency, delivery_fee,
         search, setSearch, showSearch, setShowSearch,
-        cartItems, addToCart
+        cartItems, addToCart,
+        getCartCount
     }
 
     return (
