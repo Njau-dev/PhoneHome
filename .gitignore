@@ -1,0 +1,15 @@
+#node modules
+Client/node_modules
+Client/.env
+Client/.vscode
+Client/build
+
+#general
+*.log
+.DS_Store
+
+#Flask dependencies
+Sever/venv/
+Sever/*.pyc
+Sever/_pycache_/
+Sever/.vscode

@@ -6,7 +6,7 @@ from flask_migrate import Migrate
 from flask_cors import CORS
 from datetime import timedelta
 from functools import wraps
-from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog, Address, Payment, Shipment, Product
+from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog, Address, Payment, Shipment, Product, ProductVariation
 import cloudinary
 import cloudinary.uploader
 from flask.views import MethodView
@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__)
 
+ 
+
 cloudinary.config(
     cloud_name = os.getenv ("CLOUDINARY_CLOUD_NAME"),
     api_key = os.getenv ("CLOUDINARY_API_KEY"),
@@ -28,14 +30,16 @@ cloudinary.config(
     debug = True,
     secure = True
 )
-
+ 
 
 # Configuration
 app.config['SECRET_KEY'] = '9b5d1a90246ca41fd5d81cf8debdc4ecb5bb82d7b7fb69a46aad44c2ca55e8ae'
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')  # PostgreSQL connection URL
+# app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')  # PostgreSQL connection URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = 'b4506f4f33d07a7467281fc9d373de85cc97b4c104334d0c7553fad7c6deea1b'
+# app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
  
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Njau9899@localhost:5432/phonehome_db'
 
 # Initialize Extensions
 db.init_app(app)
@@ -262,7 +266,7 @@ class ProductResource(Resource):
             logger.error(f"Error fetching products: {e}")
             return {"Error": "An error occurred while fetching products"}, 500
 
-    @jwt_required()
+    # @jwt_required()
     def post(self):
         try:
             # Validate input data
@@ -382,6 +386,34 @@ class ProductResource(Resource):
 
 # logger.error(f"Error adding product: {e}\n{traceback.format_exc()}")
 
+class ProductVariationResource(Resource):
+    def post(self, product_id):
+        try:
+            # Find the product by ID
+            product = Product.query.get_or_404(product_id)
+            
+            # Assume you get the variation details as JSON in the request body
+            variation_data = request.json
+            
+            # Loop through each variation provided in the request
+            for var in variation_data.get('variations', []):
+                variation = ProductVariation(
+                    ram=var.get('ram'),
+                    storage=var.get('storage'),
+                    price=var.get('price'),
+                    product_id=product.id  # Associate with the product
+                )
+                db.session.add(variation)
+
+            # Commit the changes
+            db.session.commit()
+            
+            return {"message": "Variations added successfully!"}, 201
+        except Exception as e:
+            db.session.rollback()
+            return {"error": f"An error occurred: {str(e)}"}, 500
+
+
 # Get Products by Type (Phone, Laptop, Tablet, Audio)
 class GetProductsByType(Resource):
     def get(self, product_type):
@@ -439,18 +471,93 @@ class GetProductsByCategory(Resource):
 # Get Product by ID
 class GetProductById(Resource):
     def get(self, product_id):
-        product = Product.query.get_or_404(product_id)
-        product_data = {
-            "id": product.id,
-            "name": product.name,
-            "price": product.price,
-            "type": product.type,
-            "brand": product.brand.name,
-            "category": product.category.name,
-            "description": product.description,
-            "image_urls": product.image_urls
-        }
-        return product_data, 200
+        try:
+            product = Product.query.get_or_404(product_id)
+            category = product.category.name  # Assuming this refers to the category name
+
+            # Base product data that all products share
+            product_data = {
+                "id": product.id,
+                "name": product.name,
+                "price": product.price,
+                "brand": product.brand.name,
+                "category": product.category.name,
+                "description": product.description,
+                "image_urls": product.image_urls,
+                "type": product.type    
+                # "variations": product.variations
+            }
+
+            # Use switch-case logic based on product category
+            if category == 'Test' or category == 'Test 2':
+                # Include variations
+                variations = [
+                    {
+                        "ram": variation.ram,
+                        "storage": variation.storage,
+                        "price": variation.price,
+                    }
+                    for variation in product.variations
+                ]
+                product_data["variations"] = variations
+
+                # Other fields specific to Phones/Tablets
+                product_data.update({
+                    "battery": product.battery,
+                    "main_camera": product.main_camera,
+                    "front_camera": product.front_camera,
+                    "display": product.display,
+                    "processor": product.processor,
+                    "connectivity": product.connectivity,
+                    "colors": product.colors,
+                    "os": product.os,
+                })
+
+            elif category == 'Laptops':
+                product_data.update({
+                    "ram": product.ram,
+                    "storage": product.storage,
+                    "battery": product.battery,
+                    "display": product.display,
+                    "processor": product.processor,
+                    "os": product.os
+                })
+
+ 
+            elif category == 'Audio':
+                product_data.update({
+                    "battery": product.battery
+                })
+
+            # Return the full product data based on category
+            return product_data, 200
+
+        except Exception as e:
+            logger.error(f"Error fetching product by ID: {e}")
+            return {"Error": "An error occurred while fetching the product"}, 500
+        
+# Delete Product by ID
+class DeleteProductById(Resource):
+    def delete(self, product_id):
+        try:
+            # Fetch the product by ID or return 404 if not found
+            product = Product.query.get_or_404(product_id)
+
+            # Log the product information before deletion
+            logger.info(f"Attempting to delete product with ID {product_id}: {product.name}")
+
+            # Delete the product from the database
+            db.session.delete(product)
+            db.session.commit()
+
+            logger.info(f"Product with ID {product_id} deleted successfully")
+            return {"Message": f"{product.name} deleted successfully"}, 200
+
+        except Exception as e:
+            # Log the error and return a 500 response in case of an error
+            logger.error(f"Error deleting product with ID {product_id}: {e}")
+            return {"Error": "An error occurred while deleting the product"}, 500
+
 
 # Cart Management
 class CartResource(Resource):
@@ -888,7 +995,7 @@ class BrandResource(Resource):
         brands = Brand.query.all()
         return [{"id": brand.id, "name": brand.name} for brand in brands], 200
 
-    @jwt_required()
+    # @jwt_required()
     # @admin_required
     def post(self):
         data = request.get_json()
@@ -952,6 +1059,8 @@ api.add_resource(ProductResource, '/products')
 api.add_resource(GetProductsByType, '/products/<string:product_type>')
 api.add_resource(GetProductsByCategory, '/products/category/<int:category_id>')
 api.add_resource(GetProductById, '/product/<int:product_id>')
+api.add_resource(DeleteProductById, '/product/<int:product_id>')
+api.add_resource(ProductVariationResource, '/products/<int:product_id>/variations')
 
 # Cart routes
 api.add_resource(CartResource, '/cart')
@@ -979,8 +1088,13 @@ api.add_resource(PasswordChangeResource, '/password/change')
 # Audit logs
 api.add_resource(AuditLogResource, '/admin/auditlogs')
 
+#brand routes
 api.add_resource(BrandResource, '/brands')
 api.add_resource(SingleBrandResource, '/brands/<int:brand_id>')
+
+#category route
+api.add_resource(CategoryResource, '/categories')
+
 # Run the Flask app
 if __name__ == '__main__':
     app.run(debug=True)

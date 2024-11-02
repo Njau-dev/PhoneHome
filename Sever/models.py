@@ -12,7 +12,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     phone_number = db.Column(db.String(15), unique=True, nullable=False)
     address = db.Column(db.String(255), nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
+    password_hash = db.Column(db.String(450), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     orders = db.relationship('Order', backref='user', lazy=True, cascade="all, delete-orphan")
@@ -77,6 +77,19 @@ class Product(db.Model):
     type = db.Column(db.String(50), nullable=False)  # Used for product type (polymorphic identity)
     __mapper_args__ = {'polymorphic_on': type}
 
+# Variations model for RAM and storage
+class ProductVariation(db.Model):
+    __tablename__ = 'product_variations'
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    ram = db.Column(db.String(50), nullable=False)
+    storage = db.Column(db.String(50), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship back to the product
+    product = db.relationship('Product', backref=db.backref('variations', lazy=True))
 
 # Phone model inheriting from Product
 class Phone(Product):
@@ -112,12 +125,16 @@ class Laptop(Product):
 class Tablet(Product):
     __tablename__ = 'tablets'
     id = db.Column(db.Integer, db.ForeignKey('products.id'), primary_key=True)
-    ram = db.Column(db.String(20), nullable=False)
-    storage = db.Column(db.String(20), nullable=False)
-    battery = db.Column(db.String(50), nullable=False)
+    ram = db.Column(db.String(50), nullable=False)
+    storage = db.Column(db.String(50), nullable=False)
+    battery = db.Column(db.String(100), nullable=False)
     display = db.Column(db.String(100), nullable=False)
     processor = db.Column(db.String(100), nullable=False)
-    os = db.Column(db.String(50), nullable=False)
+    main_camera = db.Column(db.String(100), nullable=False)
+    front_camera = db.Column(db.String(100), nullable=False)
+    connectivity = db.Column(db.String(100), nullable=False)
+    colors = db.Column(db.String(100), nullable=False)
+    os = db.Column(db.String(100), nullable=False)
     __mapper_args__ = {'polymorphic_identity': 'tablet'}
 
 
