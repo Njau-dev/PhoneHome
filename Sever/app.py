@@ -32,14 +32,15 @@ cloudinary.config(
 )
  
 
-# Configuration
-app.config['SECRET_KEY'] = '9b5d1a90246ca41fd5d81cf8debdc4ecb5bb82d7b7fb69a46aad44c2ca55e8ae'
+# # Configuration
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 # app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')  # PostgreSQL connection URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = 'b4506f4f33d07a7467281fc9d373de85cc97b4c104334d0c7553fad7c6deea1b'
 # app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
- 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Njau9899@localhost:5432/phonehome_db'
+
 
 # Initialize Extensions
 db.init_app(app)
