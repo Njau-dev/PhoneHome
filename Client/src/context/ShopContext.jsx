@@ -1,6 +1,5 @@
 import axios from "axios";
 import { createContext, useEffect, useState } from "react";
-import { toast } from "react-toastify";
 
 export const ShopContext = createContext();
 
@@ -19,42 +18,61 @@ const ShopContextProvider = (props) => {
     const [showSearch, setShowSearch] = useState(true);
     const [cartItems, setCartItems] = useState({});
 
-    // Helper function to check if a product requires a variation
+    // Helper to check if product requires a variation
     const productRequiresVariation = (productId) => {
-        // Search through each category to find the product
         for (const category in products) {
             const product = products[category].find(p => p.id === productId);
-            if (product) {
-                return product.variations;
-            }
+            if (product) return product.variations || false;
         }
-        return false; // Return false if product is not found
+        return false;
     };
 
-    const generateVariationKey = (variation) => {
-        return `${variation.ram}-${variation.storage}`;
+    const fetchProductDetails = async (productId) => {
+        try {
+            const response = await axios.get(`http://127.0.0.1:5000/product/${productId}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error fetching product details:", error);
+            return null;
+        }
     };
 
-    const addToCart = async (productId, variation = null, quantity = 1) => {
+    // const generateVariationKey = (variation) => `${variation.ram}-${variation.storage}`;
+
+    const addToCart = async (productId, selectedVariation = null, quantity = 1) => {
         const cartData = structuredClone(cartItems);
 
-        // Check if the product requires a variation, but none was selected
-        if (!variation && productRequiresVariation(productId)) {
-            console.log('Select product variation before adding to cart');
+        // 🟩 **Highlight:** Directly use selectedVariation.price when variation is provided
+        const price = selectedVariation ? selectedVariation.price : products[productId]?.price;
+
+        console.log(price);
+
+        // Ensure a product ID and price exist
+        if (!productId || (selectedVariation && !price)) {
+            console.error(`Required product or variation price not found for ID: ${productId}`);
             return;
         }
 
-        // Convert variation to a unique string key
-        const variationKey = variation ? `${variation.ram}-${variation.storage}` : null;
+        // Variation key for uniquely identifying products with variations
+        const variationKey = selectedVariation ? `${selectedVariation.ram}-${selectedVariation.storage}` : null;
 
-        // Handle variations as unique keys under each product
         if (variationKey) {
+            // 🟩 **Highlight:** Handle variations directly using variationKey and selected price
             if (!cartData[productId]) {
                 cartData[productId] = {};
             }
-            cartData[productId][variationKey] = (cartData[productId][variationKey] || 0) + quantity;
+            cartData[productId][variationKey] = {
+                quantity: (cartData[productId][variationKey]?.quantity || 0) + quantity,
+                price, // Assign price from selected variation
+            };
         } else {
-            cartData[productId] = (cartData[productId] || 0) + quantity;
+            // Non-variation product: add to cart with quantity and price
+            console.log(productData.price);
+
+            if (!cartData[productId]) {
+                cartData[productId] = { quantity: 0, price };
+            }
+            cartData[productId].quantity += quantity;
         }
 
         setCartItems(cartData);
@@ -63,35 +81,28 @@ const ShopContextProvider = (props) => {
 
     const getCartCount = () => {
         let totalCount = 0;
-
         for (const productId in cartItems) {
             const productData = cartItems[productId];
-
-            if (typeof productData === 'object') { // Product with variations
+            if (typeof productData === 'object') {
                 for (const variationKey in productData) {
-                    totalCount += productData[variationKey] || 0;
+                    totalCount += productData[variationKey]?.quantity || 0;
                 }
-            } else { // Product without variations
-                totalCount += productData;
+            } else {
+                totalCount += productData.quantity || 0;
             }
         }
         return totalCount;
     };
 
-
     useEffect(() => {
         console.log(cartItems);
-    }, [cartItems])
+    }, [cartItems]);
 
     useEffect(() => {
-
         const fetchProducts = async () => {
             try {
                 const response = await axios.get('http://127.0.0.1:5000/products');
                 const allProducts = response.data.products;
-
-                // Filter products by category
-                //change this code after adding categories
 
                 const fetchedProducts = {
                     phones: allProducts.filter(product => product.category === 'Test'),
@@ -100,33 +111,27 @@ const ShopContextProvider = (props) => {
                     audio: allProducts.filter(product => product.category === 'Audio')
                 };
 
-                // console.log('Fetched products:', fetchedProducts);
-
                 setProducts(fetchedProducts);
-
             } catch (error) {
                 console.error('Error fetching products:', error);
             }
         };
 
         fetchProducts();
-
-
     }, []);
-
 
     const value = {
         products, currency, delivery_fee,
         search, setSearch, showSearch, setShowSearch,
         cartItems, addToCart,
         getCartCount
-    }
+    };
 
     return (
         <ShopContext.Provider value={value}>
             {props.children}
-        </ShopContext.Provider >
-    )
+        </ShopContext.Provider>
+    );
 }
 
-export default ShopContextProvider
+export default ShopContextProvider;

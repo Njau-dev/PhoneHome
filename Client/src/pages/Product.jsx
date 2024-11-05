@@ -81,6 +81,8 @@ const Product = () => {
       // For products with selected variation
       addToCart(productId, selectedVariation, quantity);
 
+      console.log(selectedVariation);
+
       toast.success(`Added ${productData.name} with selected variation to the cart`);
     }
   };
