@@ -147,7 +147,7 @@ const Cart = () => {
   };
 
   return (
-    <div className='border-t pt-14 border-border'>
+    <div className='border-t pt-8 sm:pt-14 border-border'>
 
       <div className="text-2xl mb-3">
         <Title text1={'YOUR'} text2={'CART'} />
