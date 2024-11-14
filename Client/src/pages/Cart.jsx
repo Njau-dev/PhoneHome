@@ -1,12 +1,14 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { ShopContext } from '../context/ShopContext'
 import Title from '../components/Title';
+import { TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { toast } from 'react-toastify';
+import CartTotal from '../components/CartTotal';
 
 const Cart = () => {
 
-  const { products, currency, cartItems } = useContext(ShopContext);
+  const { products, currency, cartItems, setCartItems, navigate } = useContext(ShopContext);
 
-  // Within the Cart component
   const flatProducts = [
     ...products.phones,
     ...products.tablets,
@@ -22,31 +24,127 @@ const Cart = () => {
     for (const productId in cartItems) {
       const productData = cartItems[productId];
 
-      if (typeof productData === 'object') { // Product with variations
-        for (const variation in productData) {
-          if (productData[variation] > 0) {
+      // Check if the product is a variation product
+      const isVariationProduct = typeof productData === 'object' && Object.keys(productData).some(key => {
+        return typeof productData[key] === 'object' && 'quantity' in productData[key];
+      });
+
+      // Handling variation products
+      if (isVariationProduct) {
+        for (const variationKey in productData) {
+          const variationData = productData[variationKey];
+
+          // Check if the variation quantity is greater than 0
+          if (variationData.quantity > 0) {
             tempData.push({
               id: productId,
-              variation: variation,
-              quantity: productData[variation]
+              variation: variationKey,
+              quantity: variationData.quantity,
+              price: variationData.price,
+              subtotal: variationData.price * variationData.quantity,
             });
           }
         }
-      } else { // Product without variations
-        if (productData > 0) {
+      } else {
+        // Handling non-variation products
+        if (productData.quantity > 0) {
           tempData.push({
             id: productId,
-            quantity: productData
+            quantity: productData.quantity,
+            price: productData.price,
+            subtotal: productData.price * productData.quantity,
           });
         }
       }
     }
 
     setCartData(tempData);
-    console.log(tempData);
-
+    console.log("Cart Data:", tempData);
   }, [cartItems]);
 
+  const handleQuantityChange = (id, variationKey, action) => {
+    const updatedCartItems = { ...cartItems };
+
+    // Check if it's a variation product
+    if (variationKey && updatedCartItems[id][variationKey]) {
+      const currentQuantity = updatedCartItems[id][variationKey].quantity;
+
+      // Increase or decrease the quantity
+      if (action === 'increase') {
+        updatedCartItems[id][variationKey].quantity = currentQuantity + 1;
+      } else if (action === 'decrease' && currentQuantity > 1) {
+        updatedCartItems[id][variationKey].quantity = currentQuantity - 1;
+      }
+
+      // Update local cartData state
+      const newCartData = cartData.map((item) => {
+        if (item.id === id && item.variation === variationKey) {
+          return {
+            ...item,
+            quantity: updatedCartItems[id][variationKey].quantity,
+            subtotal: updatedCartItems[id][variationKey].quantity * item.price,
+          };
+        }
+        return item;
+      });
+
+      setCartData(newCartData);
+      setCartItems(updatedCartItems);
+
+    } else if (updatedCartItems[id]) {
+      // Handle non-variation product quantity change
+      const currentQuantity = updatedCartItems[id].quantity;
+
+      if (action === 'increase') {
+        updatedCartItems[id].quantity = currentQuantity + 1;
+      } else if (action === 'decrease' && currentQuantity > 1) {
+        updatedCartItems[id].quantity = currentQuantity - 1;
+      }
+
+      const newCartData = cartData.map((item) => {
+        if (item.id === id) {
+          return {
+            ...item,
+            quantity: updatedCartItems[id].quantity,
+            subtotal: updatedCartItems[id].quantity * item.price,
+          };
+        }
+        return item;
+      });
+
+      setCartData(newCartData);
+      setCartItems(updatedCartItems);
+    }
+  };
+
+  const handleDeleteItem = (id, variationKey) => {
+    // Filter out the item with matching ID and variation key
+    const updatedCart = cartData.filter(
+      (item) => !(item.id === id && item.variation === variationKey)
+    );
+
+    setCartData(updatedCart);
+
+    // Update global cartItems in ShopContext
+    const updatedCartItems = { ...cartItems };
+
+    if (variationKey) {
+      // If it's a variation, delete the specific variation
+      delete updatedCartItems[id][variationKey];
+
+      // If no variations are left, delete the product entry
+      if (Object.keys(updatedCartItems[id]).length === 0) {
+        delete updatedCartItems[id];
+      }
+    } else {
+      // For non-variation products
+      delete updatedCartItems[id];
+    }
+
+    setCartItems(updatedCartItems);
+
+    toast.success('Item removed from the cart successfully!');
+  };
 
   return (
     <div className='border-t pt-14 border-border'>
@@ -55,67 +153,111 @@ const Cart = () => {
         <Title text1={'YOUR'} text2={'CART'} />
       </div>
 
-      <div>
-        {
-          cartData.map((item, index) => {
-            // Find product data from flatProducts using the product ID
-            const productData = flatProducts.find((product) => product.id === Number(item.id));
+      <div className="border-t pt-14 border-border flex flex-col lg:flex-row lg:justify-between lg:gap-10">
+        {/* Cart Table */}
+        <div className="w-full lg:w-2/3 flex-1">
+          <table className="w-full border-collapse">
+            {/* Table Header */}
+            <thead className="hidden lg:table-header-group">
+              <tr className="text-left text-sm sm:text-lg border-b border-border">
+                <th className="pb-4 font-medium">Product</th>
+                <th className="pb-4 font-medium"></th>
+                <th className="pb-4 font-medium">Price</th>
+                <th className="pb-4 font-medium">Quantity</th>
+                <th className="pb-4 font-medium">Subtotal</th>
+                <th className="pb-4 font-medium"></th>
+              </tr>
+            </thead>
 
-            if (!productData) {
-              console.error(`Product not found for ID: ${item.id}`);
-              return null; // Fallback UI if needed
-            }
+            {/* Table Body */}
+            <tbody>
 
-            // Get variation key and quantity from the item in cartData
-            const variationKey = item.variation;
-            const { quantity } = item;
+              {
+                cartData.map((item, index) => {
+                  // Find product data from flatProducts using the product ID
+                  const productData = flatProducts.find((product) => product.id === Number(item.id));
 
-            // Determine the price based on variation key
-            let price = productData.price; // Default to base price
-            if (variationKey && productData.variations) {
-              // Locate the variation object within the product variations array
-              const selectedVariation = productData.variations.find(variation =>
-                `${variation.ram}-${variation.storage}` === variationKey
-              );
-              if (selectedVariation) {
-                price = selectedVariation.price; // Use variation price if it exists
+                  if (!productData) {
+                    console.error(`Product not found for ID: ${item.id}`);
+                    return null;
+                  }
+
+                  // Get variation key and quantity from the item in cartData
+                  const variationKey = item.variation;
+                  const { quantity, price } = item;
+
+                  // Calculate Subtotal for the current item
+                  const subtotal = price * quantity;
+
+                  return (
+                    <tr
+                      key={index}
+                      className="border border-border rounded-lg lg:border-x-0 relative lg:border-border mb-4 lg:mb-0 flex flex-col lg:table-row mx-auto"
+                    >
+                      {/* Product Image */}
+                      <td className="pt-8 lg:py-6 lg:table-cell flex lg:flex-none items-center justify-center md:justify-center">
+                        <img
+                          src={productData.image_urls[0]}
+                          alt={productData.name}
+                          className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded"
+                        />
+                      </td>
+
+                      {/* Product Name - Variation */}
+                      <td className="py-4 lg:py-6 lg:table-cell flex lg:flex-none flex-col items-center lg:items-start">
+                        <p className='font-medium text-xl'>{productData.name}</p>
+                        {variationKey && <p className="text-sm text-secondary pt-1"> {variationKey}</p>}
+                      </td>
+
+                      {/* Price */}
+                      <td className="py-4 lg:py-6 lg:table-cell flex lg:flex-none items-center justify-around w-full lg:w-auto lg:justify-start">
+                        <p className="lg:hidden lg:font-medium">Price:</p>
+                        <p>{currency} {price.toLocaleString()}</p>
+                      </td>
+
+                      {/* Quantity Adjustor */}
+                      <td className="py-4 lg:py-6 lg:table-cell flex lg:flex-none items-center justify-around w-full lg:w-auto lg:justify-start">
+                        <p className="lg:hidden lg:font-medium">Quantity:</p>
+                        <div className="flex w-fit bg-border rounded items-center gap-2">
+                          <button onClick={() => handleQuantityChange(item.id, variationKey, 'decrease')} className="px-2 py-1">-</button>
+                          <span>{quantity}</span>
+                          <button onClick={() => handleQuantityChange(item.id, variationKey, 'increase')} className="px-2 py-1">+</button>
+                        </div>
+                      </td>
+
+                      {/* Subtotal */}
+                      <td className="pb-8 pt-4 lg:py-6 lg:table-cell flex lg:flex-none items-center justify-around w-full lg:w-auto lg:justify-start">
+                        <p className="lg:hidden font-semibold">Subtotal:</p>
+                        <p className='text-accent '>{currency}    {subtotal.toLocaleString()}</p>
+                      </td>
+
+                      {/* Remove Button */}
+                      <td className="py-4 lg:py-6 lg:table-cell flex lg:flex-none items-center justify-center lg:justify-start absolute top-2 right-3 lg:relative">
+                        <XMarkIcon onClick={() => handleDeleteItem(item.id, variationKey)} className="text-red-500 size-5 cursor-pointer" />
+                      </td>
+                    </tr>
+
+
+                  );
+                })
               }
-            }
+            </tbody>
+          </table>
+        </div>
 
-            return (
-              <div key={index} className='py-4 border-t border-b border-border text-primary grid grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4'>
-                <div className='flex items-start gap-6'>
-                  {/* Product Image */}
-                  <img src={productData.image_urls[0]} className='w-16 sm:w-20' alt={productData.name} />
-
-                  <div>
-                    {/* Product Name */}
-                    <p className='text-xs sm:text-lg font-medium py-2'>{productData.name}</p>
-
-                    {/* Display Variation and Price */}
-                    <div className='flex items-center gap-5 mt-2'>
-                      <p>Variation: {variationKey || "N/A"}</p>
-                      <p>
-                        {currency}{price} {/* Show price here, either base or variation price */}
-                      </p>
-                    </div>
-
-                    {/* Display Quantity */}
-                    <p className='text-sm sm:text-lg font-medium'>Quantity: {quantity}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        }
+        <div className="w-full lg:w-1/3 mt-8 lg:mt-0">
+          <div className="p-6 border-2 border-accent rounded-md">
+            <CartTotal />
+            <div className='w-full text-center'>
+              <button onClick={() => navigate('/place-order')} className='bg-accent  hover:bg-bgdark hover:text-accent hover:border border-accent rounded text-bgdark text-base mt-8 mb-3 py-3 px-11'>PROCEED TO CHECKOUT</button>
+            </div>
+          </div>
+        </div>
 
       </div>
 
-
-
-
     </div>
-  )
+  );
 }
 
 export default Cart
