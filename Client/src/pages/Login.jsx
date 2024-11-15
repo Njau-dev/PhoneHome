@@ -1,10 +1,41 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 const Login = () => {
+
+  const [currentState, setCurrentState] = useState('Sign Up');
+
+  const onSubmitHandler = async (event) => {
+    event.preventDefault();
+  }
+
   return (
-    <div>
-      
-    </div>
+    <form onSubmit={onSubmitHandler} className='flex flex-col items-center w-[90%] sm:max-w-96 m-auto mt-14 gap-4 text-primary'>
+      <div className='inline-flex items-center gap-2 mb-2 mt-10'>
+        <p className='prata-regular text-3xl'>{currentState}</p>
+        <hr className='border-none h-[1.5px] w-8 bg-secondary' />
+      </div>
+
+      {currentState === 'Login' ? '' : <input type="text" placeholder='Username' className='w-full px-2 py-3.5 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded' required />}
+
+
+      <input type="email" placeholder='Email' className='w-full px-2 py-3.5 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded' required />
+
+      <input type="password" placeholder='Password' className='w-full px-2 py-3.5 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded' required />
+
+      {currentState === 'Login' ? '' : <input type="number" placeholder='Phone Number' className='w-full px-2 py-3.5 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded' required />}
+
+      <div className='w-full flex justify-between text-sm mt-[-8px]'>
+        <p className='cursor-pointer'>Forgot your password</p>
+        {
+          currentState === 'Login'
+            ? <p className='cursor-pointer' onClick={() => setCurrentState('Sign Up')}>Create Account</p>
+            : <p className='cursor-pointer' onClick={() => setCurrentState('Login')}>Login Here</p>
+        }
+      </div>
+
+      <button className='bg-accent  hover:bg-bgdark hover:text-accent hover:border border-accent rounded text-bgdark text-base mt-8 mb-3 py-3 px-11'>{currentState === 'Login' ? 'Sign In' : 'Sign Up'}</button>
+
+    </form>
   )
 }
 

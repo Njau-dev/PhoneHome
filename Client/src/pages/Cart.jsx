@@ -59,7 +59,7 @@ const Cart = () => {
     }
 
     setCartData(tempData);
-    console.log("Cart Data:", tempData);
+    // console.log("Cart Data:", tempData);
   }, [cartItems]);
 
   const handleQuantityChange = (id, variationKey, action) => {

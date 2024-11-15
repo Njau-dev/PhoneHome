@@ -37,9 +37,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
-# app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')  # PostgreSQL connection URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 
 
 # Initialize Extensions
@@ -73,21 +71,19 @@ class SignUp(Resource):
             username = data.get('username')
             email = data.get('email')
             phone_number = data.get('phone_number')
-            address = data.get('address')
             password = data.get('password')
 
-            if not all([username, email, phone_number, address, password]):
+            if not all([email, phone_number, password, username]):
                 return {"Error": "Missing required fields"}, 400
 
-            if User.query.filter_by(username=username).first() or User.query.filter_by(email=email).first():
-                return {"Error": "Username or Email Already Exists"}, 401
+            if User.query.filter_by(email=email).first():
+                return {"Error": "Email Already Exists"}, 401
 
             hashed_password = generate_password_hash(password)
             new_user = User(
                 username=username,
                 email=email,
                 phone_number=phone_number,
-                address=address,
                 password_hash=hashed_password
             )
             db.session.add(new_user)
@@ -173,11 +169,12 @@ def admin_required(f):
     @wraps(f)
     def decorator(*args, **kwargs):
         current_user_id = get_jwt_identity()
-        admin = Admin.query.get(current_user_id)
+        admin = db.session.get(Admin, current_user_id)
         if not admin:
             return {"Error": "Admin privileges required"}, 403
         return f(*args, **kwargs)
     return decorator
+
 
 # Product (Phones, Laptops, Tablets, Audio) Management
 
@@ -872,7 +869,7 @@ class AdminManagementResource(Resource):
         new_admin = Admin(
             username=username,
             email=email,
-            password_hash=hashed_password
+            password_hash=hashed_password,
         )
         db.session.add(new_admin)
         db.session.commit()
@@ -898,6 +895,20 @@ class AdminManagementResource(Resource):
 
         db.session.commit()
         return {"Message": "Admin updated successfully!"}, 200
+
+class AdminLogin(Resource):
+    def post(self):
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+
+        admin = Admin.query.filter_by(email=email).first()
+
+        if admin and check_password_hash(admin.password_hash, password):
+            access_token = create_access_token(identity=admin.id)
+            return {"access_token": access_token}, 200
+        else:
+            return {"Error": "Invalid credentials!"}, 401
 
 # Audit Logs Resource (Admin-only)
 class AuditLogResource(Resource):
@@ -1082,6 +1093,7 @@ api.add_resource(AdminNotificationResource, '/admin/notifications')
 # Admin and User Management routes
 api.add_resource(AdminUserManagement, '/admin/users', '/admin/users/<int:user_id>')
 api.add_resource(AdminManagementResource, '/admin/admins', '/admin/admins/<int:admin_id>')
+api.add_resource(AdminLogin, '/admin/login')
 
 # Password management
 api.add_resource(PasswordChangeResource, '/password/change')

@@ -23,7 +23,6 @@ const ShopContextProvider = (props) => {
     const addToCart = async (productId, selectedVariation = null, quantity = 1) => {
         const cartData = structuredClone(cartItems);
 
-        // Flatten all products into a single array for easy searching
         const allProducts = [
             ...products.phones,
             ...products.tablets,
@@ -31,12 +30,7 @@ const ShopContextProvider = (props) => {
             ...products.audio
         ];
 
-        // Search for the product by productId in the flattened list
         const productData = allProducts.find(product => Number(product.id) === Number(productId));
-        // console.log('Found productData:', productData);
-
-        // 🟩 **Highlight:** Directly use selectedVariation.price when variation is provided
-        // const price = selectedVariation ? selectedVariation.price : products[productId]?.price;
 
         if (!productData) {
             console.error(`Product with ID ${productId} not found.`);
@@ -55,7 +49,7 @@ const ShopContextProvider = (props) => {
         const variationKey = selectedVariation ? `${selectedVariation.ram} - ${selectedVariation.storage}` : null;
 
         if (variationKey) {
-            // 🟩 **Highlight:** Handle variations directly using variationKey and selected price
+            //Handle variations directly using variationKey and selected price
             if (!cartData[productId]) {
                 cartData[productId] = {};
             }
@@ -77,9 +71,6 @@ const ShopContextProvider = (props) => {
 
     const getCartCount = () => {
         let count = 0;
-
-        console.log(cartItems);
-
         for (const productId in cartItems) {
             const item = cartItems[productId];
 
@@ -101,8 +92,6 @@ const ShopContextProvider = (props) => {
                 count += item.quantity;
             }
         }
-
-        console.log(count);
 
         return count;
     }
@@ -136,9 +125,6 @@ const ShopContextProvider = (props) => {
 
         return totalAmount;
     };
-
-
-
 
     useEffect(() => {
         console.log(cartItems);

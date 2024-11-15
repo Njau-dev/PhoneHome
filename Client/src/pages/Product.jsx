@@ -74,14 +74,12 @@ const Product = () => {
     } else if (!hasVariations) {
       addToCart(productId, null, quantity);
       toast.success(`Added ${productData.name} to the cart`);
-      console.log(`Added ${productData.name} to the cart`);
-
 
     } else {
       // For products with selected variation
       addToCart(productId, selectedVariation, quantity);
 
-      console.log(selectedVariation);
+      // console.log(selectedVariation);
 
       toast.success(`Added ${productData.name} with selected variation to the cart`);
     }

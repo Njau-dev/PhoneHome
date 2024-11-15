@@ -89,7 +89,7 @@ const PlaceOrder = () => {
               <div
                 className={`p-2 px-3 text-sm text-gray-300 border-l-2 bg-border border-accent transition-all duration-300`}
               >
-                Pay with cash on delivery: Only applies for orders within Nairobi county.
+                Pay cash on delivery: Only applies for orders within Nairobi county.
               </div>
             )}
 
