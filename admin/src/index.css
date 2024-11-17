@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Outfit:wght@100..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  font-size: 16px;
+}
+
+* {
+  font-family: 'Outfit', 'Roboto', sans-serif;
+}
+
+body {
+  /* font-family: 'Outfit', 'Roboto', sans-serif; */
+  font-size: 1rem;
+  line-height: 1.5;
+  background-color: var(--background-dark);
+  color: var(--primary-color);
+  height: 100vh;
+}
+
+:root {
+  --background-dark: #212121;
+  --primary-color: #f1f1f1;
+  --secondary: #d1d5db;
+  --border-color: #94949448;
+  --accents: #d5a00d;
+}
+
+select,
+input,
+textarea {
+  border: 1px solid var(--border-color);
+  outline-color: var(--accents);
+  border-radius: 4px;
+  background-color: var(--background-dark);
+  color: var(--primary-color);
+}
+
+h1 {
+  font-weight: 700;
+}
+
+p {
+  color: var(--primary-color);
+}
+
+.active {
+  background-color: var(--border-color);
+  border-color: var(--accents);
+}

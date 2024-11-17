@@ -908,7 +908,7 @@ class AdminLogin(Resource):
             access_token = create_access_token(identity=admin.id)
             return {"access_token": access_token}, 200
         else:
-            return {"Error": "Invalid credentials!"}, 401
+            return {"error": "Invalid credentials!"}, 401
 
 # Audit Logs Resource (Admin-only)
 class AuditLogResource(Resource):

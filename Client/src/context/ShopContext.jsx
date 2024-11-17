@@ -135,6 +135,8 @@ const ShopContextProvider = (props) => {
             try {
                 const response = await axios.get('http://127.0.0.1:5000/products');
                 const allProducts = response.data.products;
+                console.log(allProducts);
+
 
                 const fetchedProducts = {
                     phones: allProducts.filter(product => product.category === 'Test'),
