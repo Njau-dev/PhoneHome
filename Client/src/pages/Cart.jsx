@@ -4,10 +4,11 @@ import Title from '../components/Title';
 import { TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 import CartTotal from '../components/CartTotal';
+import axios from 'axios';
 
 const Cart = () => {
 
-  const { products, currency, cartItems, setCartItems, navigate } = useContext(ShopContext);
+  const { products, currency, cartItems, setCartItems, navigate, token, backendUrl } = useContext(ShopContext);
 
   const flatProducts = [
     ...products.phones,
@@ -114,6 +115,24 @@ const Cart = () => {
 
       setCartData(newCartData);
       setCartItems(updatedCartItems);
+    }
+
+    // If a user is logged in, update the cart count on db
+    if (token) {
+      try {
+        const updatedProduct = variationKey
+          ? { productId: id, selectedVariation: variationKey, quantity: updatedCartItems[id][variationKey].quantity }
+          : { productId: id, quantity: updatedCartItems[id].quantity };
+
+        axios.put(backendUrl + '/cart', updatedProduct, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch (error) {
+        console.log(error);
+        toast.error("Error updating cart on the server!");
+      }
     }
   };
 

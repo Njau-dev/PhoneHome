@@ -13,7 +13,7 @@ const Product = () => {
   const [productData, setProductData] = useState(null);
   const [image, setImage] = useState('');
   const [loading, setLoading] = useState(true);
-  const { currency, addToCart } = useContext(ShopContext);
+  const { currency, addToCart, backendUrl } = useContext(ShopContext);
   const [variations, setVariations] = useState([]);
   const [selectedVariation, setSelectedVariation] = useState(null);
   const [price, setPrice] = useState(0);
@@ -22,7 +22,7 @@ const Product = () => {
   // Function to fetch product data from the backend
   const fetchProductData = async () => {
     try {
-      const response = await axios.get(`http://127.0.0.1:5000/product/${productId}`);
+      const response = await axios.get(backendUrl + `/product/${productId}`);
 
       const data = response.data;
       setProductData(data);
@@ -146,7 +146,7 @@ const Product = () => {
             <ul className="mt-2 list-disc pl-5 space-y-2 text-gray-400">
 
               {
-                productData.type === 'phone' || productData.type === 'tablet' ? (
+                productData.category === 'Phone' || productData.category === 'Tablet' ? (
                   <>
                     <li><strong>RAM:</strong> {productData.ram}</li>
                     <li><strong>Internal Storage:</strong> {productData.storage}</li>
@@ -188,7 +188,7 @@ const Product = () => {
           <div className='flex flex-col gap-4 my-8'>
 
 
-            {productData.type === 'phone' || productData.type === 'tablet' ? (
+            {productData.category === 'Phone' || productData.category === 'Tablet' ? (
               <>
                 <p>Select Storage Variation</p>
 
@@ -203,7 +203,7 @@ const Product = () => {
                       }}
                       className={`border border-border rounded-3xl py-3 px-6 ${selectedVariation === item ? 'bg-accent text-bgdark' : ''}`}
                     >
-                      {item.ram}/{item.storage}
+                      {item.ram} / {item.storage}
                     </button>
                   ))}
                 </div>

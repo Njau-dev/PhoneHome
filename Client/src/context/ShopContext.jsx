@@ -1,6 +1,7 @@
 import axios from "axios";
 import { createContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 export const ShopContext = createContext();
 
@@ -14,10 +15,11 @@ const ShopContextProvider = (props) => {
 
     const currency = 'Kshs';
     const delivery_fee = 300;
-
+    const backendUrl = import.meta.env.VITE_BACKEND_URL;
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(true);
     const [cartItems, setCartItems] = useState({});
+    const [token, setToken] = useState('');
     const navigate = useNavigate();
 
     const addToCart = async (productId, selectedVariation = null, quantity = 1) => {
@@ -66,6 +68,22 @@ const ShopContextProvider = (props) => {
         }
 
         setCartItems(cartData);
+
+        if (token) {
+            try {
+                await axios.post(backendUrl + '/cart', { productId, selectedVariation, quantity }, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                })
+
+            } catch (error) {
+                console.log(error);
+                toast.error(error.Message)
+
+            }
+
+        }
     };
 
 
@@ -133,15 +151,13 @@ const ShopContextProvider = (props) => {
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const response = await axios.get('http://127.0.0.1:5000/products');
+                const response = await axios.get(backendUrl + '/products');
                 const allProducts = response.data.products;
-                console.log(allProducts);
-
 
                 const fetchedProducts = {
-                    phones: allProducts.filter(product => product.category === 'Test'),
-                    tablets: allProducts.filter(product => product.category === 'Test 2'),
-                    laptops: allProducts.filter(product => product.category === 'Laptops'),
+                    phones: allProducts.filter(product => product.category === 'Phone'),
+                    tablets: allProducts.filter(product => product.category === 'Tablet'),
+                    laptops: allProducts.filter(product => product.category === 'Laptop'),
                     audio: allProducts.filter(product => product.category === 'Audio')
                 };
 
@@ -154,12 +170,37 @@ const ShopContextProvider = (props) => {
         fetchProducts();
     }, []);
 
+    const getUserCart = async (token) => {
+
+        try {
+
+            const response = await axios.get(backendUrl + '/cart', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                }
+            })
+
+            setCartItems(response.data.cart);
+
+        } catch (error) {
+            // console.error("Error fetching cart:", error);
+        }
+    }
+    getUserCart(token)
+
+    useEffect(() => {
+        if (!token && localStorage.getItem('token')) {
+            setToken(localStorage.getItem('token'))
+        }
+    }, [])
+
     const value = {
         products, currency, delivery_fee,
         search, setSearch, showSearch, setShowSearch,
         cartItems, addToCart, setCartItems,
         getCartCount, getCartAmount,
-        navigate
+        navigate, backendUrl,
+        token, setToken
     };
 
     return (

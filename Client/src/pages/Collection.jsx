@@ -7,7 +7,7 @@ import ProductItem from '../components/ProductItem';
 
 const Collection = () => {
 
-  const { products, search, showSearch } = useContext(ShopContext);
+  const { products, search, showSearch, backendUrl } = useContext(ShopContext);
   const [showFilter, setShowFilter] = useState(false);
   const [filterProducts, setFilterProducts] = useState([]);
 
@@ -23,7 +23,7 @@ const Collection = () => {
   //fetching cetegories from backend to use them for filtering
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:5000/categories')
+    axios.get(backendUrl + '/categories')
       .then((response) => {
         setCategories(response.data.categories);
 
@@ -37,7 +37,7 @@ const Collection = () => {
 
   useEffect(() => {
     if (selectedCategory) {
-      axios.get(`http://127.0.0.1:5000/brands?category=${selectedCategory}`)
+      axios.get(backendUrl + `/brands?category=${selectedCategory}`)
         .then((response) => {
           setBrands(response.data);
         })
@@ -53,7 +53,7 @@ const Collection = () => {
 
   // Fetch all products from the /products endpoint
   useEffect(() => {
-    axios.get('http://127.0.0.1:5000/products')
+    axios.get(backendUrl + '/products')
       .then((response) => {
         console.log('Fetched all products:', response.data);
 
@@ -116,7 +116,7 @@ const Collection = () => {
 
         {/* CATEGORIES FILTER */}
 
-        <div className={`border border-border pl-5 py-3 my-7 ${showFilter ? '' : 'hidden'} sm:block`}>
+        <div className={`border border-border rounded-lg pl-5 py-3 my-7 ${showFilter ? '' : 'hidden'} sm:block`}>
           <p className='mb-3 text-sm font-medium'>CATEGORIES</p>
           <div className="flex flex-col gap-2 text-sm font-light text-primary">
 
@@ -130,7 +130,7 @@ const Collection = () => {
                     checked={selectedCategory === category.name}
                   />
 
-                  <div className="w-5 h-5 border-2 peer-checked:bg-accent peer-checked:border-primary transition duration-300"></div>
+                  <div className="w-5 h-5 border-2 peer-checked:bg-accent peer-checked:border-primary transition duration-300 rounded-full"></div>
                   <span className="ml-2 text-base">{category.name}</span>
 
                 </label>
@@ -147,7 +147,7 @@ const Collection = () => {
         {/* Brands */}
 
         {selectedCategory && (
-          <div className={`border border-border pl-5 py-3 my-6`}>
+          <div className={`border border-border rounded-lg pl-5 py-3 my-6`}>
             <p className='mb-3 text-sm font-medium'>BRANDS</p>
             <div className="flex flex-col gap-2 text-sm font-light text-primary">
               {brands.length > 0 ? (
@@ -161,7 +161,7 @@ const Collection = () => {
                         onChange={() => handleBrandChange(brand.name)}
                         checked={selectedBrand === brand.name}
                       />
-                      <div className="w-5 h-5 border-2 peer-checked:bg-accent peer-checked:border-primary transition duration-300"></div>
+                      <div className="w-5 h-5 border-2 peer-checked:bg-accent peer-checked:border-primary transition duration-300 rounded-full"></div>
                       <span className="ml-2">{brand.name}</span>
                     </label>
                   </p>

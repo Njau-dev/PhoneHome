@@ -24,12 +24,12 @@ const RelatedProducts = ({ category, brand }) => {
             // console.log('All Products:', allProducts);
 
             // Filter by category and brand
-            let relatedProducts = allProducts.filter((item) => item.category === category);
+            let relatedProducts = allProducts.filter((item) => item.category === category && item.brand === brand);
 
-            // && item.brand === brand,  this code is to be added above after populating site with products
+            // ,  this code is to be added above after populating site with products
 
-            // Log and set the related products (max 6)
-            setRelated(relatedProducts.slice(0, 6));
+            // Log and set the related products (max 5)
+            setRelated(relatedProducts.slice(0, 5));
 
             // console.log('Filtered related products:', relatedProducts);
         }

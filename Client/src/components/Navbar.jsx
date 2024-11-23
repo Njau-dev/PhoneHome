@@ -9,7 +9,14 @@ const Navbar = () => {
 
     const [visible, setVisible] = useState(false);
 
-    const { setShowSearch, getCartCount } = useContext(ShopContext);
+    const { setShowSearch, getCartCount, navigate, token, setToken, setCartItems } = useContext(ShopContext);
+
+    const logout = () => {
+        localStorage.removeItem('token')
+        setToken('')
+        setCartItems({})
+        navigate('/login')
+    }
 
     return (
 
@@ -50,17 +57,21 @@ const Navbar = () => {
 
                 <div className="group relative">
 
-                    <NavLink to='/login'>
-                        <UserIcon className='w-6 icons hover:text-accent' />
-                    </NavLink>
 
-                    <div className="group-hover:block hidden absolute dropdown-menu right-[-2rem] pt-4 ">
-                        <div className="flex flex-col gap-2 w-36 py-3 px-5 bg-border text-primary rounded border-border">
-                            <p>My Profile</p>
-                            <p>Orders</p>
-                            <p>Logout</p>
+                    <UserIcon onClick={() => token ? null : navigate('/login')} className='w-6 icons hover:text-accent' />
+
+                    {/* dropdown menu */}
+
+                    {token &&
+                        <div className="group-hover:block hidden absolute dropdown-menu right-[-2rem] pt-4 ">
+                            <div className="flex flex-col gap-2 w-36 py-3 px-5 bg-bgdark text-primary rounded border border-border">
+                                <p onClick={() => navigate('/profile')} className='cursor-pointer hover:text-accent'>My Profile</p>
+                                <p onClick={() => navigate('/orders')} className='cursor-pointer hover:text-accent'>Orders</p>
+                                <p onClick={logout} className='cursor-pointer hover:text-accent'>Logout</p>
+                            </div>
                         </div>
-                    </div>
+                    }
+
                 </div>
 
 
