@@ -73,16 +73,28 @@ class Product(db.Model):
     image_urls = db.Column(db.JSON, nullable=False)
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
     brand_id = db.Column(db.Integer, db.ForeignKey('brands.id'), nullable=False)
+    hasVariation = db.Column(db.Boolean, default=False)  # New field for variations
+    isBestSeller = db.Column(db.Boolean, default=False)  # New field for bestseller
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     type = db.Column(db.String(50), nullable=False)  # Used for product type (polymorphic identity)
+
+    variations = db.relationship(
+        'ProductVariation',
+        lazy=True,
+        cascade='all, delete-orphan',
+        back_populates='product',
+        overlaps="product"
+    )
     __mapper_args__ = {'polymorphic_on': type}
+
 
 # Variations model for RAM and storage
 class ProductVariation(db.Model):
     __tablename__ = 'product_variations'
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    product = db.relationship('Product', back_populates='variations', overlaps="variations")
     ram = db.Column(db.String(50), nullable=False)
     storage = db.Column(db.String(50), nullable=False)
     price = db.Column(db.Float, nullable=False)
@@ -90,7 +102,7 @@ class ProductVariation(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationship back to the product
-    product = db.relationship('Product', backref=db.backref('variations', lazy=True))
+    product = db.relationship('Product')
 
 # Phone model inheriting from Product
 class Phone(Product):
@@ -162,7 +174,10 @@ class CartItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cart_id = db.Column(db.Integer, db.ForeignKey('carts.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    variation_name = db.Column(db.String(255), nullable=True)  # Store variation info (e.g., '8GB - 256GB')
+    variation_price = db.Column(db.Integer, nullable=True)
     quantity = db.Column(db.Integer, nullable=False, default=1)
+    product = db.relationship('Product', backref='cart_items', lazy='joined')
 
 
 # Order model

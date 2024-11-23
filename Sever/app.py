@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, json
 from flask_restful import Resource, Api
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager, get_jwt
@@ -15,6 +15,7 @@ import cloudinary.api
 from dotenv import load_dotenv
 import logging
 import traceback
+from sqlalchemy.exc import SQLAlchemyError
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ class SignUp(Resource):
                 return {"Error": "Missing required fields"}, 400
 
             if User.query.filter_by(email=email).first():
-                return {"Error": "Email Already Exists"}, 401
+                return {"Error": "Email Already Exists"}, 409
 
             hashed_password = generate_password_hash(password)
             new_user = User(
@@ -210,7 +211,9 @@ class ProductResource(Resource):
                     'image_urls': product.image_urls,
                     'category': product.category.name,
                     'brand': product.brand.name,
-                    'type': product_type
+                    'type': product_type,
+                    'hasVariation': product.hasVariation,  # **Added field**
+                    'isBestSeller': product.isBestSeller  # **Added field**
                 }
                 if product_type == 'phone':
                     additional_data = {
@@ -251,6 +254,23 @@ class ProductResource(Resource):
                     additional_data = {
                         'battery': product.battery
                     }
+                else:
+                    additional_data = {}
+
+                # **Include Variations if `hasVariation` is True**
+                variations = []
+                if product.hasVariation:
+                    for variation in product.variations:
+                        variations.append({
+                            'id': variation.id,
+                            'ram': variation.ram,
+                            'storage': variation.storage,
+                            'price': variation.price
+                        })
+
+                # **Add variations to the response if available**
+                base_data['variations'] = variations
+
                 return {**base_data, **additional_data}
             
             # Iterate over all product types and serialize them
@@ -264,7 +284,8 @@ class ProductResource(Resource):
             logger.error(f"Error fetching products: {e}")
             return {"Error": "An error occurred while fetching products"}, 500
 
-    # @jwt_required()
+    @jwt_required()
+    @admin_required
     def post(self):
         try:
             # Validate input data
@@ -273,8 +294,12 @@ class ProductResource(Resource):
             description = request.form.get('description')
             category_id = request.form.get('category_id')
             brand_id = request.form.get('brand_id')
-            product_type = request.form.get('type')  # 'phone', 'laptop', 'tablet', 'audio'
-            image_files = request.files.getlist('image_urls')  # List of image files
+            product_type = request.form.get('type')
+            image_files = request.files.getlist('image_urls')
+
+            hasVariation = request.form.get('hasVariation', 'false').lower() == 'true'  # Boolean flag for variations
+            isBestSeller = request.form.get('isBestSeller', 'false').lower() == 'true'  # Boolean flag for bestseller
+
 
             # Ensure required fields are provided
             if not all([name, price, description, category_id, brand_id, product_type, image_files]):
@@ -309,7 +334,7 @@ class ProductResource(Resource):
                     name=name,
                     price=price,
                     description=description,
-                    image_urls=uploaded_urls,  # Store the Cloudinary URLs
+                    image_urls=uploaded_urls,
                     ram=request.form.get('ram'),
                     storage=request.form.get('storage'),
                     battery=request.form.get('battery'),
@@ -321,7 +346,9 @@ class ProductResource(Resource):
                     colors=request.form.get('colors'),
                     os=request.form.get('os'),
                     category=category,
-                    brand=brand
+                    brand=brand,
+                    hasVariation=hasVariation,
+                    isBestSeller=isBestSeller 
                 )
             elif product_type == 'laptop':
                 product = Laptop(
@@ -336,7 +363,9 @@ class ProductResource(Resource):
                     processor=request.form.get('processor'),
                     os=request.form.get('os'),
                     category=category,
-                    brand=brand
+                    brand=brand,
+                    hasVariation=hasVariation,  # **New Field**
+                    isBestSeller=isBestSeller   # **New Field**
                 )
             elif product_type == 'tablet':
                 product = Tablet(
@@ -355,7 +384,9 @@ class ProductResource(Resource):
                     colors=request.form.get('colors'),
                     os=request.form.get('os'),
                     category=category,
-                    brand=brand
+                    brand=brand,
+                    hasVariation=hasVariation,  # **New Field**
+                    isBestSeller=isBestSeller   # **New Field**
                 )
             elif product_type == 'audio':
                 product = Audio(
@@ -365,7 +396,9 @@ class ProductResource(Resource):
                     image_urls=uploaded_urls,
                     battery=request.form.get('battery'),
                     category=category,
-                    brand=brand
+                    brand=brand,
+                    hasVariation=hasVariation,  # **New Field**
+                    isBestSeller=isBestSeller   # **New Field**
                 )
             else:
                 return {"Error": "Invalid product type"}, 400
@@ -373,6 +406,27 @@ class ProductResource(Resource):
             # Add and commit product to the database
             db.session.add(product)
             db.session.commit()
+
+            # **New Variation Handling Logic**:
+            if hasVariation:
+            # Expecting a JSON array of variations in the form data
+                variations = request.form.get('variations')
+                if variations:
+                    variations_list = json.loads(variations)
+                    for variation in variations_list:
+                        ram = variation.get('ram')
+                        storage = variation.get('storage')
+                        price = float(variation.get('price', 0))
+
+                        new_variation = ProductVariation(
+                            product_id=product.id,
+                            ram=ram,
+                            storage=storage,
+                            price=price
+                        )
+                        db.session.add(new_variation)
+
+                    db.session.commit()
 
             logger.info(f"Product {name} added successfully")
             return {"Message": f"{product_type.capitalize()} added successfully!"}, 201
@@ -382,7 +436,100 @@ class ProductResource(Resource):
             logger.error(f"Error adding product: {e}")
             return {"Error": "An error occurred while adding the product"}, 500
 
-# logger.error(f"Error adding product: {e}\n{traceback.format_exc()}")
+
+class ProductUpdateResource(Resource):
+    def put(self, product_id):
+        try:
+            # Determine the product type and fetch the product by its ID
+            product = (
+                Phone.query.get(product_id) or
+                Tablet.query.get(product_id) or
+                Laptop.query.get(product_id) or
+                Audio.query.get(product_id)
+            )
+            
+            if not product:
+                return {"Error": "Product not found"}, 404
+
+            # Basic product details update
+            product.name = request.form.get('name', product.name)
+            product.price = request.form.get('price', product.price)
+            product.description = request.form.get('description', product.description)
+            product.category_id = request.form.get('category_id', product.category_id)
+            product.brand_id = request.form.get('brand_id', product.brand_id)
+            product.isBestSeller = request.form.get('isBestSeller', str(product.isBestSeller)).lower() == 'true'
+            product.hasVariation = request.form.get('hasVariation', str(product.hasVariation)).lower() == 'true'
+
+            # Append new images to the existing list
+            new_images = request.files.getlist('image_urls')
+            if new_images:
+                uploaded_urls = []
+                for image_file in new_images:
+                    if image_file and allowed_file(image_file.filename):
+                        result = cloudinary.uploader.upload(image_file)
+                        uploaded_urls.append(result['secure_url'])
+                product.image_urls.extend(uploaded_urls)
+
+            # Update fields specific to product type
+            if isinstance(product, Phone) or isinstance(product, Tablet):
+                product.ram = request.form.get('ram', product.ram)
+                product.storage = request.form.get('storage', product.storage)
+                product.battery = request.form.get('battery', product.battery)
+                product.display = request.form.get('display', product.display)
+                product.processor = request.form.get('processor', product.processor)
+                product.main_camera = request.form.get('main_camera', product.main_camera)
+                product.front_camera = request.form.get('front_camera', product.front_camera)
+                product.connectivity = request.form.get('connectivity', product.connectivity)
+                product.colors = request.form.get('colors', product.colors)
+                product.os = request.form.get('os', product.os)
+            elif isinstance(product, Laptop):
+                product.ram = request.form.get('ram', product.ram)
+                product.storage = request.form.get('storage', product.storage)
+                product.battery = request.form.get('battery', product.battery)
+                product.display = request.form.get('display', product.display)
+                product.processor = request.form.get('processor', product.processor)
+                product.os = request.form.get('os', product.os)
+            elif isinstance(product, Audio):
+                product.battery = request.form.get('battery', product.battery)
+
+            # **Update variations if hasVariation is True**
+            if product.hasVariation:
+                variations_data = request.form.get('variations')
+                if variations_data:
+                    import json
+                    variations = json.loads(variations_data)
+                    for variation in variations:
+                        ram = variation.get('ram')
+                        storage = variation.get('storage')
+                        price = variation.get('price', 0)
+                        
+                        # Check if a variation with same RAM and storage exists
+                        existing_variation = next(
+                            (v for v in product.variations if v.ram == ram and v.storage == storage), None
+                        )
+
+                        if existing_variation:
+                            # Update price if variation exists
+                            existing_variation.price = price
+                        else:
+                            # Add new variation if it doesn't exist
+                            new_variation = ProductVariation(
+                                product_id=product.id,
+                                ram=ram,
+                                storage=storage,
+                                price=price
+                            )
+                            db.session.add(new_variation)
+
+            # Commit changes
+            db.session.commit()
+            return {"Message": "Product updated successfully"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            return {"Error": f"An error occurred: {str(e)}"}, 500
+
+
 
 class ProductVariationResource(Resource):
     def post(self, product_id):
@@ -487,7 +634,7 @@ class GetProductById(Resource):
             }
 
             # Use switch-case logic based on product category
-            if category == 'Test' or category == 'Test 2':
+            if category == 'Phone' or category == 'Tablet':
                 # Include variations
                 variations = [
                     {
@@ -501,6 +648,8 @@ class GetProductById(Resource):
 
                 # Other fields specific to Phones/Tablets
                 product_data.update({
+                    'ram': product.ram,
+                    'storage': product.storage,
                     "battery": product.battery,
                     "main_camera": product.main_camera,
                     "front_camera": product.front_camera,
@@ -511,7 +660,7 @@ class GetProductById(Resource):
                     "os": product.os,
                 })
 
-            elif category == 'Laptops':
+            elif category == 'Laptop':
                 product_data.update({
                     "ram": product.ram,
                     "storage": product.storage,
@@ -562,51 +711,185 @@ class CartResource(Resource):
     @jwt_required()
     def get(self):
         current_user_id = get_jwt_identity()
-        cart = Cart.query.filter_by(user_id=current_user_id).first()
-        if not cart:
-            return {"Error": "Cart is empty!"}, 404
-        cart_items = CartItem.query.filter_by(cart_id=cart.id).all()
-        items = [
-            {
-                "product_name": item.product.name,
-                "quantity": item.quantity,
-                "total_price": item.quantity * item.product.price
-            } for item in cart_items
-        ]
-        return {"cart": items}, 200
+
+        try:
+            # Fetch the user's cart
+            cart = Cart.query.filter_by(user_id=current_user_id).first()
+            if not cart:
+                return {"Error": "Cart is empty!"}, 404
+
+            # Fetch all items in the cart
+            cart_items = CartItem.query.filter_by(cart_id=cart.id).all()
+            if not cart_items:
+                return {"Error": "No items in the cart!"}, 404
+
+            # Build the response
+            items = [
+                {
+                    "product_name": item.product.name,
+                    "quantity": item.quantity,
+                    "total_price": item.quantity * (item.variation_price or item.product.price),
+                    "variation": {
+                        "name": item.variation_name,
+                        "price": item.variation_price
+                    } if item.variation_name else None
+                }
+                for item in cart_items
+            ]
+
+            print(request.headers)
+            return {"cart": items}, 200
+
+        except SQLAlchemyError as e:
+            # Handle database-related errors
+            print(f"Database error: {e}")
+            return {"Error": f"Database error: {str(e)}"}, 500
+
+        except AttributeError as e:
+            # Handle missing attribute errors (e.g., if 'item.product' is None)
+            print(f"Attribute error: {e}")
+            return {"Error": "An error occurred while accessing cart item attributes."}, 500
+
+        except Exception as e:
+            # Handle any other unexpected errors
+            print(f"Unexpected error: {e}")
+            return {"Error": f"Unexpected error: {str(e)}"}, 500
+
 
     @jwt_required()
     def post(self):
         current_user_id = get_jwt_identity()
-        data = request.get_json()
 
-        cart = Cart.query.filter_by(user_id=current_user_id).first()
-        if not cart:
-            cart = Cart(user_id=current_user_id)
-            db.session.add(cart)
+        try:
+            # Parse request data
+            data = request.get_json()
+            print(f"Incoming request data: {data}")  # Debug incoming data
+
+            # Validate required fields
+            if not data or 'productId' not in data or 'quantity' not in data:
+                return {"Error": "Invalid request. 'productId' and 'quantity' are required."}, 400
+
+            try:
+                product_id = int(data['productId'])  # Convert productId to integer
+            except ValueError:
+                return {"Error": "Invalid 'productId'. Must be an integer."}, 400
+
+            if not isinstance(data['quantity'], int) or data['quantity'] <= 0:
+                return {"Error": "Invalid 'quantity'. Must be a positive integer."}, 400
+
+            # Fetch or create the user's cart
+            cart = Cart.query.filter_by(user_id=current_user_id).first()
+            if not cart:
+                cart = Cart(user_id=current_user_id)
+                db.session.add(cart)
+                db.session.commit()
+
+            # Fetch product and validate existence
+            product = db.session.get(Product, product_id)
+            if not product:
+                return {"Error": f"Product with ID {product_id} not found."}, 400
+
+            # Handle variations if provided
+            variation_name = None
+            variation_price = None
+            if data.get('selectedVariation'):
+                variation = data['selectedVariation']
+                if not isinstance(variation, dict):
+                    return {"Error": "Invalid 'selectedVariation'. Must be an object."}, 400
+
+                if 'ram' not in variation or 'storage' not in variation or 'price' not in variation:
+                    return {"Error": "Invalid 'selectedVariation' data. 'ram', 'storage', and 'price' are required."}, 400
+
+                variation_name = f"{variation['ram']} - {variation['storage']}"
+                variation_price = variation['price']
+
+                if not isinstance(variation_price, (int, float)) or variation_price <= 0:
+                    return {"Error": "Invalid variation price. Must be a positive number."}, 400
+
+            # Check if the cart item already exists
+            cart_item = CartItem.query.filter_by(
+                cart_id=cart.id,
+                product_id=product.id,
+                variation_name=variation_name
+            ).first()
+
+            if cart_item:
+                cart_item.quantity += data['quantity']
+            else:
+                cart_item = CartItem(
+                    cart_id=cart.id,
+                    product_id=product.id,
+                    quantity=data['quantity'],
+                    variation_name=variation_name,
+                    variation_price=variation_price
+                )
+                db.session.add(cart_item)
+
+            db.session.commit()
+            return {"Message": "Product added to cart successfully!"}, 201
+
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            return {"Error": f"Database error: {str(e)}"}, 500
+        except KeyError as e:
+            return {"Error": f"Missing required key: {str(e)}"}, 400
+        except ValueError as e:
+            return {"Error": f"Invalid value: {str(e)}"}, 400
+        except Exception as e:
+            return {"Error": f"Unexpected error: {str(e)}"}, 500
+        
+    @jwt_required()
+    def put(self):
+        current_user_id = get_jwt_identity()
+
+        try:
+            # Parse request data
+            data = request.get_json()
+            print(f"Incoming request data for update: {data}")  # Debug incoming data
+
+            # Validate required fields
+            if not data or 'productId' not in data or 'quantity' not in data:
+                return {"Error": "Invalid request. 'productId' and 'quantity' are required."}, 400
+
+            try:
+                product_id = int(data['productId'])  # Convert productId to integer
+            except ValueError:
+                return {"Error": "Invalid 'productId'. Must be an integer."}, 400
+
+            if not isinstance(data['quantity'], int) or data['quantity'] <= 0:
+                return {"Error": "Invalid 'quantity'. Must be a positive integer."}, 400
+
+            # Fetch the user's cart
+            cart = Cart.query.filter_by(user_id=current_user_id).first()
+            if not cart:
+                return {"Error": "Cart is empty!"}, 404
+
+            # Check if the cart item exists
+            variation_name = None
+            if data.get('selectedVariation'):
+                variation_name = data['selectedVariation']
+
+            cart_item = CartItem.query.filter_by(
+                cart_id=cart.id,
+                product_id=product_id,
+                variation_name=variation_name
+            ).first()
+
+            if not cart_item:
+                return {"Error": "Cart item not found!"}, 404
+
+            # Update the quantity
+            cart_item.quantity = data['quantity']
             db.session.commit()
 
-        product = Product.query.get_or_404(data['product_id'])
-        cart_item = CartItem.query.filter_by(cart_id=cart.id, product_id=product.id).first()
+            return {"Message": "Cart item quantity updated successfully!"}, 200
 
-        if cart_item:
-            cart_item.quantity += data['quantity']
-        else:
-            cart_item = CartItem(cart_id=cart.id, product_id=product.id, quantity=data['quantity'])
-            db.session.add(cart_item)
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            return {"Error": f"Database error: {str(e)}"}, 500
+        except Exception as e:
+            return {"Error": f"Unexpected error: {str(e)}"}, 500
 
-        db.session.commit()
-        return {"Message": "Product added to cart!"}, 201
-
-    @jwt_required()
-    def delete(self, product_id):
-        current_user_id = get_jwt_identity()
-        cart = Cart.query.filter_by(user_id=current_user_id).first_or_404()
-        cart_item = CartItem.query.filter_by(cart_id=cart.id, product_id=product_id).first_or_404()
-
-        db.session.delete(cart_item)
-        db.session.commit()
-        return {"Message": "Product removed from cart!"}, 200
 
 # Wishlist Management
 class WishlistResource(Resource):
@@ -1073,6 +1356,7 @@ api.add_resource(GetProductsByCategory, '/products/category/<int:category_id>')
 api.add_resource(GetProductById, '/product/<int:product_id>')
 api.add_resource(DeleteProductById, '/product/<int:product_id>')
 api.add_resource(ProductVariationResource, '/products/<int:product_id>/variations')
+api.add_resource(ProductUpdateResource, '/products/<int:product_id>')
 
 # Cart routes
 api.add_resource(CartResource, '/cart')
@@ -1106,7 +1390,7 @@ api.add_resource(BrandResource, '/brands')
 api.add_resource(SingleBrandResource, '/brands/<int:brand_id>')
 
 #category route
-api.add_resource(CategoryResource, '/categories')
+api.add_resource(CategoryResource, '/categories', '/categories/<int:category_id>')
 
 # Run the Flask app
 if __name__ == '__main__':
