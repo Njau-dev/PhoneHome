@@ -13,6 +13,13 @@ const ShopContextProvider = (props) => {
         audio: []
     });
 
+    const allProducts = [
+        ...products.phones,
+        ...products.tablets,
+        ...products.laptops,
+        ...products.audio
+    ];
+
     const currency = 'Kshs';
     const delivery_fee = 300;
     const backendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -25,12 +32,7 @@ const ShopContextProvider = (props) => {
     const addToCart = async (productId, selectedVariation = null, quantity = 1) => {
         const cartData = structuredClone(cartItems);
 
-        const allProducts = [
-            ...products.phones,
-            ...products.tablets,
-            ...products.laptops,
-            ...products.audio
-        ];
+
 
         const productData = allProducts.find(product => Number(product.id) === Number(productId));
 
@@ -171,26 +173,25 @@ const ShopContextProvider = (props) => {
     }, []);
 
     const getUserCart = async (token) => {
-
         try {
-
-            const response = await axios.get(backendUrl + '/cart', {
+            const response = await axios.get(`${backendUrl}/cart`, {
                 headers: {
+                    'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
-                }
-            })
+                },
+            });
 
-            setCartItems(response.data.cart);
-
+            setCartItems(response.data.cart); // Update state with cart data
         } catch (error) {
-            // console.error("Error fetching cart:", error);
+            console.error("Error fetching cart:", error); // Log error for debugging
+            toast.error(error)
         }
-    }
-    getUserCart(token)
+    };
 
     useEffect(() => {
         if (!token && localStorage.getItem('token')) {
             setToken(localStorage.getItem('token'))
+            getUserCart(localStorage.getItem('token'))
         }
     }, [])
 

@@ -60,8 +60,11 @@ const Cart = () => {
     }
 
     setCartData(tempData);
-    // console.log("Cart Data:", tempData);
   }, [cartItems]);
+
+  useEffect(() => {
+    // console.log("Cart Data:", cartData);
+  }, [cartData]);
 
   const handleQuantityChange = (id, variationKey, action) => {
     const updatedCartItems = { ...cartItems };
@@ -194,7 +197,7 @@ const Cart = () => {
               {
                 cartData.map((item, index) => {
                   // Find product data from flatProducts using the product ID
-                  const productData = flatProducts.find((product) => product.id === Number(item.id));
+                  const productData = flatProducts.find((product) => Number(product.id) === Number(item.id));
 
                   if (!productData) {
                     console.error(`Product not found for ID: ${item.id}`);

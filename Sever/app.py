@@ -716,12 +716,14 @@ class CartResource(Resource):
             # Fetch the user's cart
             cart = Cart.query.filter_by(user_id=current_user_id).first()
             if not cart:
-                return {"Error": "Cart is empty!"}, 404
+                # Return an empty cart array if no cart exists
+                return {"cart": []}, 200
 
             # Fetch all items in the cart
             cart_items = CartItem.query.filter_by(cart_id=cart.id).all()
             if not cart_items:
-                return {"Error": "No items in the cart!"}, 404
+                # Return an empty cart array if no items exist
+                return {"cart": []}, 200
 
             # Build the response
             items = [
@@ -730,29 +732,28 @@ class CartResource(Resource):
                     "quantity": item.quantity,
                     "total_price": item.quantity * (item.variation_price or item.product.price),
                     "variation": {
-                        "name": item.variation_name,
-                        "price": item.variation_price
-                    } if item.variation_name else None
+                        "name": item.variation_name or "",
+                        "price": item.variation_price or 0
+                    } if item.variation_name else {}
                 }
                 for item in cart_items
             ]
 
-            print(request.headers)
             return {"cart": items}, 200
 
         except SQLAlchemyError as e:
             # Handle database-related errors
-            print(f"Database error: {e}")
+            print(f"Database error for user {current_user_id}: {e}")
             return {"Error": f"Database error: {str(e)}"}, 500
 
         except AttributeError as e:
             # Handle missing attribute errors (e.g., if 'item.product' is None)
-            print(f"Attribute error: {e}")
+            print(f"Attribute error for user {current_user_id}: {e}")
             return {"Error": "An error occurred while accessing cart item attributes."}, 500
 
         except Exception as e:
             # Handle any other unexpected errors
-            print(f"Unexpected error: {e}")
+            print(f"Unexpected error for user {current_user_id}: {e}")
             return {"Error": f"Unexpected error: {str(e)}"}, 500
 
 
