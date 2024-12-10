@@ -182,6 +182,8 @@ const ShopContextProvider = (props) => {
             });
 
             setCartItems(response.data.cart); // Update state with cart data
+            console.log(response.data.cart);
+
         } catch (error) {
             console.error("Error fetching cart:", error); // Log error for debugging
             toast.error(error)

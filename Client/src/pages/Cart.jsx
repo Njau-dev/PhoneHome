@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { ShopContext } from '../context/ShopContext'
 import Title from '../components/Title';
-import { TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 import CartTotal from '../components/CartTotal';
 import axios from 'axios';
@@ -199,6 +199,8 @@ const Cart = () => {
                   // Find product data from flatProducts using the product ID
                   const productData = flatProducts.find((product) => Number(product.id) === Number(item.id));
 
+                  console.log(cartData);
+
                   if (!productData) {
                     console.error(`Product not found for ID: ${item.id}`);
                     return null;
@@ -228,7 +230,7 @@ const Cart = () => {
                       {/* Product Name - Variation */}
                       <td className="py-4 lg:py-6 lg:table-cell flex lg:flex-none flex-col items-center lg:items-start">
                         <p className='font-medium text-xl'>{productData.name}</p>
-                        {variationKey && <p className="text-sm text-secondary pt-1"> {variationKey}</p>}
+                        {variationKey && <p className="text-sm text-secondary pt-1"> {variationKey ? variationKey : ""}</p>}
                       </td>
 
                       {/* Price */}

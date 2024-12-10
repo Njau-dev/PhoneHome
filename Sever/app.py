@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 import logging
 import traceback
 from sqlalchemy.exc import SQLAlchemyError
+from collections import defaultdict
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -713,48 +714,32 @@ class CartResource(Resource):
         current_user_id = get_jwt_identity()
 
         try:
-            # Fetch the user's cart
             cart = Cart.query.filter_by(user_id=current_user_id).first()
             if not cart:
-                # Return an empty cart array if no cart exists
-                return {"cart": []}, 200
+                return {"cart": {}}, 200
 
-            # Fetch all items in the cart
             cart_items = CartItem.query.filter_by(cart_id=cart.id).all()
             if not cart_items:
-                # Return an empty cart array if no items exist
-                return {"cart": []}, 200
+                return {"cart": {}}, 200
 
-            # Build the response
-            items = [
-                {
-                    "product_name": item.product.name,
+            # Group items by product_id
+            grouped_items = defaultdict(dict)
+            for item in cart_items:
+                variation_name = item.variation_name or None
+                grouped_items[item.product_id][variation_name] = {
                     "quantity": item.quantity,
-                    "total_price": item.quantity * (item.variation_price or item.product.price),
-                    "variation": {
-                        "name": item.variation_name or "",
-                        "price": item.variation_price or 0
-                    } if item.variation_name else {}
+                    "price": item.variation_price or item.product.price
                 }
-                for item in cart_items
-            ]
 
-            return {"cart": items}, 200
+            return {"cart": grouped_items}, 200
 
         except SQLAlchemyError as e:
-            # Handle database-related errors
-            print(f"Database error for user {current_user_id}: {e}")
-            return {"Error": f"Database error: {str(e)}"}, 500
-
-        except AttributeError as e:
-            # Handle missing attribute errors (e.g., if 'item.product' is None)
-            print(f"Attribute error for user {current_user_id}: {e}")
-            return {"Error": "An error occurred while accessing cart item attributes."}, 500
+            print(f"Database error: {e}")
+            return {"Error": "Database error."}, 500
 
         except Exception as e:
-            # Handle any other unexpected errors
-            print(f"Unexpected error for user {current_user_id}: {e}")
-            return {"Error": f"Unexpected error: {str(e)}"}, 500
+            print(f"Unexpected error: {e}")
+            return {"Error": "Unexpected error."}, 500
 
 
     @jwt_required()
