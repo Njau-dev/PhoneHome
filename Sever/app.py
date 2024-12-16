@@ -854,6 +854,7 @@ class CartResource(Resource):
             variation_name = None
             if data.get('selectedVariation'):
                 variation_name = data['selectedVariation']
+                variation_name = None if variation_name in ['null', None, ''] else variation_name
 
             cart_item = CartItem.query.filter_by(
                 cart_id=cart.id,
@@ -875,7 +876,64 @@ class CartResource(Resource):
             return {"Error": f"Database error: {str(e)}"}, 500
         except Exception as e:
             return {"Error": f"Unexpected error: {str(e)}"}, 500
+        
+    
+    @jwt_required()
+    def delete(self):
+        current_user_id = get_jwt_identity()
 
+        try:
+            # Parse request data
+            data = request.get_json()
+
+            # Validate required fields
+            if not data or 'productId' not in data:
+                return {"Error": "Invalid request. 'productId' is required."}, 400
+
+            try:
+                product_id = int(data['productId'])  # Convert productId to integer
+            except ValueError:
+                return {"Error": "Invalid 'productId'. Must be an integer."}, 400
+
+            # Fetch the user's cart
+            cart = Cart.query.filter_by(user_id=current_user_id).first()
+            if not cart:
+                return {"Error": "Cart is empty!"}, 404
+
+            # Check if the cart item exists
+            variation_name = None
+            if data.get('selectedVariation'):
+                variation_name = data['selectedVariation']
+                variation_name = None if variation_name in ['null', None, ''] else variation_name
+
+            cart_item = CartItem.query.filter_by(
+                cart_id=cart.id,
+                product_id=product_id,
+                variation_name=variation_name
+            ).first()
+
+            if not cart_item:
+                return {"Error": "Cart item not found!"}, 404
+
+            # Remove the cart item
+            db.session.delete(cart_item)
+            db.session.commit()
+
+            # Check if the cart is now empty and handle cleanup if necessary
+            remaining_items = CartItem.query.filter_by(cart_id=cart.id).count()
+            if remaining_items == 0:
+                db.session.delete(cart)
+                db.session.commit()
+
+            return {"Message": "Cart item removed successfully!"}, 200
+
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            return {"Error": f"Database error: {str(e)}"}, 500
+        except Exception as e:
+            return {"Error": f"Unexpected error: {str(e)}"}, 500
+
+   
 
 # Wishlist Management
 class WishlistResource(Resource):

@@ -139,7 +139,7 @@ const Cart = () => {
     }
   };
 
-  const handleDeleteItem = (id, variationKey) => {
+  const handleDeleteItem = async (id, variationKey) => {
     // Filter out the item with matching ID and variation key
     const updatedCart = cartData.filter(
       (item) => !(item.id === id && item.variation === variationKey)
@@ -166,6 +166,29 @@ const Cart = () => {
     setCartItems(updatedCartItems);
 
     toast.success('Item removed from the cart successfully!');
+
+
+    if (token) {
+      try {
+        // Construct payload for the backend
+        const payload = variationKey
+          ? { productId: id, selectedVariation: variationKey }
+          : { productId: id };
+
+        // Send DELETE request to the backend
+        await axios.delete(`${backendUrl}/cart`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          data: payload, // For DELETE requests, payload is sent in the `data` field
+        });
+
+        toast.success("Cart updated!");
+      } catch (error) {
+        console.error(error);
+        toast.error("Error deleting item from the cart!");
+      }
+    }
   };
 
   return (
@@ -198,8 +221,6 @@ const Cart = () => {
                 cartData.map((item, index) => {
                   // Find product data from flatProducts using the product ID
                   const productData = flatProducts.find((product) => Number(product.id) === Number(item.id));
-
-                  console.log(cartData);
 
                   if (!productData) {
                     console.error(`Product not found for ID: ${item.id}`);
