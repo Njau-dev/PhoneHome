@@ -66,7 +66,7 @@ const Cart = () => {
     // console.log("Cart Data:", cartData);
   }, [cartData]);
 
-  const handleQuantityChange = (id, variationKey, action) => {
+  const handleQuantityChange = async (id, variationKey, action) => {
     const updatedCartItems = { ...cartItems };
 
     // Check if it's a variation product
@@ -127,7 +127,7 @@ const Cart = () => {
           ? { productId: id, selectedVariation: variationKey, quantity: updatedCartItems[id][variationKey].quantity }
           : { productId: id, quantity: updatedCartItems[id].quantity };
 
-        axios.put(backendUrl + '/cart', updatedProduct, {
+        await axios.put(backendUrl + '/cart', updatedProduct, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

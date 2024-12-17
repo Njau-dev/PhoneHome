@@ -180,14 +180,22 @@ class CartItem(db.Model):
     product = db.relationship('Product', backref='cart_items', lazy='joined')
 
 
-# Order model
 class Order(db.Model):
     __tablename__ = 'orders'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(50), nullable=False, default="Pending")
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # New fields
+    total_amount = db.Column(db.Float, nullable=False)
+    address = db.Column(db.JSON, nullable=False)
+    status = db.Column(db.String(50), nullable=False, default="Order Placed")
+    payment_method = db.Column(db.String(50), nullable=False, default="COD")
+    payment = db.Column(db.Boolean, default=False)
+    date = db.Column(db.Integer, default=lambda: int(datetime.utcnow().timestamp()))
+
+    # Relationships
     order_items = db.relationship('OrderItem', backref='order', lazy=True, cascade="all, delete-orphan")
 
 

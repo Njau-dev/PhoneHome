@@ -181,11 +181,11 @@ const ShopContextProvider = (props) => {
                 },
             });
 
-            setCartItems(response.data.cart); // Update state with cart data
+            setCartItems(response.data.cart);
             console.log(response.data.cart);
 
         } catch (error) {
-            console.error("Error fetching cart:", error); // Log error for debugging
+            console.error("Error fetching cart:", error);
             toast.error(error)
         }
     };
