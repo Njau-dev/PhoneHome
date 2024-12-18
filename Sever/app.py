@@ -981,49 +981,126 @@ class OrderResource(Resource):
     def get(self):
         current_user_id = get_jwt_identity()
         orders = Order.query.filter_by(user_id=current_user_id).all()
+
         if not orders:
             return {"Message": "No orders found!"}, 404
+        
         order_list = []
         for order in orders:
             items = OrderItem.query.filter_by(order_id=order.id).all()
             order_items = [
-                {
-                    "product_name": item.product.name,
-                    "quantity": item.quantity,
-                    "price": item.product.price
-                } for item in items
+            {
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "variation_name": item.variation_name
+            } for item in items
             ]
             order_list.append({
                 "order_id": order.id,
-                "items": order_items,
-                "total_price": sum(item['price'] * item['quantity'] for item in order_items)
+                "total_amount": order.total_amount,
+                "status": order.status,
+                "payment_method": order.payment_method,
+                "payment": order.payment,
+                "address": order.address,
+                "date": order.date,
+                "items": order_items
             })
         return {"orders": order_list}, 200
 
     @jwt_required()
     def post(self):
         current_user_id = get_jwt_identity()
-        cart = Cart.query.filter_by(user_id=current_user_id).first_or_404()
-        cart_items = CartItem.query.filter_by(cart_id=cart.id).all()
+        data = request.get_json()
 
+        # Fetch cart and validate it
+        cart = Cart.query.filter_by(user_id=current_user_id).first()
+        if not cart:
+            return {"Error": "Cart not found!"}, 404
+        cart_items = CartItem.query.filter_by(cart_id=cart.id).all()
         if not cart_items:
             return {"Error": "Your cart is empty!"}, 400
 
-        new_order = Order(user_id=current_user_id)
+        # Validate address and total_amount from frontend
+        address = data.get('address')
+        total_amount = data.get('total_amount')
+        if not address or not total_amount:
+            return {"Error": "Address and total amount are required!"}, 400
+
+        # Create new Order
+        new_order = Order(
+            user_id=current_user_id,
+            total_amount=total_amount,
+            address=address,
+            payment_method="COD",
+            payment=False,
+            status="Order Placed"
+        )
         db.session.add(new_order)
         db.session.commit()
 
+        # Transfer cart items to OrderItems
         for item in cart_items:
-            new_order_item = OrderItem(
+            order_item = OrderItem(
                 order_id=new_order.id,
                 product_id=item.product_id,
-                quantity=item.quantity
+                quantity=item.quantity,
+                variation_name=item.variation_name
             )
-            db.session.add(new_order_item)
-            db.session.delete(item)  # Remove items from the cart after ordering
+            db.session.add(order_item)
+            db.session.delete(item)  # Remove from cart
 
         db.session.commit()
         return {"Message": "Order placed successfully!"}, 201
+    
+
+class AdminOrderResource(Resource):
+    @jwt_required()
+    @admin_required
+    def get(self):
+        orders = Order.query.all()
+        order_list = []
+        for order in orders:
+            items = OrderItem.query.filter_by(order_id=order.id).all()
+            order_items = [
+                {
+                    "product_id": item.product_id,
+                    "quantity": item.quantity,
+                    "variation_name": item.variation_name  # Include variation name
+                } for item in items
+            ]
+            order_list.append({
+                "order_id": order.id,
+                "user_id": order.user_id,
+                "total_amount": order.total_amount,
+                "status": order.status,
+                "payment_method": order.payment_method,
+                "payment": order.payment,
+                "address": order.address,
+                "date": order.date,
+                "items": order_items  # Include order items
+            })
+        return {"orders": order_list}, 200
+
+
+
+class OrderStatusResource(Resource):
+    @jwt_required()
+    @admin_required
+    def put(self, order_id):
+        data = request.get_json()
+        new_status = data.get('status')
+
+        ORDER_STATUSES = ["Order Placed", "Packing", "Shipped", "Out for Delivery", "Delivered"]
+
+        if new_status not in ORDER_STATUSES:
+            return {"Error": "Invalid order status!"}, 400
+
+        order = Order.query.get_or_404(order_id)
+        order.status = new_status
+        db.session.commit()
+
+        return {"Message": f"Order status updated to {new_status}!"}, 200
+
 
 # Review Management
 class ReviewResource(Resource):
@@ -1410,6 +1487,8 @@ api.add_resource(WishlistResource, '/wishlist')
 
 # Order routes
 api.add_resource(OrderResource, '/orders')
+api.add_resource(AdminOrderResource, '/orders/admin')
+api.add_resource(OrderStatusResource, '/orders/status/<int:order_id>')
 
 # Review routes
 api.add_resource(ReviewResource, '/reviews/<int:product_id>')

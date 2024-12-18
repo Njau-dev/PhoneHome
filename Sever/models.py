@@ -174,7 +174,7 @@ class CartItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cart_id = db.Column(db.Integer, db.ForeignKey('carts.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    variation_name = db.Column(db.String(255), nullable=True)  # Store variation info (e.g., '8GB - 256GB')
+    variation_name = db.Column(db.String(255), nullable=True)
     variation_price = db.Column(db.Integer, nullable=True)
     quantity = db.Column(db.Integer, nullable=False, default=1)
     product = db.relationship('Product', backref='cart_items', lazy='joined')
@@ -206,6 +206,7 @@ class OrderItem(db.Model):
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
+    variation_name = db.Column(db.String(255), nullable=True)
 
 
 # Payment model
