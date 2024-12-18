@@ -2,15 +2,75 @@ import React, { useContext, useState } from 'react'
 import Title from '../components/Title'
 import CartTotal from '../components/CartTotal'
 import { ShopContext } from '../context/ShopContext';
+import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const PlaceOrder = () => {
 
   const [selectedMethod, setSelectedMethod] = useState('cash');
 
-  const { navigate } = useContext(ShopContext);
+  const { navigate, backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
+
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    city: '',
+    street: '',
+    additionalInfo: ''
+  })
+
+  const onChangeHandler = (e) => {
+    const name = e.target.name
+    const value = e.target.value
+
+    setFormData(data => ({ ...data, [name]: value }))
+
+  }
+
+  const onSubmitHandler = async (e) => {
+    e.preventDefault();
+
+    try {
+      const total_amount = getCartAmount() + delivery_fee;
+      const address = formData;
+
+      // Check payment method
+      switch (selectedMethod) {
+        case "cash":
+          const response = await axios.post(
+            backendUrl + "/orders",
+            { total_amount, address },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+
+          if (response.status === 201) {
+            toast.success(response.data.Message);
+
+            navigate("/orders");
+            setCartItems({});
+          }
+          break;
+
+        // Placeholder for other payment methods
+        case "Credit Card":
+        case "PayPal":
+        case "Mpesa":
+          console.log("Other payment methods will be implemented later.");
+          break;
+
+        default:
+          toast.warning("Invalid payment method selected.");
+      }
+    } catch (error) {
+      toast.error("Failed to place order. Please try again.");
+    }
+  };
+
 
   return (
-    <div className='flex flex-col sm:flex-row justify-between gap-4 pt-5 sm:pt-14 min-h-[70vh] border-t border-border'>
+    <form onSubmit={onSubmitHandler} className='flex flex-col sm:flex-row justify-between gap-4 pt-5 sm:pt-14 min-h-[70vh] border-t border-border'>
 
       {/* -----LEFT sIDE----- */}
       <div className='flex flex-col gap-4 w-full sm:max-w-[750px]'>
@@ -22,11 +82,19 @@ const PlaceOrder = () => {
           <input
             type="text"
             placeholder="First name"
+            name='firstName'
+            value={formData.firstName}
+            onChange={onChangeHandler}
+            required
             className="w-full px-2 py-3.5 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded"
           />
           <input
             type="text"
             placeholder="Last name"
+            name='lastName'
+            value={formData.lastName}
+            onChange={onChangeHandler}
+            required
             className="w-full px-2 py-3.5 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded"
           />
         </div>
@@ -34,12 +102,20 @@ const PlaceOrder = () => {
         <input
           type="email"
           placeholder="Email address"
+          name='email'
+          value={formData.email}
+          onChange={onChangeHandler}
+          required
           className="w-full px-2 py-3.5 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded"
         />
 
         <input
           type="number"
           placeholder="Phone no."
+          name='phone'
+          value={formData.phone}
+          onChange={onChangeHandler}
+          required
           className="w-full px-2 py-3.5 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded"
         />
 
@@ -47,11 +123,19 @@ const PlaceOrder = () => {
           <input
             type="text"
             placeholder="City / Town"
+            name='city'
+            value={formData.city}
+            onChange={onChangeHandler}
+            required
             className="w-full px-2 py-3.5 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded"
           />
           <input
             type="text"
             placeholder="Street address"
+            name='street'
+            value={formData.street}
+            onChange={onChangeHandler}
+            required
             className="w-full px-2 py-3.5 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded"
           />
         </div>
@@ -59,6 +143,10 @@ const PlaceOrder = () => {
 
         <textarea
           placeholder="Additional Information"
+          name='additionalInfo'
+          value={formData.additionalInfo}
+          onChange={onChangeHandler}
+          required
           className="w-full h-32 p-3 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded resize-none"
         ></textarea>
 
@@ -113,12 +201,12 @@ const PlaceOrder = () => {
           </div>
 
           <div className='w-full text-center mt-8'>
-            <button onClick={() => navigate('/orders')} className='bg-accent  hover:bg-bgdark hover:text-accent hover:border border-accent rounded text-bgdark text-base mt-8 mb-3 py-3 px-12'>PLACE ORDER</button>
+            <button type='submit' className='bg-accent  hover:bg-bgdark hover:text-accent hover:border border-accent rounded text-bgdark text-base mt-8 mb-3 py-3 px-12'>PLACE ORDER</button>
           </div>
         </div>
 
       </div>
-    </div>
+    </form>
 
   )
 }
