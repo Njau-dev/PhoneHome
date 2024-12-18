@@ -207,6 +207,7 @@ class OrderItem(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
     variation_name = db.Column(db.String(255), nullable=True)
+    variation_price = db.Column(db.Integer, nullable=True)
 
 
 # Payment model
