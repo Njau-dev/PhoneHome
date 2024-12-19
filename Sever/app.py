@@ -1078,15 +1078,32 @@ class AdminOrderResource(Resource):
     @admin_required
     def get(self):
         orders = Order.query.all()
+
+        if not orders:
+            return {"Message": "No orders found!"}, 404
+        
+        # Fetch order items for all orders
+        order_items = OrderItem.query.filter(OrderItem.order_id.in_([order.id for order in orders])).all()
+        
+        # Extract unique product IDs
+        product_ids = {item.product_id for item in order_items}
+
+        # Fetch product details in bulk (only fetching product names)
+        products = Product.query.filter(Product.id.in_(product_ids)).all()
+        product_map = {
+            product.id: product.name for product in products
+        }
+
+        # Build order list
         order_list = []
         for order in orders:
-            items = OrderItem.query.filter_by(order_id=order.id).all()
-            order_items = [
+            items = [
                 {
                     "product_id": item.product_id,
+                    "name": product_map.get(item.product_id, "Product Not Found"),
                     "quantity": item.quantity,
-                    "variation_name": item.variation_name  # Include variation name
-                } for item in items
+                    "variation_name": item.variation_name
+                } for item in order_items if item.order_id == order.id
             ]
             order_list.append({
                 "order_id": order.id,
@@ -1097,10 +1114,10 @@ class AdminOrderResource(Resource):
                 "payment": order.payment,
                 "address": order.address,
                 "date": order.date,
-                "items": order_items  # Include order items
+                "items": items
             })
+        
         return {"orders": order_list}, 200
-
 
 
 class OrderStatusResource(Resource):
