@@ -8,15 +8,10 @@ const LatestCollection = () => {
     const { products } = useContext(ShopContext);
     const [latestProducts, setLatestProducts] = useState([]);
 
-    // console.log(products);
 
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                // Log products to see the structure and content
-                console.log('products.phones:', products.phones);
-
-                // Check if products.phones exists and is an array
                 if (products.phones && Array.isArray(products.phones)) {
                     setLatestProducts(products.phones.slice(0, 10));
                 } else {

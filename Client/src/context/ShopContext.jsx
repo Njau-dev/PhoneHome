@@ -147,7 +147,7 @@ const ShopContextProvider = (props) => {
     };
 
     useEffect(() => {
-        console.log(cartItems);
+        // console.log(cartItems);
     }, [cartItems]);
 
     useEffect(() => {
@@ -182,7 +182,7 @@ const ShopContextProvider = (props) => {
             });
 
             setCartItems(response.data.cart);
-            console.log(response.data.cart);
+            // console.log(response.data.cart);
 
         } catch (error) {
             console.error("Error fetching cart:", error);

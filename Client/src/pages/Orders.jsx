@@ -63,7 +63,7 @@ const Orders = () => {
               <div className='flex flex-col md:flex-row items-center gap-6 text-sm'>
                 <img className='w-16 rounded-md sm:w-20 mt-2' src={item.image_urls[0]} />
                 <div className='flex-1'>
-                  <p className='sm:text-base p-1 rounded text-center lg:bg-none font-medium mb-1'>{item.name}</p>
+                  <p className='sm:text-base p-1 rounded lg:bg-none font-medium mb-1'>{item.name}</p>
                   {item.variation_name ? <p>Variation: {item.variation_name}</p> : ''}
                   <div className='flex items-center gap-3 mt-1 text-base text-primary'>
                     <p className='text-base'>{currency}: {item.price}</p>
