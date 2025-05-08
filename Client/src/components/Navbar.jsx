@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react'
+import { useContext, useState } from 'react'
 import Logo from '/src/assets/logo.png'
 import { NavLink } from 'react-router-dom'
 import { ArrowLeftCircleIcon, Bars3BottomRightIcon, MagnifyingGlassIcon, ShoppingBagIcon, UserIcon } from '@heroicons/react/24/outline'
@@ -63,7 +63,7 @@ const Navbar = () => {
                     {/* dropdown menu */}
 
                     {token &&
-                        <div className="group-hover:block hidden absolute dropdown-menu right-[-2rem] pt-4 ">
+                        <div className="group-hover:block hidden absolute dropdown-menu right-[-2rem] pt-4 z-20">
                             <div className="flex flex-col gap-2 w-36 py-3 px-5 bg-bgdark text-primary rounded border border-border">
                                 <p onClick={() => navigate('/profile')} className='cursor-pointer hover:text-accent'>My Profile</p>
                                 <p onClick={() => navigate('/orders')} className='cursor-pointer hover:text-accent'>Orders</p>
@@ -87,7 +87,7 @@ const Navbar = () => {
 
             {/* Sidebar Menu for responsive screen */}
 
-            <div className={`${visible ? 'w-full' : 'w-0'} absolute top-0 right-0 bottom-0 left-0 overflow-hidden bg-bgdark transition-all`}>
+            <div className={`${visible ? 'w-full' : 'w-0'} absolute z-40 top-0 right-0 bottom-0 left-0 overflow-hidden bg-bgdark transition-all`}>
                 <div className="flex flex-col text-primary">
                     <div onClick={() => setVisible(false)} className="flex flex-col justify-between gap-4 p-3 cursor-pointer">
 

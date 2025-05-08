@@ -2,12 +2,12 @@ import React, { useContext, useEffect, useState } from 'react'
 import { ShopContext } from '../context/ShopContext'
 import Title from './Title';
 import ProductItem from './ProductItem';
+import ProductCarousel from './ProductCarousel';
 
 const LatestCollection = () => {
 
     const { products } = useContext(ShopContext);
     const [latestProducts, setLatestProducts] = useState([]);
-
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -21,35 +21,41 @@ const LatestCollection = () => {
                 console.error('Error fetching products:', error);
             }
         };
-
         fetchProducts();
     }, [products]);
 
-
     return (
-        <div className='my-10'>
+        <div className='container mx-auto my-10 px-4'>
             <div className="text-center py-8 text-3xl">
                 <Title text1={'LATEST'} text2={'ARRIVALS'} />
                 <p className='w-3/4 m-auto text-sm sm:text-base'>Take a look at the most recent devices and technology here at Phone Home Kenya</p>
             </div>
 
-            {/* Rendering the products */}
-            <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 gap-y-6'>
-                {
-                    latestProducts.length > 0 ? (
-                        latestProducts.map((product, index) => (
-                            <ProductItem key={index} id={product.id} image={product.image_urls} name={product.name} price={product.price} category={product.category} />
 
-                        ))
-                    ) : (
-                        <p>No Products available</p>
-                    )
-
-                }
-            </div>
+            {/* Rendering the products in carousel */}
+            {latestProducts.length > 0 ? (
+                <ProductCarousel
+                    slidesToShow={5}
+                    className=" pb-6"
+                >
+                    {latestProducts.map((product, index) => (
+                        <div key={index} className="px-3">
+                            <ProductItem
+                                id={product.id}
+                                image={product.image_urls}
+                                name={product.name}
+                                price={product.price}
+                                category={product.category}
+                                hasVariation={product.hasVariation}
+                            />
+                        </div>
+                    ))}
+                </ProductCarousel>
+            ) : (
+                <p className="text-center">No Latest Products available</p>
+            )}
 
         </div>
     )
 }
-
 export default LatestCollection

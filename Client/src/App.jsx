@@ -1,5 +1,4 @@
-import React from 'react'
-import { Routes, Route, Router, NavLink } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import Home from './pages/Home'
 import Collection from './pages/Collection'
 import Contact from './pages/Contact'
@@ -12,13 +11,13 @@ import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import SearchBar from './components/SearchBar'
 // import AdminPanel from './pages/AdminPanel'
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Profile from './pages/Profile'
 
 const App = () => {
   return (
-    <div className='px-4 sm:px-[5vw] md:px-[7vw] 1g:px-[9vw]' id='App'>
+    <div className='px-4 sm:px-[5vw] md:px-[7vw] 1g:px-[9vw] relative' id='App'>
 
       <ToastContainer />
       <Navbar />
@@ -28,6 +27,7 @@ const App = () => {
       <Routes>
         <Route path='/' element={<Home />} />
         <Route path='/collection' element={<Collection />} />
+        <Route path='/collection/:category' element={<Collection />} />
         <Route path='/contact' element={<Contact />} />
         <Route path='/product/:productId' element={<Product />} />
         <Route path='/cart' element={<Cart />} />

@@ -4,8 +4,30 @@
 @tailwind components;
 @tailwind utilities;
 
+
+/* Quickview css */
+/* Add backdrop-filter support for modern browsers */
+@supports (backdrop-filter: blur(10px)) {
+    .backdrop-blur-sm {
+        backdrop-filter: blur(4px);
+    }
+
+    .backdrop-blur {
+        backdrop-filter: blur(8px);
+    }
+}
+
+/* Fallback for browsers that don't support backdrop-filter */
+@supports not (backdrop-filter: blur(10px)) {
+
+    .backdrop-blur-sm,
+    .backdrop-blur {
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+}
+
 html {
-    font-size: 16px; 
+    font-size: 16px;
 }
 
 
@@ -25,11 +47,13 @@ body {
     --border-color: #94949448;
     --accents: #d5a00d;
 }
+
 .prata-regular {
     font-family: "Prata", serif;
     font-weight: 500;
     font-style: normal;
 }
+
 h1 {
     /* font-size: 3rem; */
     font-weight: 700;
@@ -42,16 +66,17 @@ p {
 /* Nav section styling */
 
 .Nav a {
-    transition: 0.5s all ease ;
+    transition: 0.5s all ease;
 }
 
 a.active hr {
-    display: block;   
+    display: block;
 }
 
 a.active .nav-links {
     color: var(--accents);
 }
+
 a:hover {
     color: var(--accents);
 }
@@ -60,7 +85,15 @@ a:hover {
     color: var(--primary-color);
     cursor: pointer;
 }
- 
+
+@media (max-width: 767px) {
+    .mobile-height {
+        height: auto;
+        min-height: 500px;
+        max-height: 90vh;
+    }
+}
+
 @media (max-width:640px) {
     a.active {
         background-color: var(--background-dark);

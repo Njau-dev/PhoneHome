@@ -2,13 +2,12 @@ import React, { useContext, useEffect, useState } from 'react'
 import { ShopContext } from '../context/ShopContext'
 import ProductItem from './ProductItem';
 import Title from './Title';
+import ProductCarousel from './ProductCarousel';
 
 const RelatedProducts = ({ category, brand }) => {
 
     const { products } = useContext(ShopContext);
     const [related, setRelated] = useState([]);
-
-    // console.log(products);
 
     useEffect(() => {
 
@@ -21,17 +20,10 @@ const RelatedProducts = ({ category, brand }) => {
                 ...products.audio
             ];
 
-            // console.log('All Products:', allProducts);
-
             // Filter by category and brand
             let relatedProducts = allProducts.filter((item) => item.category === category && item.brand === brand);
 
-            // ,  this code is to be added above after populating site with products
-
-            // Log and set the related products (max 5)
             setRelated(relatedProducts.slice(0, 5));
-
-            // console.log('Filtered related products:', relatedProducts);
         }
     }, [products, category, brand])
     return (
@@ -40,18 +32,29 @@ const RelatedProducts = ({ category, brand }) => {
                 <Title text1={'RELATED'} text2={'PRODUCTS'} />
             </div>
 
-            <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 gap-y-6'>
-                {
-                    related.length > 0 ? (
-                        related.map((product, index) => (
-                            <ProductItem key={index} id={product.id} image={product.image_urls} name={product.name} price={product.price} category={product.category} />
-
-                        ))
-                    ) : (
-                        <p>No related products found.</p>
-                    )
-                }
-            </div>
+            {
+                related.length > 0 ? (
+                    <ProductCarousel
+                        slidesToShow={5}
+                        className="pb-6"
+                    >
+                        {related.map((product, index) => (
+                            <div key={index} className="px-3">
+                                <ProductItem
+                                    id={product.id}
+                                    image={product.image_urls}
+                                    name={product.name}
+                                    price={product.price}
+                                    brand={product.brand}
+                                    hasVariation={product.hasVariation}
+                                />
+                            </div>
+                        ))}
+                    </ProductCarousel>
+                ) : (
+                    <p className='text-center'>No related products found.</p>
+                )
+            }
         </div>
     )
 }
