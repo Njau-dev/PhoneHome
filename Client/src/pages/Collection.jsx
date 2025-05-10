@@ -4,8 +4,10 @@ import axios from 'axios';
 import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import Title from '../components/Title';
 import ProductItem from '../components/ProductItem';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import Pagination from '../components/Pagination';
+import Breadcrumbs from '../components/BreadCrumbs';
+import BrandedSpinner from '../components/BrandedSpinner';
 
 const Collection = () => {
 
@@ -25,7 +27,7 @@ const Collection = () => {
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(500000);
   const [currentMinPrice, setCurrentMinPrice] = useState(0);
-  const [currentMaxPrice, setCurrentMaxPrice] = useState(0);
+  const [currentMaxPrice, setCurrentMaxPrice] = useState(500000);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,6 +35,10 @@ const Collection = () => {
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+
 
   //fetching all cetegories from backend to use them for filtering
   useEffect(() => {
@@ -52,7 +58,6 @@ const Collection = () => {
       const category = categories.find(cat => cat.name === selectedCategory);
 
       if (category) {
-        // Use category.id instead of category name
         axios.get(backendUrl + `/brands?category=${category.id}`)
           .then((response) => {
             setBrands(response.data);
@@ -68,14 +73,20 @@ const Collection = () => {
 
   // Set selected category based on URL parameter
   useEffect(() => {
-    if (category) {
-      // Convert URL format to category name format if needed
-      const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1);
+    // Get category from either URL params or query params
+    const urlCategory = category || queryParams.get('category');
+    const urlBrand = queryParams.get('brand');
 
+    if (urlCategory) {
+      const formattedCategory = urlCategory.charAt(0).toUpperCase() + urlCategory.slice(1);
       setSelectedCategory(formattedCategory);
       handleCategoryChange(formattedCategory);
     }
-  }, [category]);
+
+    if (urlBrand) {
+      setSelectedBrand(urlBrand);
+    }
+  }, [category, location.search]);
 
   // Fetch all products from the /products endpoint
   useEffect(() => {
@@ -154,7 +165,7 @@ const Collection = () => {
     setMinPrice(0);
     setMaxPrice(500000);
     setCurrentMinPrice(0);
-    setCurrentMaxPrice(0);
+    setCurrentMaxPrice(500000);
     setCurrentPage(1);
   };
 
@@ -190,194 +201,196 @@ const Collection = () => {
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   return (
-    <div className='flex flex-col sm:flex-row gap-1 sm:gap-10 pt-10 border-t border-border'>
+    <>
+      <Breadcrumbs />
 
-      {/* Filter Options */}
-      <div className='min-w-60'>
-        <p onClick={() => setShowFilter(!showFilter)} className='my-2 text-xl flex items-center cursor-pointer gap-2'>FILTERS
-          <ChevronDownIcon className={`h-3 sm:hidden ${showFilter ? 'rotate-180' : ''}`} />
-        </p>
+      <div className='flex flex-col sm:flex-row gap-1 sm:gap-10 pt-4'>
 
-        {/* PRICE RANGE FILTER */}
-        <div className={`border border-border rounded-lg px-5 py-3 my-7 ${showFilter ? '' : 'hidden'} sm:block`}>
-          <p className='mb-3 text-sm font-medium'>PRICE RANGE</p>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-2 flex-col">
-              <div className="flex flex-col w-full">
-                <label htmlFor="minPrice" className="text-xs text-secondary mb-1">Min Price</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary">{currency}</span>
-                  <input
-                    id="minPrice"
-                    type="number"
-                    min="0"
-                    value={currentMinPrice}
-                    onChange={handleMinPriceChange}
-                    className="w-full bg-bgdark border border-border rounded-md py-2 pl-12 pr-2 text-sm"
-                    placeholder="Min Price"
-                  />
+        {/* Filter Options */}
+
+        <div className='min-w-60'>
+          <p onClick={() => setShowFilter(!showFilter)} className='my-2 text-xl flex items-center cursor-pointer gap-2'>FILTERS
+            <ChevronDownIcon className={`h-3 sm:hidden ${showFilter ? 'rotate-180' : ''}`} />
+          </p>
+
+          {/* PRICE RANGE FILTER */}
+          <div className={`border border-border rounded-lg px-5 py-3 my-7 ${showFilter ? '' : 'hidden'} sm:block`}>
+            <p className='mb-3 text-sm font-medium'>PRICE RANGE</p>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-2 flex-col">
+                <div className="flex flex-col w-full">
+                  <label htmlFor="minPrice" className="text-xs text-secondary mb-1">Min Price</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary">{currency}</span>
+                    <input
+                      id="minPrice"
+                      type="number"
+                      min="0"
+                      value={currentMinPrice}
+                      onChange={handleMinPriceChange}
+                      className="w-full bg-bgdark border border-border rounded-md py-2 pl-12 pr-2 text-sm"
+                      placeholder="Min Price"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col w-full">
+                  <label htmlFor="maxPrice" className="text-xs text-secondary mb-1">Max Price</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary">{currency}</span>
+                    <input
+                      id="maxPrice"
+                      type="number"
+                      min="0"
+                      value={currentMaxPrice}
+                      onChange={handleMaxPriceChange}
+                      className="w-full bg-bgdark border border-border rounded-md py-2 pl-12 pr-2 text-sm"
+                      placeholder="Max Price"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-col w-full">
-                <label htmlFor="maxPrice" className="text-xs text-secondary mb-1">Max Price</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary">{currency}</span>
-                  <input
-                    id="maxPrice"
-                    type="number"
-                    min="0"
-                    value={currentMaxPrice}
-                    onChange={handleMaxPriceChange}
-                    className="w-full bg-bgdark border border-border rounded-md py-2 pl-12 pr-2 text-sm"
-                    placeholder="Max Price"
-                  />
-                </div>
-              </div>
+              <button
+                onClick={applyPriceFilter}
+                className="mt-2 bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark text-sm py-1 px-3 rounded-full transition duration-300"
+              >
+                Apply Price Filter
+              </button>
             </div>
-
-            <button
-              onClick={applyPriceFilter}
-              className="mt-2 bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark text-sm py-1 px-3 rounded-full transition duration-300"
-            >
-              Apply Price Filter
-            </button>
-          </div>
-        </div>
-
-        {/* CATEGORIES FILTER */}
-        <div className={`border border-border rounded-lg pl-5 py-3 my-7 ${showFilter ? '' : 'hidden'} sm:block`}>
-          <p className='mb-3 text-sm font-medium'>CATEGORIES</p>
-          <div className="flex flex-col gap-2 text-sm font-light text-primary">
-
-            {categories.map((category) => (
-              <div key={category.id} className='flex gap-2 items-center'>
-                <label className="flex gap-2 items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className='hidden peer'
-                    onChange={() => handleCategoryChange(category.name)}
-                    checked={selectedCategory === category.name}
-                  />
-
-                  <div className="w-5 h-5 border-2 peer-checked:bg-accent peer-checked:border-primary transition duration-300 rounded-full"></div>
-                  <span className="ml-2 text-base">{category.name}</span>
-
-                </label>
-              </div>
-            ))}
-
           </div>
 
-          {/* Clear Filters Button */}
-          <button onClick={clearFilters} className="mt-3 text-red-500 hover:underline">Clear Filters</button>
-
-        </div>
-
-        {/* Brands */}
-        {selectedCategory && (
-          <div className={`border border-border rounded-lg pl-5 py-3 my-6 ${showFilter ? '' : 'hidden'} sm:block`}>
-            <p className='mb-3 text-sm font-medium'>BRANDS</p>
+          {/* CATEGORIES FILTER */}
+          <div className={`border border-border rounded-lg pl-5 py-3 my-7 ${showFilter ? '' : 'hidden'} sm:block`}>
+            <p className='mb-3 text-sm font-medium'>CATEGORIES</p>
             <div className="flex flex-col gap-2 text-sm font-light text-primary">
-              {brands.length > 0 ? (
-                brands.map((brand) => (
-                  <p key={brand.id} className='flex gap-2 items-center'>
-                    <label className="flex gap-2 items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className='hidden peer'
-                        value={brand.name}
-                        onChange={() => handleBrandChange(brand.name)}
-                        checked={selectedBrand === brand.name}
-                      />
-                      <div className="w-5 h-5 border-2 peer-checked:bg-accent peer-checked:border-primary transition duration-300 rounded-full"></div>
-                      <span className="ml-2">{brand.name}</span>
-                    </label>
-                  </p>
-                ))
-              ) : (
-                <p>No brands available for this category.</p>
-              )}
+
+              {categories.map((category) => (
+                <div key={category.id} className='flex gap-2 items-center'>
+                  <label className="flex gap-2 items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className='hidden peer'
+                      onChange={() => handleCategoryChange(category.name)}
+                      checked={selectedCategory === category.name}
+                    />
+
+                    <div className="w-5 h-5 border-2 peer-checked:bg-accent peer-checked:border-primary transition duration-300 rounded-full"></div>
+                    <span className="ml-2 text-base">{category.name}</span>
+
+                  </label>
+                </div>
+              ))}
+
             </div>
+
+            {/* Clear Filters Button */}
+            <button onClick={clearFilters} className="mt-3 text-red-500 hover:underline">Clear Filters</button>
+
           </div>
-        )}
 
-      </div>
+          {/* Brands */}
+          {selectedCategory && (
+            <div className={`border border-border rounded-lg pl-5 py-3 my-6 ${showFilter ? '' : 'hidden'} sm:block`}>
+              <p className='mb-3 text-sm font-medium'>BRANDS</p>
+              <div className="flex flex-col gap-2 text-sm font-light text-primary">
+                {brands.length > 0 ? (
+                  brands.map((brand) => (
+                    <p key={brand.id} className='flex gap-2 items-center'>
+                      <label className="flex gap-2 items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className='hidden peer'
+                          value={brand.name}
+                          onChange={() => handleBrandChange(brand.name)}
+                          checked={selectedBrand === brand.name}
+                        />
+                        <div className="w-5 h-5 border-2 peer-checked:bg-accent peer-checked:border-primary transition duration-300 rounded-full"></div>
+                        <span className="ml-2">{brand.name}</span>
+                      </label>
+                    </p>
+                  ))
+                ) : (
+                  <p>No brands available for this category.</p>
+                )}
+              </div>
+            </div>
+          )}
 
-      {/* Right side */}
-      <div className='flex-1'>
-
-        <div className='flex justify-between items-center text-lg sm:text-2xl my-3'>
-          <Title text1={'ALL'} text2={'PRODUCTS'} />
-
-          {/* PRODUCT SORTING  */}
-          <select value={sortOption}
-            onChange={(e) => setSortOption(e.target.value)} className='border border-border bg-bgdark text-sm px-3 py-2 mb-3'>
-            <option value="relevant">Sort by: Relevant</option>
-            <option value="low-high">Sort by: Low to High</option>
-            <option value="high-low">Sort by: High to Low</option>
-          </select>
         </div>
 
-        {/* Loading and Error States */}
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center min-h-[400px]">
-            <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-            <p className="mt-4 text-secondary">Loading products...</p>
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-            <p className="text-red-500 mb-4">{error}</p>
-            <button
-              onClick={fetchProducts}
-              className="bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark font-medium py-2 px-6 rounded-full transition duration-300"
-            >
-              Try Again
-            </button>
-          </div>
-        ) : (
-          <>
-            {/* Display filtered product count */}
-            <p className="text-sm text-secondary mb-4">
-              Showing {Math.min(currentProducts.length, productsPerPage)} of {filteredProducts.length} products
-            </p>
+        {/* Right side */}
+        <div className='flex-1'>
 
-            {/* Display products */}
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-              {Array.isArray(currentProducts) && currentProducts.length > 0 ? (
-                currentProducts.map((product, index) => (
-                  <ProductItem
-                    key={index}
-                    name={product.name}
-                    id={product.id}
-                    price={product.price}
-                    image={product.image_urls}
-                    category={product.category}
-                    hasVariation={product.hasVariation}
-                  />
-                ))
-              ) : (
-                <p className="col-span-full text-center text-secondary py-10">
-                  No products available.
-                </p>
-              )}
+          <div className='flex justify-between items-center text-lg sm:text-2xl my-3'>
+            <Title text1={'ALL'} text2={'PRODUCTS'} />
+
+            {/* PRODUCT SORTING  */}
+            <select value={sortOption}
+              onChange={(e) => setSortOption(e.target.value)} className='border border-border bg-bgdark text-sm px-3 py-2 mb-3'>
+              <option value="relevant">Sort by: Relevant</option>
+              <option value="low-high">Sort by: Low to High</option>
+              <option value="high-low">Sort by: High to Low</option>
+            </select>
+          </div>
+
+          {/* Loading and Error States */}
+          {isLoading ? (
+            <BrandedSpinner message='Loading products...' />
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+              <p className="text-red-500 mb-4">{error}</p>
+              <button
+                onClick={fetchProducts}
+                className="bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark font-medium py-2 px-6 rounded-full transition duration-300"
+              >
+                Try Again
+              </button>
             </div>
+          ) : (
+            <>
+              {/* Display filtered product count */}
+              <p className="text-sm text-secondary mb-4">
+                Showing {Math.min(currentProducts.length, productsPerPage)} of {filteredProducts.length} products
+              </p>
 
-            {/* Pagination Component */}
-            {filteredProducts.length > productsPerPage && (
-              <div className="mt-10">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  paginate={paginate}
-                />
+              {/* Display products */}
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                {Array.isArray(currentProducts) && currentProducts.length > 0 ? (
+                  currentProducts.map((product, index) => (
+                    <ProductItem
+                      key={index}
+                      name={product.name}
+                      id={product.id}
+                      price={product.price}
+                      image={product.image_urls}
+                      category={product.category}
+                      hasVariation={product.hasVariation}
+                    />
+                  ))
+                ) : (
+                  <p className="col-span-full text-center text-secondary py-10">
+                    No products available.
+                  </p>
+                )}
               </div>
-            )}
-          </>
-        )}
 
+              {/* Pagination Component */}
+              {filteredProducts.length > productsPerPage && (
+                <div className="mt-10">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    paginate={paginate}
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

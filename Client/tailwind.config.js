@@ -17,7 +17,9 @@ export default {
         marquee: 'marquee 60s linear infinite',
         marquee2: 'marquee2 60s linear infinite',
         'fade-in': 'fade-in 0.5s ease-out',
-        'pulse-gentle': 'pulse-gentle 3s infinite ease-in-out'
+        'pulse-gentle': 'pulse-gentle 3s infinite ease-in-out',
+        'spin-slow': 'spin 3s linear infinite reverse',
+        'pulse-subtle': 'pulse-opacity 2s ease-in-out infinite',
       },
       keyframes: {
         marquee: {
@@ -45,6 +47,10 @@ export default {
           '50%': {
             transform: 'scale(1.05)'
           }
+        },
+        'pulse-opacity': {
+          '0%, 100%': { opacity: 1 },
+          '50%': { opacity: 0.6 },
         }
       },
     },

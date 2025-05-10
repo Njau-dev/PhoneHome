@@ -38,6 +38,11 @@ const Navbar = () => {
                     <hr className='w-2/4 border-none h-[1.5px] bg-accent hidden' />
                 </NavLink>
 
+                <NavLink to='/compare' className='flex flex-col items-center gap-1'>
+                    <p className='nav-links'>COMPARE</p>
+                    <hr className='w-2/4 border-none h-[1.5px] bg-accent hidden' />
+                </NavLink>
+
                 <NavLink to='/contact' className='flex flex-col items-center gap-1'>
                     <p className='nav-links'>CONTACT</p>
                     <hr className='w-2/4 border-none h-[1.5px] bg-accent hidden' />
@@ -65,8 +70,9 @@ const Navbar = () => {
                     {token &&
                         <div className="group-hover:block hidden absolute dropdown-menu right-[-2rem] pt-4 z-20">
                             <div className="flex flex-col gap-2 w-36 py-3 px-5 bg-bgdark text-primary rounded border border-border">
-                                <p onClick={() => navigate('/profile')} className='cursor-pointer hover:text-accent'>My Profile</p>
-                                <p onClick={() => navigate('/orders')} className='cursor-pointer hover:text-accent'>Orders</p>
+                                <p onClick={() => navigate('/profile')} className='cursor-pointer hover:text-accent'>My profile</p>
+                                <p onClick={() => navigate('/wishlist')} className='cursor-pointer hover:text-accent'>My wishlist</p>
+                                <p onClick={() => navigate('/orders')} className='cursor-pointer hover:text-accent'>My orders</p>
                                 <p onClick={logout} className='cursor-pointer hover:text-accent'>Logout</p>
                             </div>
                         </div>
@@ -102,6 +108,7 @@ const Navbar = () => {
 
                         <NavLink className='py-2 pl-6 border border-border' to='/'>HOME</NavLink>
                         <NavLink className='py-2 pl-6 border border-border' to='/collection'>COLLECTION</NavLink>
+                        <NavLink className='py-2 pl-6 border border-border' to='/compare'>COMPARE</NavLink>
                         <NavLink className='py-2 pl-6 border border-border' to='/contact'>CONTACT</NavLink>
 
                     </div>

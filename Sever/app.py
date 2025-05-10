@@ -4,9 +4,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager, get_jwt
 from flask_migrate import Migrate
 from flask_cors import CORS
-from datetime import timedelta
+from datetime import timedelta, datetime
 from functools import wraps
-from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog, Address, Payment, Shipment, Product, ProductVariation
+from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog, Address, Payment, Shipment, Product, ProductVariation, Compare, CompareItem
 import cloudinary
 import cloudinary.uploader
 from flask.views import MethodView
@@ -14,6 +14,7 @@ import os
 import cloudinary.api
 from dotenv import load_dotenv
 import logging
+from sqlalchemy import func, Table, Column, Integer, ForeignKey
 import traceback
 from sqlalchemy.exc import SQLAlchemyError
 from collections import defaultdict
@@ -23,7 +24,11 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__)
 
- 
+# Validate database URL
+db_url = os.getenv('SQLALCHEMY_DATABASE_URI')
+if not db_url:
+    raise ValueError("Database URL not found in environment variables")
+
 
 cloudinary.config(
     cloud_name = os.getenv ("CLOUDINARY_CLOUD_NAME"),
@@ -36,10 +41,11 @@ cloudinary.config(
 
 # # Configuration
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Njau9899@localhost:5432/phonehome_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+print(db_url)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
 # Initialize Extensions
@@ -107,7 +113,7 @@ class Login(Resource):
         user = User.query.filter_by(email=email).first()
 
         if user and check_password_hash(user.password_hash, password):
-            token = create_access_token(identity=user.id, expires_delta=timedelta(days=2))
+            token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=2))
             return {"Message": "Login Successful!", "token": token}, 200
         else:
             return {"Error": "Invalid Email or Password!"}, 401
@@ -118,7 +124,7 @@ class ProfileView(MethodView):
 
     def get(self):
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
+        user = db.session.get(User, current_user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -135,7 +141,7 @@ class ProfileView(MethodView):
 
     def put(self):
         current_user_id = get_jwt_identity()
-        user = User.query.get(current_user_id)
+        user = db.session.get(User, current_user_id)
 
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -154,6 +160,127 @@ class ProfileView(MethodView):
             db.session.rollback()
             logger.error(f"Error updating profile: {e}")
             return jsonify({"error": "An error occurred while updating the profile."}), 500
+
+
+# Profile Stats
+class ProfileStatsView(MethodView):
+    decorators = [jwt_required()]
+
+    def get(self):
+        current_user_id = get_jwt_identity()
+        user = db.session.get(User, current_user_id)
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        try:
+            # Get order count
+            order_count = Order.query.filter_by(user_id=current_user_id).count()
+            
+            # Get total payment amount
+            total_payment = db.session.query(func.sum(Order.total_amount)).\
+                filter(Order.user_id == current_user_id).scalar() or 0
+            
+            # Get wishlist count - modified to count items in wishlist_products
+            wishlist = WishList.query.filter_by(user_id=current_user_id).first()
+            wishlist_count = len(wishlist.products) if wishlist else 0
+                      
+            # Get review count
+            review_count = Review.query.filter_by(user_id=current_user_id).count()
+            
+            stats = {
+                "order_count": order_count,
+                "total_payment": round(float(total_payment), 2),
+                "wishlist_count": wishlist_count,
+                "review_count": review_count
+            }
+            
+            return jsonify(stats), 200
+            
+        except Exception as e:
+            logger.error(f"Error fetching profile stats: {e}")
+            return jsonify({"error": "An error occurred while fetching profile stats."}), 500
+
+
+# Profile Orders
+class ProfileOrdersView(MethodView):
+    decorators = [jwt_required()]
+
+    def get(self):
+        try:
+            current_user_id = get_jwt_identity()
+            user = db.session.get(User, current_user_id)
+
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            # Get recent orders
+            recent_orders = []
+            orders = Order.query.filter_by(user_id=current_user_id)\
+                .order_by(Order.created_at.desc())\
+                .limit(5).all()
+                
+            for order in orders:
+                order_items = OrderItem.query.filter_by(order_id=order.id).all()
+                items = []
+                
+                for order_item in order_items:
+                    if order_item.product:  # Check if product exists
+                        item_data = {
+                            "id": order_item.product.id,
+                            "name": order_item.product.name,
+                            "brand": order_item.product.brand.name if order_item.product.brand else "N/A",
+                            "image_url": order_item.product.image_urls[0] if order_item.product.image_urls else None,
+                            "quantity": order_item.quantity,
+                            "variation_name": order_item.variation_name,
+                            "price": order_item.variation_price or order_item.product.price
+                        }
+                        items.append(item_data)
+                
+                order_data = {
+                    "id": order.id,
+                    "total_amount": order.total_amount,
+                    "status": order.status,
+                    "payment": order.payment,
+                    "date": order.created_at.isoformat(),
+                    "items": items
+                }
+                recent_orders.append(order_data)
+            
+            return jsonify(recent_orders), 200
+            
+        except Exception as e:
+            logger.error(f"Error fetching profile orders: {e}")
+            return jsonify({"error": "An error occurred while fetching profile orders."}), 500
+
+# Profile Wishlist
+class ProfileWishlistView(MethodView):
+    decorators = [jwt_required()]
+
+    def get(self):
+        try:
+            current_user_id = get_jwt_identity()
+            wishlist = WishList.query.filter_by(user_id=current_user_id).first()
+
+            if not wishlist:
+                    return jsonify({"message": "Wishlist is empty!"}), 200
+
+            wishlist_items = []
+            for product in wishlist.products:
+                item_data = {
+                    "id": product.id,
+                    "product_name": product.name,
+                    "brand": product.brand.name if product.brand else "N/A",
+                    "image_url": product.image_urls[0] if product.image_urls else None,
+                    "price": product.price
+                }
+                wishlist_items.append(item_data)
+            
+            return jsonify({"wishlist": wishlist_items}), 200
+            
+        except Exception as e:
+            logger.error(f"Error fetching profile wishlist: {str(e)}\n{traceback.format_exc()}")
+            return jsonify({"error": "An error occurred while fetching profile wishlist."}), 500
 
 # Logout
 class Logout(Resource):
@@ -711,7 +838,7 @@ class DeleteProductById(Resource):
 class CartResource(Resource):
     @jwt_required()
     def get(self):
-        current_user_id = get_jwt_identity()
+        current_user_id = str(get_jwt_identity())
 
         try:
             cart = Cart.query.filter_by(user_id=current_user_id).first()
@@ -744,12 +871,11 @@ class CartResource(Resource):
 
     @jwt_required()
     def post(self):
-        current_user_id = get_jwt_identity()
+        current_user_id = str(get_jwt_identity())
 
         try:
             # Parse request data
             data = request.get_json()
-            print(f"Incoming request data: {data}")  # Debug incoming data
 
             # Validate required fields
             if not data or 'productId' not in data or 'quantity' not in data:
@@ -831,7 +957,6 @@ class CartResource(Resource):
         try:
             # Parse request data
             data = request.get_json()
-            print(f"Incoming request data for update: {data}")  # Debug incoming data
 
             # Validate required fields
             if not data or 'productId' not in data or 'quantity' not in data:
@@ -939,41 +1064,240 @@ class CartResource(Resource):
 class WishlistResource(Resource):
     @jwt_required()
     def get(self):
-        current_user_id = get_jwt_identity()
-        wishlist = WishList.query.filter_by(user_id=current_user_id).first()
-        if not wishlist:
-            return {"Error": "Wishlist is empty!"}, 404
-        wishlist_items = [{"product_name": product.name} for product in wishlist.products]
-        return {"wishlist": wishlist_items}, 200
+        try:
+            current_user_id = get_jwt_identity()
+            wishlist = WishList.query.filter_by(user_id=current_user_id).first()
+            
+            if not wishlist:
+                # Create a new wishlist if none exists
+                wishlist = WishList(user_id=current_user_id)
+                db.session.add(wishlist)
+                db.session.commit()
+                return {"message": "Wishlist is empty!"}, 200
+            
+            # Use the relationship to get products
+            wishlist_items = [{
+                "id": product.id,
+                "name": product.name,
+                "image_url": product.image_urls[0] if product.image_urls else None,
+                "price": product.price,
+                "brand": product.brand.name if product.brand else "N/A",
+                "category": product.category.name if product.category else "N/A"
+            } for product in wishlist.products]
+            
+            return {"wishlist": wishlist_items}, 200
+            
+        except Exception as e:
+            logger.error(f"Error fetching wishlist: {str(e)}\n{traceback.format_exc()}")
+            return {"Error": "An error occurred while fetching wishlist"}, 500
+
+
 
     @jwt_required()
     def post(self):
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        product = Product.query.get_or_404(data['product_id'])
+        try:
+            current_user_id = get_jwt_identity()
+            data = request.get_json()
+            
+            if not data or 'product_id' not in data:
+                logger.error("Missing product_id in request")
+                return {"Error": "Product ID is required"}, 400
 
-        wishlist = WishList.query.filter_by(user_id=current_user_id).first()
-        if not wishlist:
-            wishlist = WishList(user_id=current_user_id)
-            db.session.add(wishlist)
-            db.session.commit()
+            # Validate product_id is an integer
+            try:
+                product_id = int(data['product_id'])
+            except (TypeError, ValueError):
+                logger.error(f"Invalid product ID format: {data.get('product_id')}")
+                return {"Error": "Invalid product ID format"}, 400
 
-        wishlist.products.append(product)
-        db.session.commit()
-        return {"Message": "Product added to wishlist!"}, 201
+            # Check if product exists
+            product = db.session.get(Product, product_id)
+            if not product:
+                logger.error(f"Product not found: {product_id}")
+                return {"Error": "Product not found"}, 404
+
+            # Get or create wishlist
+            wishlist = WishList.query.filter_by(user_id=current_user_id).first()
+            if not wishlist:
+                wishlist = WishList(user_id=current_user_id)
+                try:
+                    db.session.add(wishlist)
+                    db.session.commit()
+                except SQLAlchemyError as e:
+                    logger.error(f"Error creating wishlist: {e}")
+                    db.session.rollback()
+                    return {"Error": "Failed to create wishlist"}, 500
+
+            # Check if product is already in wishlist
+            if product in wishlist.products:
+                return {"Message": "Product already in wishlist"}, 200
+
+            # Add product to wishlist
+            try:
+                wishlist.products.append(product)
+                db.session.commit()
+                logger.info(f"Product {product_id} added to wishlist for user {current_user_id}")
+                return {"Message": "Product added to wishlist!"}, 201
+            except SQLAlchemyError as e:
+                logger.error(f"Database error while adding to wishlist: {e}")
+                db.session.rollback()
+                return {"Error": "Failed to add product to wishlist"}, 500
+
+        except Exception as e:
+            logger.error(f"Unexpected error in wishlist post: {str(e)}\n{traceback.format_exc()}")
+            return {"Error": "An unexpected error occurred"}, 500
+        
 
     @jwt_required()
     def delete(self, product_id):
-        current_user_id = get_jwt_identity()
-        wishlist = WishList.query.filter_by(user_id=current_user_id).first_or_404()
-        product = Product.query.get_or_404(product_id)
+        try:
+            current_user_id = get_jwt_identity()
+            wishlist = WishList.query.filter_by(user_id=current_user_id).first()
+            
+            if not wishlist:
+                return {"Error": "Wishlist not found"}, 404
 
-        if product not in wishlist.products:
-            return {"Error": "Product not found in wishlist!"}, 404
+            product = Product.query.get(product_id)
+            if not product:
+                return {"Error": "Product not found"}, 404
 
-        wishlist.products.remove(product)
-        db.session.commit()
-        return {"Message": "Product removed from wishlist!"}, 200
+            if product not in wishlist.products:
+                return {"Error": "Product not found in wishlist"}, 404
+
+            try:
+                wishlist.products.remove(product)
+                db.session.commit()
+                return {"Message": "Product removed from wishlist!"}, 200
+            except SQLAlchemyError as e:
+                logger.error(f"Database error while removing from wishlist: {e}")
+                db.session.rollback()
+                return {"Error": "Failed to remove product from wishlist"}, 500
+
+        except Exception as e:
+            logger.error(f"Unexpected error in wishlist delete: {str(e)}")
+            return {"Error": "An unexpected error occurred"}, 500
+
+
+class CompareResource(Resource):
+    @jwt_required()
+    def get(self):
+        try:
+            current_user_id = get_jwt_identity()
+            
+            # Get or create compare list
+            compare = Compare.query.filter_by(user_id=current_user_id).first()
+            if not compare:
+                return {"message": "Compare list is empty"}, 200
+                
+            # Delete items older than 24 hours
+            twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
+            old_items = CompareItem.query.filter(
+                CompareItem.compare_id == compare.id,
+                CompareItem.created_at <= twenty_four_hours_ago
+            ).all()
+            
+            for item in old_items:
+                db.session.delete(item)
+            
+            db.session.commit()
+            
+            # Get remaining valid items
+            compare_items = CompareItem.query.filter_by(compare_id=compare.id).all()
+            
+            # Prepare response with product details
+            items = []
+            for item in compare_items:
+                product = item.product
+                product_data = {
+                    "id": product.id,
+                }
+                items.append(product_data)
+            
+            return {"product_ids": items}, 200
+            
+        except Exception as e:
+            logger.error(f"Error fetching compare list: {str(e)}")
+            return {"error": "An error occurred while fetching compare list"}, 500
+
+    @jwt_required()
+    def post(self):
+        try:
+            current_user_id = get_jwt_identity()
+            data = request.get_json()
+            
+            if not data or 'product_id' not in data:
+                return {"error": "Product ID is required"}, 400
+                
+            # Get or create compare
+            compare = Compare.query.filter_by(user_id=current_user_id).first()
+            if not compare:
+                compare = Compare(user_id=current_user_id)
+                db.session.add(compare)
+                db.session.commit()
+            
+            # Check if product exists
+            product = Product.query.get(data['product_id'])
+            if not product:
+                return {"error": "Product not found"}, 404
+                
+            # Check if product is already in compare list
+            existing_item = CompareItem.query.filter_by(
+                compare_id=compare.id,
+                product_id=data['product_id']
+            ).first()
+            
+            if existing_item:
+                return {"message": "Product already in compare list"}, 200
+                
+            # Check if compare list has reached limit of 3 items
+            current_items_count = CompareItem.query.filter_by(compare_id=compare.id).count()
+            if current_items_count >= 3:
+                return {"error": "Compare list is full (max 3 items)"}, 400
+                
+            # Add new item to compare list
+            compare_item = CompareItem(
+                compare_id=compare.id,
+                product_id=data['product_id']
+            )
+            
+            db.session.add(compare_item)
+            db.session.commit()
+            
+            return {"message": "Product added to compare list"}, 201
+            
+        except Exception as e:
+            logger.error(f"Error adding to compare list: {str(e)}")
+            db.session.rollback()
+            return {"error": "An error occurred while adding to compare list"}, 500
+
+    @jwt_required()
+    def delete(self, product_id):
+        try:
+            current_user_id = get_jwt_identity()
+            compare = Compare.query.filter_by(user_id=current_user_id).first()
+            
+            if not compare:
+                return {"error": "Compare list not found"}, 404
+                
+            # Find and delete the compare item
+            compare_item = CompareItem.query.filter_by(
+                compare_id=compare.id,
+                product_id=product_id
+            ).first()
+            
+            if not compare_item:
+                return {"error": "Product not found in compare list"}, 404
+                
+            db.session.delete(compare_item)
+            db.session.commit()
+            
+            return {"message": "Product removed from compare list"}, 200
+            
+        except Exception as e:
+            logger.error(f"Error removing from compare list: {str(e)}")
+            db.session.rollback()
+            return {"error": "An error occurred while removing from compare list"}, 500
+
 
 # Order Management
 class OrderResource(Resource):
@@ -1041,6 +1365,7 @@ class OrderResource(Resource):
 
         # Validate address and total_amount from frontend
         address = data.get('address')
+        payment_method = data.get('payment_method')
         total_amount = data.get('total_amount')
         if not address or not total_amount:
             return {"Error": "Address and total amount are required!"}, 400
@@ -1050,7 +1375,7 @@ class OrderResource(Resource):
             user_id=current_user_id,
             total_amount=total_amount,
             address=address,
-            payment_method="COD",
+            payment_method=payment_method,
             payment=False,
             status="Order Placed"
         )
@@ -1346,7 +1671,7 @@ class AdminLogin(Resource):
         admin = Admin.query.filter_by(email=email).first()
 
         if admin and check_password_hash(admin.password_hash, password):
-            access_token = create_access_token(identity=admin.id)
+            access_token = create_access_token(identity=str(admin.id))
             return {"access_token": access_token}, 200
         else:
             return {"error": "Invalid credentials!"}, 401
@@ -1442,21 +1767,95 @@ class CategoryResource(Resource):
         db.session.delete(category)
         db.session.commit()
         return {"Message": "Category deleted successfully!"}, 200
+
+    def get(self, category_id=None):
+        try:
+            if category_id:
+                # Get specific category
+                category = Category.query.get_or_404(category_id)
+                return {
+                    "id": category.id,
+                    "name": category.name,
+                    "brands": [{
+                        "id": brand.id,
+                        "name": brand.name
+                    } for brand in category.brands]
+                }, 200
+            else:
+                # Get all categories
+                categories = Category.query.all()
+                return {
+                    "categories": [{
+                        "id": category.id,
+                        "name": category.name,
+                        "brands": [{
+                            "id": brand.id,
+                            "name": brand.name
+                        } for brand in category.brands]
+                    } for category in categories]
+                }, 200
+        except Exception as e:
+            logger.error(f"Error fetching categories: {e}")
+            return {"Error": "An error occurred while fetching categories"}, 500
     
 class BrandResource(Resource):
     def get(self):
-        brands = Brand.query.all()
-        return [{"id": brand.id, "name": brand.name} for brand in brands], 200
+        # Get category_id from query parameters
+        category_id = request.args.get('category')
+        
+        try:
+            if category_id:
+                # If category_id is provided, filter brands by category
+                brands = Brand.query.filter_by(category_id=category_id).all()
+            else:
+                # If no category_id, return all brands
+                brands = Brand.query.all()
+            
+            return [{
+                "id": brand.id, 
+                "name": brand.name,
+                "category": {
+                    "id": brand.category.id,
+                    "name": brand.category.name
+                }
+            } for brand in brands], 200
+        except Exception as e:
+            logger.error(f"Error fetching brands: {e}")
+            return {"Error": "An error occurred while fetching brands"}, 500
 
-    # @jwt_required()
-    # @admin_required
     def post(self):
-        data = request.get_json()
-        new_brand = Brand(name=data['name'])
-        db.session.add(new_brand)
-        db.session.commit()
-        return {"Message": "Brand Created Successfully!"}, 201
-
+        try:
+            data = request.get_json()
+            
+            if not all(key in data for key in ['name', 'category_id']):
+                return {"Error": "Name and category_id are required"}, 400
+                
+            # Verify category exists
+            category = Category.query.get_or_404(data['category_id'])
+            
+            new_brand = Brand(
+                name=data['name'],
+                category_id=data['category_id']
+            )
+            db.session.add(new_brand)
+            db.session.commit()
+            
+            return {
+                "Message": "Brand Created Successfully!",
+                "brand": {
+                    "id": new_brand.id,
+                    "name": new_brand.name,
+                    "category": {
+                        "id": category.id,
+                        "name": category.name
+                    }
+                }
+            }, 201
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error creating brand: {e}")
+            return {"Error": "An error occurred while creating the brand"}, 500
+        
 
 # Single Brand Resource for managing a specific brand
 class SingleBrandResource(Resource):
@@ -1505,7 +1904,10 @@ api.add_resource(Logout, '/logout')
 
 # Profile routes
 profile_view = ProfileView.as_view('profile_view')
-app.add_url_rule('/profile', view_func=profile_view, methods=['GET', 'PUT'])
+app.add_url_rule('/api/profile', view_func=profile_view, methods=['GET', 'PUT'])
+app.add_url_rule('/api/profile/stats', view_func=ProfileStatsView.as_view('profile_stats'))
+app.add_url_rule('/api/profile/orders', view_func=ProfileOrdersView.as_view('profile_orders'))
+app.add_url_rule('/api/profile/wishlist', view_func=ProfileWishlistView.as_view('profile_wishlist'))
 
 # Product routes
 api.add_resource(ProductResource, '/products')
@@ -1516,11 +1918,21 @@ api.add_resource(DeleteProductById, '/product/<int:product_id>')
 api.add_resource(ProductVariationResource, '/products/<int:product_id>/variations')
 api.add_resource(ProductUpdateResource, '/products/<int:product_id>')
 
+#brand routes
+api.add_resource(BrandResource, '/brands')
+api.add_resource(SingleBrandResource, '/brands/<int:brand_id>')
+
+#category route
+api.add_resource(CategoryResource, '/categories', '/categories/<int:category_id>')
+
 # Cart routes
 api.add_resource(CartResource, '/cart')
 
 # Wishlist routes
-api.add_resource(WishlistResource, '/wishlist')
+api.add_resource(WishlistResource, '/wishlist', '/wishlist/<int:product_id>')
+
+# compare route
+api.add_resource(CompareResource, '/compare', '/compare/<int:product_id>')
 
 # Order routes
 api.add_resource(OrderResource, '/orders')
@@ -1544,13 +1956,6 @@ api.add_resource(PasswordChangeResource, '/password/change')
 
 # Audit logs
 api.add_resource(AuditLogResource, '/admin/auditlogs')
-
-#brand routes
-api.add_resource(BrandResource, '/brands')
-api.add_resource(SingleBrandResource, '/brands/<int:brand_id>')
-
-#category route
-api.add_resource(CategoryResource, '/categories', '/categories/<int:category_id>')
 
 # Run the Flask app
 if __name__ == '__main__':

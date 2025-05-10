@@ -1,15 +1,26 @@
-#node modules
-Client/node_modules
+# Node.js
+Client/node_modules/
 Client/.env
-Client/.vscode
-Client/build
+Client/.vscode/
+Client/build/
+Client/package-lock.json
 
-#general
+# General
 *.log
 .DS_Store
+.env
+.vscode/
+__pycache__/
+*.pyc
 
-#Flask dependencies
-Sever/venv/
-Sever/*.pyc
-Sever/_pycache_/
-Sever/.vscode
+# Flask
+Server/venv/
+Server/.env
+Server/*.pyc
+Server/__pycache__/
+Server/.vscode/
+
+# IDE
+.idea/
+*.swp
+*.swo

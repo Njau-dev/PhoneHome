@@ -95,7 +95,6 @@ const Orders = ({ token }) => {
                                     <p>{order.address.street + ", " + order.address.additional_info}</p>
                                 </div>
                                 <p className='mt-2'>{order.address.phone + ""}</p>
-
                             </div>
 
                             <div>

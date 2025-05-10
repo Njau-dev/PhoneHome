@@ -53,6 +53,7 @@ class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False, index=True)
     products = db.relationship('Product', backref='category', lazy=True, cascade="all, delete-orphan")
+    brands = db.relationship('Brand', backref='category', lazy=True, cascade="all, delete-orphan")
 
 
 # Brand model
@@ -60,6 +61,7 @@ class Brand(db.Model):
     __tablename__ = 'brands'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
     products = db.relationship('Product', backref='brand', lazy=True, cascade="all, delete-orphan")
 
 
@@ -209,6 +211,8 @@ class OrderItem(db.Model):
     variation_name = db.Column(db.String(255), nullable=True)
     variation_price = db.Column(db.Integer, nullable=True)
 
+    product = db.relationship('Product', backref='order_items', lazy=True)
+
 
 # Payment model
 class Payment(db.Model):
@@ -237,9 +241,40 @@ class WishList(db.Model):
     __tablename__ = 'wishlists'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Many-to-many relationship with products
+    products = db.relationship('Product', 
+                            secondary='wishlist_products',
+                            backref=db.backref('wishlists', lazy='dynamic'))
+
+
+# Association table for WishList and Product
+wishlist_products = db.Table('wishlist_products',
+    db.Column('wishlist_id', db.Integer, db.ForeignKey('wishlists.id'), primary_key=True),
+    db.Column('product_id', db.Integer, db.ForeignKey('products.id'), primary_key=True),
+    db.Column('created_at', db.DateTime, default=datetime.utcnow)
+)
+
+class Compare(db.Model):
+    __tablename__ = 'compares'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationship with CompareItem
+    items = db.relationship('CompareItem', backref='compare', lazy=True, 
+                          cascade="all, delete-orphan")
+
+class CompareItem(db.Model):
+    __tablename__ = 'compare_items'
+    id = db.Column(db.Integer, primary_key=True)
+    compare_id = db.Column(db.Integer, db.ForeignKey('compares.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+    
+    # Relationship with Product
+    product = db.relationship('Product', backref='compare_items', lazy=True)
 
 # Review model
 class Review(db.Model):

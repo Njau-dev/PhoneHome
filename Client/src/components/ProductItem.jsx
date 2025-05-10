@@ -1,23 +1,25 @@
 import React, { useContext } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { Link } from 'react-router-dom';
-import { Heart, ShoppingCart, ChevronRight } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { Heart, ShoppingCart, ChevronRight, ArrowUpDown } from 'lucide-react';
 
 
 const ProductItem = ({ id, image, name, price, category, hasVariation }) => {
-    const { currency, addToCart } = useContext(ShopContext);
+    const { currency, addToCart, addToWishlist, addToCompare } = useContext(ShopContext);
 
     const handleAddToWishlist = (e) => {
         e.preventDefault();
-        toast.success('Added to wishlist');
+        addToWishlist(id)
     }
 
     const handleAddToCart = (id) => {
         const productId = id;
         addToCart(productId)
+    }
 
-        toast.success('Added to cart');
+    const handleAddToCompare = (e) => {
+        e.preventDefault();
+        addToCompare(id);
     }
 
     return (
@@ -47,8 +49,18 @@ const ProductItem = ({ id, image, name, price, category, hasVariation }) => {
 
             {/* Action buttons that slide up on hover */}
             <div className="absolute bottom-0 left-0 right-0 bg-bgdark border-t border-border transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 p-3 flex justify-between items-center">
+                {/* Add to Compare button */}
+                <button
+                    className="mr-2 p-2 border border-border rounded hover:border-accent"
+                    onClick={handleAddToCompare}
+                    title="Add to Compare"
+                >
+                    <ArrowUpDown className="w-4 h-4 text-accent" />
+                </button>
+
+                {/* Add to Cart button */}
                 {hasVariation ? (
-                    <Link to={`/product/${id}`} className="flex-1 bg-accent text-bgdark py-2 pl-2 rounded text-center text-sm font-medium flex items-center justify-center hover:bg-bgdark hover:border hover:border-accent">
+                    <Link to={`/product/${id}`} className="flex-1 bg-accent text-bgdark py-2 pl-2 rounded text-center text-sm font-medium flex items-center justify-center hover:bg-bgdark hover:border hover:border-accent" title='View product'>
                         View<ChevronRight className="w-4 h-4 ml-1" />
                     </Link>
                 ) : (
@@ -58,13 +70,19 @@ const ProductItem = ({ id, image, name, price, category, hasVariation }) => {
                             handleAddToCart(id);
                         }}
                         className="flex-1 bg-accent text-bgdark py-2 rounded text-center text-sm font-medium flex items-center justify-center hover:bg-bgdark hover:border hover:border-accent hover:text-accent"
+                        title="Add to Cart"
+
                     >
                         <ShoppingCart className="w-4 h-4 ml-1" />
                     </button>
                 )}
+
+                {/* Add to Wishlist button */}
                 <button
                     className="ml-2 p-2 border border-border rounded hover:border-accent"
                     onClick={handleAddToWishlist}
+                    title="Add to Wishlist"
+
                 >
                     <Heart className="w-4 h-4 text-accent" />
                 </button>
