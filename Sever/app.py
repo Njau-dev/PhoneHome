@@ -28,6 +28,7 @@ app = Flask(__name__)
 db_url = os.getenv('SQLALCHEMY_DATABASE_URI')
 if not db_url:
     raise ValueError("Database URL not found in environment variables")
+print(db_url)
 
 
 cloudinary.config(
@@ -39,11 +40,9 @@ cloudinary.config(
 )
  
 
-# # Configuration
+# Configuration
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:Njau9899@localhost:5432/phonehome_db'
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
-print(db_url)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 

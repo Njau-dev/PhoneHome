@@ -122,17 +122,17 @@ const Product = () => {
           <Breadcrumbs productData={productData} />
           <div className='pt-4 transition-opacity ease-in duration-500 opacity-100'>
             {/* Product data */}
-            <div className='flex gap-12 sm:gap-12 flex-col sm:flex-row'>
+            <div className='flex gap-12 sm:gap-0 flex-col sm:flex-row'>
               {/* Product images */}
-              <div className='flex-1 flex flex-col-reverse gap-3 sm:flex-row'>
-                <div className='flex sm:flex-col overflow-x-auto sm:overflow-y-scroll gap-3 sm:justify-normal sm:w-[18.7%] w-full'>
+              <div className='flex-1 flex flex-col-reverse gap-3 justify-end'>
+                <div className='flex overflow-x-auto gap-3 w-full'>
                   {
                     productData.image_urls.map((item, index) => (
                       <img
                         src={item}
                         key={index}
                         onClick={() => setImage(item)}
-                        className='w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer rounded-xl'
+                        className='w-[24%] md:w-[15%] flex-shrink-0 cursor-pointer rounded-xl'
                         alt="product"
                       />
                     ))
@@ -206,7 +206,7 @@ const Product = () => {
 
                 {/* Information Box */}
                 <div className='bg-border rounded-md p-4 mt-6'>
-                  <p>Please <Link className='text-accent' to='/contacts'>contact our shop</Link> directly before placing your order for the most accurate pricing information.</p>
+                  <p>Please <Link className='text-accent' to='/contact'>contact our shop</Link> directly before placing your order for the most accurate pricing information.</p>
                 </div>
 
                 {/* Variation input based on product type */}

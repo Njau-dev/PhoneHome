@@ -1,7 +1,20 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useContext } from 'react';
 import { ShopContext } from '../context/ShopContext';
-import { ChevronRight } from 'lucide-react';
+import {
+    ChevronRight,
+    Home,
+    ShoppingCart,
+    List,
+    Phone,
+    User,
+    Heart,
+    ShoppingBag,
+
+    Info,
+    ArrowUpDown
+} from 'lucide-react';
+import { ShoppingBagIcon } from '@heroicons/react/24/outline';
 
 const Breadcrumbs = ({ productData }) => {
     const location = useLocation();
@@ -17,6 +30,33 @@ const Breadcrumbs = ({ productData }) => {
         return text.split('-').map(word =>
             word.charAt(0).toUpperCase() + word.slice(1)
         ).join(' ');
+    };
+
+    // Function to get the appropriate icon based on the current page
+    const getPageIcon = (pathSegments) => {
+        const firstSegment = pathSegments[0];
+        switch (firstSegment) {
+            case '':
+                return Home;
+            case 'collection':
+                return ShoppingBag;
+            case 'cart':
+                return ShoppingBagIcon;
+            case 'place-order':
+                return ShoppingCart;
+            case 'profile':
+                return User;
+            case 'orders':
+                return List;
+            case 'wishlist':
+                return Heart;
+            case 'compare':
+                return ArrowUpDown;
+            case 'contact':
+                return Phone;
+            default:
+                return Info;
+        }
     };
 
     // Build breadcrumb items based on the current path
@@ -44,7 +84,7 @@ const Breadcrumbs = ({ productData }) => {
             if (category) {
                 breadcrumbs.push({
                     name: capitalize(category),
-                    path: `/collection/${category}`
+                    path: `/collection/${category}`,
                 });
             }
 
@@ -74,7 +114,7 @@ const Breadcrumbs = ({ productData }) => {
             breadcrumbs.push({ name: 'Place Order', path: '/place-order', isLast: true });
         }
         else if (pathSegments[0] === 'profile') {
-            breadcrumbs.push({ name: 'Profile', path: '/profile' });
+            breadcrumbs.push({ name: 'Profile', path: '/profile', isLast: true });
         }
         else if (pathSegments[0] === 'orders') {
             breadcrumbs.push({ name: 'Profile', path: '/profile' });
@@ -88,6 +128,9 @@ const Breadcrumbs = ({ productData }) => {
             breadcrumbs.push({ name: 'Shop', path: '/collection' });
             breadcrumbs.push({ name: 'Compare', path: '/compare', isLast: true });
         }
+        else if (pathSegments[0] === 'contact') {
+            breadcrumbs.push({ name: 'Contact', path: '/contact', isLast: true });
+        }
 
         return breadcrumbs;
     };
@@ -97,27 +140,44 @@ const Breadcrumbs = ({ productData }) => {
     // Don't render if we only have the Home link
     if (breadcrumbs.length <= 1) return null;
 
+    // Get the icon for the current page
+    const PageIcon = getPageIcon(pathSegments);
+
     return (
-        <nav className="flex pt-5 pb-2 text-xs md:text-sm border-t border-border" aria-label="Breadcrumb">
-            <ol className="inline-flex items-center space-x-1 md:space-x-2">
-                {breadcrumbs.map((crumb, index) => (
-                    <li key={index} className="inline-flex items-center">
-                        {index > 0 && (
-                            <span className="mx-2 text-accent"><ChevronRight className='h-4' /></span>
-                        )}
-                        {crumb.isLast ? (
-                            <span className="text-accent">{crumb.name}</span>
-                        ) : (
-                            <Link
-                                to={crumb.path}
-                                className="text-primary hover:text-accent"
-                            >
-                                {crumb.name}
-                            </Link>
-                        )}
-                    </li>
-                ))}
-            </ol>
+        <nav className="flex p-4 text-xs md:text-sm border-t border-border bg-black/15" aria-label="Breadcrumb">
+            <div className="flex items-center justify-between w-full">
+                <ol className="inline-flex items-center space-x-1 md:space-x-2">
+                    {breadcrumbs.map((crumb, index) => (
+                        <li key={index} className="inline-flex items-center">
+                            {index > 0 && (
+                                <span className="sm:mx-2 text-accent"><ChevronRight className='h-4' /></span>
+                            )}
+                            {crumb.isLast ? (
+                                <span className="text-accent">{crumb.name}</span>
+                            ) : (
+                                <Link
+                                    to={crumb.path}
+                                    className="text-primary hover:text-accent"
+                                >
+                                    {crumb.name}
+                                </Link>
+                            )}
+                        </li>
+                    ))}
+                </ol>
+
+                {/* Page Icon Container */}
+                <div className="ml-4">
+                    <PageIcon
+                        className="text-accent h-6 w-6 
+                        hover:scale-110 
+                        hover:rotate-6 
+                        transition-transform 
+                        duration-300 
+                        ease-in-out"
+                    />
+                </div>
+            </div>
         </nav>
     );
 };

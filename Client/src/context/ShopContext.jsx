@@ -159,6 +159,10 @@ const ShopContextProvider = (props) => {
                 const response = await axios.get(backendUrl + '/products');
                 const allProducts = response.data.products;
 
+                if (!allProducts) {
+                    return;
+                }
+
                 const fetchedProducts = {
                     phones: allProducts.filter(product => product.category === 'Phone'),
                     tablets: allProducts.filter(product => product.category === 'Tablet'),
@@ -174,6 +178,9 @@ const ShopContextProvider = (props) => {
 
         fetchProducts();
     }, []);
+
+    console.log(products);
+
 
     const getUserCart = async (token) => {
         try {

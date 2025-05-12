@@ -260,34 +260,43 @@ const Collection = () => {
             </div>
           </div>
 
-          {/* CATEGORIES FILTER */}
-          <div className={`border border-border rounded-lg pl-5 py-3 my-7 ${showFilter ? '' : 'hidden'} sm:block`}>
-            <p className='mb-3 text-sm font-medium'>CATEGORIES</p>
-            <div className="flex flex-col gap-2 text-sm font-light text-primary">
+          {
+            categories ? (
+              <>
 
-              {categories.map((category) => (
-                <div key={category.id} className='flex gap-2 items-center'>
-                  <label className="flex gap-2 items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className='hidden peer'
-                      onChange={() => handleCategoryChange(category.name)}
-                      checked={selectedCategory === category.name}
-                    />
+                {/* CATEGORIES FILTER */}
+                <div div className={`border border-border rounded-lg pl-5 py-3 my-7 ${showFilter ? '' : 'hidden'} sm:block`}>
+                  <p className='mb-3 text-sm font-medium'>CATEGORIES</p>
+                  <div className="flex flex-col gap-2 text-sm font-light text-primary">
 
-                    <div className="w-5 h-5 border-2 peer-checked:bg-accent peer-checked:border-primary transition duration-300 rounded-full"></div>
-                    <span className="ml-2 text-base">{category.name}</span>
+                    {
+                      categories.map((category) => (
+                        <div key={category.id} className='flex gap-2 items-center'>
+                          <label className="flex gap-2 items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className='hidden peer'
+                              onChange={() => handleCategoryChange(category.name)}
+                              checked={selectedCategory === category.name}
+                            />
 
-                  </label>
+                            <div className="w-5 h-5 border-2 peer-checked:bg-accent peer-checked:border-primary transition duration-300 rounded-full"></div>
+                            <span className="ml-2 text-base">{category.name}</span>
+
+                          </label>
+                        </div>
+                      ))}
+
+                  </div>
+
+                  {/* Clear Filters Button */}
+                  <button onClick={clearFilters} className="mt-3 text-red-500 hover:underline">Clear Filters</button>
                 </div>
-              ))}
 
-            </div>
+              </>
+            ) : (<></>)
+          }
 
-            {/* Clear Filters Button */}
-            <button onClick={clearFilters} className="mt-3 text-red-500 hover:underline">Clear Filters</button>
-
-          </div>
 
           {/* Brands */}
           {selectedCategory && (
@@ -389,7 +398,7 @@ const Collection = () => {
           )}
 
         </div>
-      </div>
+      </div >
     </>
   )
 }

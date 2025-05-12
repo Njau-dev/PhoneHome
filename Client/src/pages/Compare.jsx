@@ -56,7 +56,7 @@ const Compare = () => {
             <div className="bg-bgdark text-primary pt-4 sm:pt-8 pb-16">
                 <div className="container mx-auto px-4 xl:px-0 max-w-screen-2xl">
                     {/* Page Header */}
-                    <div className="mb-12 text-center text-[27px] sm:text-3xl">
+                    <div className="mb-12 text-center text-[24px] sm:text-3xl">
                         <Title text1={'PRODUCT'} text2={'COMPARISON'} />
                         <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
                             Compare product features side by side to make the best choice
@@ -103,7 +103,7 @@ const Compare = () => {
                                                         </div>
                                                     ))}
 
-                                                    <div className="py-4 border-t border-border">
+                                                    <div className="py-3 md:py-4 border-t border-border">
                                                         {/* Empty cell to align with action buttons */}
                                                     </div>
                                                 </div>
@@ -143,9 +143,8 @@ const Compare = () => {
                                                                 return (
                                                                     <div key={specIndex} className="py-3 md:py-4 border-t border-border">
                                                                         <p className={`text-sm ${spec.key === 'name' ? 'font-medium hover:text-accent' : ''}`}>
-                                                                            <Link to={`/product/${product.id}`}>
-                                                                                {displayValue}
-                                                                            </Link>
+
+                                                                            {displayValue}
                                                                         </p>
                                                                     </div>
                                                                 );
@@ -178,12 +177,12 @@ const Compare = () => {
 
                                                             {/* Empty cells to maintain grid alignment */}
                                                             {specifications.map((_, specIndex) => (
-                                                                <div key={specIndex} className="py-4 border-t border-border">
+                                                                <div key={specIndex} className="py-3 md:py-4 border-t border-border">
                                                                     <p className="text-sm text-secondary">-</p>
                                                                 </div>
                                                             ))}
 
-                                                            <div className="py-4 border-t border-border">
+                                                            <div className="py-3 md:py-4 border-t border-border">
                                                                 {/* Empty cell for action button alignment */}
                                                             </div>
                                                         </div>

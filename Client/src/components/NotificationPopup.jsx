@@ -9,8 +9,8 @@ const NotificationPopup = ({ type, message, onClose, product }) => {
     useEffect(() => {
         const timer = setTimeout(() => {
             setIsVisible(false);
-            setTimeout(onClose, 300); // Wait for fade-out animation before removing
-        }, 10000); // 10 seconds
+            setTimeout(onClose, 300);
+        }, 5000); // 5 seconds
 
         return () => clearTimeout(timer);
     }, [onClose]);
@@ -103,6 +103,7 @@ const NotificationPopup = ({ type, message, onClose, product }) => {
                     {/* Link button */}
                     <Link
                         to={linkTo}
+                        onClick={handleClose}
                         className="block w-full bg-accent hover:bg-bgdark text-center py-2 px-4 rounded-lg text-bgdark hover:text-accent border border-transparent hover:border-accent transition-all text-sm font-medium"
                     >
                         {linkText}

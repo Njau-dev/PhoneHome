@@ -5,10 +5,16 @@ Client/.vscode/
 Client/build/
 Client/package-lock.json
 
+# Node.js
+admin/node_modules/
+admin/.env
+admin/.vscode/
+admin/build/
+admin/package-lock.json
+
 # General
 *.log
 .DS_Store
-.env
 .vscode/
 __pycache__/
 *.pyc
@@ -23,4 +29,5 @@ Server/.vscode/
 # IDE
 .idea/
 *.swp
-*.swo
+*.swo.env
+.env
