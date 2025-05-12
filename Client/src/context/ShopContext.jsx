@@ -179,8 +179,6 @@ const ShopContextProvider = (props) => {
         fetchProducts();
     }, []);
 
-    console.log(products);
-
 
     const getUserCart = async (token) => {
         try {

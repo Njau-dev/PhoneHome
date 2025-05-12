@@ -2,11 +2,12 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Link } from 'react-router-dom';
-import { Trash2, RefreshCcw, BarChart2, Heart, ArrowUpDown } from 'lucide-react';
+import { Trash2, RefreshCcw, Heart } from 'lucide-react';
 import BrandedSpinner from '../components/BrandedSpinner';
 import Breadcrumbs from '../components/BreadCrumbs';
 import Title from '../components/Title';
 import { ShopContext } from '../context/ShopContext';
+import { Square3Stack3DIcon } from '@heroicons/react/24/outline';
 
 const Wishlist = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -177,7 +178,7 @@ const Wishlist = () => {
                                                                     className="p-2 rounded-full bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all"
                                                                     title="Add to compare"
                                                                 >
-                                                                    <ArrowUpDown size={16} />
+                                                                    <Square3Stack3DIcon className='h-4 w-4' />
                                                                 </button>
                                                                 <button
                                                                     onClick={() => handleDeleteClick(item)}

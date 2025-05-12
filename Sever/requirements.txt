@@ -5,3 +5,4 @@ Flask-RESTful
 Flask-CORS
 Flask-JWT-Extended
 Werkzeug
+python-dotenv

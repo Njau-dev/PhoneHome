@@ -1,15 +1,13 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { StarIcon } from '@heroicons/react/24/outline';
+import { Square3Stack3DIcon, StarIcon } from '@heroicons/react/24/outline';
 import { ShopContext } from '../context/ShopContext';
 import { HeartIcon } from '@heroicons/react/24/outline';
 import RelatedProducts from '../components/RelatedProducts';
 import { toast } from 'react-toastify';
 import Breadcrumbs from '../components/BreadCrumbs';
 import BrandedSpinner from '../components/BrandedSpinner';
-import { ArrowUpDown } from 'lucide-react';
-import { ArrowsUpDownIcon } from '@heroicons/react/24/outline';
 
 const Product = () => {
   const { productId } = useParams();
@@ -215,7 +213,7 @@ const Product = () => {
 
 
                   {productData.category === 'Phone' || productData.category === 'Tablet' ? (
-                    productData.hasVariations ? (
+                    productData.hasVariation ? (
                       <>
                         <p>Select Storage Variation</p>
 
@@ -294,7 +292,7 @@ const Product = () => {
                   />  <span>Add to Wishlist</span>
 
 
-                  <ArrowsUpDownIcon onClick={handleAddToCompare}
+                  <Square3Stack3DIcon onClick={handleAddToCompare}
                     className="bg-bgdark h-12 hover:scale-105 text-accent font-semibold py-2 px-6 hover:cursor-pointer" />   <span>Compare specs</span>
 
                 </div>

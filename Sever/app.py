@@ -19,17 +19,25 @@ import traceback
 from sqlalchemy.exc import SQLAlchemyError
 from collections import defaultdict
 
-load_dotenv()
+load_dotenv(override=True)
 logger = logging.getLogger(__name__)
+
 # Initialize Flask app
 app = Flask(__name__)
 
-# Validate database URL
-db_url = os.getenv('SQLALCHEMY_DATABASE_URI')
-if not db_url:
-    raise ValueError("Database URL not found in environment variables")
-print(db_url)
+#Validate environment variables
+required_env_vars = [
+    'SQLALCHEMY_DATABASE_URI',
+    'SECRET_KEY',
+    'JWT_SECRET_KEY',
+    'CLOUDINARY_CLOUD_NAME',
+    'CLOUDINARY_API_KEY',
+    'CLOUDINARY_API_SECRET'
+]
 
+missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+if missing_vars:
+    raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
 cloudinary.config(
     cloud_name = os.getenv ("CLOUDINARY_CLOUD_NAME"),
@@ -38,13 +46,14 @@ cloudinary.config(
     debug = True,
     secure = True
 )
- 
 
-# Configuration
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+# Configure Flask app
+app.config.update(
+    SECRET_KEY=os.getenv('SECRET_KEY'),
+    SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI'),
+    SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    JWT_SECRET_KEY=os.getenv('JWT_SECRET_KEY')
+)
 
 
 # Initialize Extensions
@@ -745,7 +754,7 @@ class GetProductById(Resource):
     def get(self, product_id):
         try:
             product = Product.query.get_or_404(product_id)
-            category = product.category.name  # Assuming this refers to the category name
+            category = product.category.name  
 
             # Base product data that all products share
             product_data = {
@@ -756,27 +765,29 @@ class GetProductById(Resource):
                 "category": product.category.name,
                 "description": product.description,
                 "image_urls": product.image_urls,
-                "type": product.type    
-                # "variations": product.variations
+                "type": product.type,
+                "hasVariation": product.hasVariation,
+                "isBestSeller": product.isBestSeller
             }
 
-            # Use switch-case logic based on product category
-            if category == 'Phone' or category == 'Tablet':
-                # Include variations
+            # If product has variations, fetch and include them
+            if product.hasVariation:
                 variations = [
                     {
+                        "id": variation.id,
                         "ram": variation.ram,
                         "storage": variation.storage,
-                        "price": variation.price,
+                        "price": variation.price
                     }
-                    for variation in product.variations
+                    for variation in ProductVariation.query.filter_by(product_id=product.id).all()
                 ]
                 product_data["variations"] = variations
 
-                # Other fields specific to Phones/Tablets
+            # Use switch-case logic based on product category
+            if category == 'Phone' or category == 'Tablet':
                 product_data.update({
-                    'ram': product.ram,
-                    'storage': product.storage,
+                    "ram": product.ram,
+                    "storage": product.storage,
                     "battery": product.battery,
                     "main_camera": product.main_camera,
                     "front_camera": product.front_camera,
@@ -784,9 +795,8 @@ class GetProductById(Resource):
                     "processor": product.processor,
                     "connectivity": product.connectivity,
                     "colors": product.colors,
-                    "os": product.os,
+                    "os": product.os
                 })
-
             elif category == 'Laptop':
                 product_data.update({
                     "ram": product.ram,
@@ -796,20 +806,18 @@ class GetProductById(Resource):
                     "processor": product.processor,
                     "os": product.os
                 })
-
- 
             elif category == 'Audio':
                 product_data.update({
                     "battery": product.battery
                 })
 
-            # Return the full product data based on category
             return product_data, 200
 
         except Exception as e:
             logger.error(f"Error fetching product by ID: {e}")
             return {"Error": "An error occurred while fetching the product"}, 500
         
+                
 # Delete Product by ID
 class DeleteProductById(Resource):
     def delete(self, product_id):

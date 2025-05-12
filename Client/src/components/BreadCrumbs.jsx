@@ -10,11 +10,9 @@ import {
     User,
     Heart,
     ShoppingBag,
-
     Info,
-    ArrowUpDown
 } from 'lucide-react';
-import { ShoppingBagIcon } from '@heroicons/react/24/outline';
+import { ShoppingBagIcon, Square3Stack3DIcon } from '@heroicons/react/24/outline';
 
 const Breadcrumbs = ({ productData }) => {
     const location = useLocation();
@@ -51,7 +49,7 @@ const Breadcrumbs = ({ productData }) => {
             case 'wishlist':
                 return Heart;
             case 'compare':
-                return ArrowUpDown;
+                return Square3Stack3DIcon;
             case 'contact':
                 return Phone;
             default:

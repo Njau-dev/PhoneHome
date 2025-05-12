@@ -2,6 +2,7 @@ import React, { useContext } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { Link } from 'react-router-dom';
 import { Heart, ShoppingCart, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Square3Stack3DIcon } from '@heroicons/react/24/outline';
 
 
 const ProductItem = ({ id, image, name, price, category, hasVariation }) => {
@@ -55,7 +56,7 @@ const ProductItem = ({ id, image, name, price, category, hasVariation }) => {
                     onClick={handleAddToCompare}
                     title="Add to Compare"
                 >
-                    <ArrowUpDown className="w-4 h-4 text-accent" />
+                    <Square3Stack3DIcon className="w-4 h-4 text-accent" />
                 </button>
 
                 {/* Add to Cart button */}
