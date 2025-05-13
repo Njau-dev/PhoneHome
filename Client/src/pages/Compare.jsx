@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { toast } from 'react-toastify';
 import { Link } from 'react-router-dom';
-import { RefreshCcw, ShoppingCart, X } from 'lucide-react';
+import { Eye, RefreshCcw, ShoppingCart, X } from 'lucide-react';
 import BrandedSpinner from '../components/BrandedSpinner';
 import Breadcrumbs from '../components/BreadCrumbs';
 import Title from '../components/Title';
@@ -137,28 +137,58 @@ const Compare = () => {
 
                                                             {/* Product specifications */}
                                                             {specifications.map((spec, specIndex) => {
-                                                                const value = product[spec.key];
+                                                                let value = product[spec.key];
+
+                                                                // Handle RAM, Storage and Price for products with variations
+                                                                if (product.hasVariation && product.variations.length > 1) {
+                                                                    if (spec.key === 'ram') {
+                                                                        // Get unique RAM values from variations
+                                                                        const rams = [...new Set(product.variations.map(v => v.ram))];
+                                                                        value = rams.join(', ');
+                                                                    } else if (spec.key === 'storage') {
+                                                                        // Get unique storage values from variations
+                                                                        const storages = [...new Set(product.variations.map(v => v.storage))];
+                                                                        value = storages.join(', ');
+                                                                    } else if (spec.key === 'price') {
+                                                                        // Get price range from base price to highest variation price
+                                                                        const maxPrice = Math.max(...product.variations.map(v => v.price));
+                                                                        value = `${product.price} - ${maxPrice}`;
+                                                                    }
+                                                                } else {
+                                                                    // For non-variation products, use the direct values
+                                                                    value = product[spec.key];
+                                                                }
+
+                                                                // Format the display value
                                                                 const displayValue = spec.format ? spec.format(value) : value || '-';
 
                                                                 return (
                                                                     <div key={specIndex} className="py-3 md:py-4 border-t border-border">
                                                                         <p className={`text-sm ${spec.key === 'name' ? 'font-medium hover:text-accent' : ''}`}>
-
                                                                             {displayValue}
                                                                         </p>
                                                                     </div>
                                                                 );
                                                             })}
 
-                                                            {/* Add to cart button */}
+                                                            {/* Add to cart or Select Options button */}
                                                             <div className="py-4 border-t border-border">
-                                                                <button
-                                                                    onClick={() => handleAddToCart(product.id)}
-                                                                    className="w-full bg-accent text-bgdark py-2 px-4 rounded-lg hover:bg-bgdark hover:text-accent hover:border border-accent transition-all flex items-center justify-center gap-2"
-                                                                >
-                                                                    <ShoppingCart size={16} />
-                                                                    Add to Cart
-                                                                </button>
+                                                                {product.hasVariation ? (
+                                                                    <Link
+                                                                        to={`/product/${product.id}`}
+                                                                        className="w-full bg-accent text-bgdark py-2 px-4 rounded-lg hover:bg-bgdark hover:text-accent hover:border border-accent transition-all flex items-center justify-center gap-2"
+                                                                    >
+                                                                        <Eye /> Select Options
+                                                                    </Link>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => handleAddToCart(product.id)}
+                                                                        className="w-full bg-accent text-bgdark py-2 px-4 rounded-lg hover:bg-bgdark hover:text-accent hover:border border-accent transition-all flex items-center justify-center gap-2"
+                                                                    >
+                                                                        <ShoppingCart size={16} />
+                                                                        Add to Cart
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     ))}

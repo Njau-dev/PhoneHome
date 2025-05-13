@@ -129,7 +129,7 @@ const Wishlist = () => {
                                         <Heart className="w-5 h-5 text-accent" />
                                     </div>
                                 </div>
-                                <p className="text-3xl font-bold">{wishlistItems.length}</p>
+                                <p className="text-3xl font-bold">{wishlistItems > 0 ? wishlistItems.length : 0}</p>
                                 <p className="text-secondary text-sm mt-4">Items in your wishlist</p>
                             </div>
 

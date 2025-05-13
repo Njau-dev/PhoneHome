@@ -17,6 +17,8 @@ import Profile from './pages/Profile'
 import BrandedSpinner from './components/BrandedSpinner'
 import Wishlist from './pages/Wishlist'
 import Compare from './pages/Compare'
+import ForgotPassword from './components/ForgotPassword'
+import ResetPassword from './components/ResetPassword'
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -57,6 +59,8 @@ const App = () => {
         <Route path='/profile' element={<Profile />} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/compare" element={<Compare />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
       </Routes>
 
       <Footer />

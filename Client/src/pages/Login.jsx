@@ -23,7 +23,8 @@ const Login = () => {
 
         if (response.status === 201) {
           toast.success(response.data.Message);
-          navigate('/');
+          setToken(response.data.token)
+          localStorage.setItem('token', response.data.token)
         }
 
       } else {
@@ -81,18 +82,18 @@ const Login = () => {
 
       {currentState === 'Login' ? '' : <input type="number" placeholder='Phone Number' onChange={(e) => setPhone_number(e.target.value)} value={phone_number} className='w-full px-2 py-3.5 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded' required />}
 
-      <div className='w-full flex justify-between text-sm mt-[-8px]'>
-        <p className='cursor-pointer'>Forgot your password</p>
+      <div className={`w-full flex ${currentState === 'Login' ? 'justify-between' : 'justify-end'} text-sm mt-[-8px]`}>
+        {currentState === 'Login' ? <p className='cursor-pointer hover:text-accent' onClick={() => navigate('/forgot-password')}>Forgot your password</p> : ''}
         {
           currentState === 'Login'
-            ? <p className='cursor-pointer' onClick={() => setCurrentState('Sign Up')}>Create Account</p>
-            : <p className='cursor-pointer' onClick={() => setCurrentState('Login')}>Login Here</p>
+            ? <p className='cursor-pointer hover:text-accent' onClick={() => setCurrentState('Sign Up')}>Create Account</p>
+            : <p className='cursor-pointer hover:text-accent' onClick={() => setCurrentState('Login')}>Login Here</p>
         }
       </div>
 
       <button className='bg-accent  hover:bg-bgdark hover:text-accent hover:border border-accent rounded text-bgdark text-base mt-8 mb-3 py-3 px-11'>{currentState === 'Login' ? 'Sign In' : 'Sign Up'}</button>
 
-    </form>
+    </form >
   )
 }
 

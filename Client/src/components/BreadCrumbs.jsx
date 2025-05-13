@@ -5,12 +5,12 @@ import {
     ChevronRight,
     Home,
     ShoppingCart,
-    List,
     Phone,
     User,
     Heart,
     ShoppingBag,
     Info,
+    Package,
 } from 'lucide-react';
 import { ShoppingBagIcon, Square3Stack3DIcon } from '@heroicons/react/24/outline';
 
@@ -45,7 +45,7 @@ const Breadcrumbs = ({ productData }) => {
             case 'profile':
                 return User;
             case 'orders':
-                return List;
+                return Package;
             case 'wishlist':
                 return Heart;
             case 'compare':
