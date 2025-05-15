@@ -59,7 +59,6 @@ const Profile = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
       setStats(statsResponse.data);
-      console.log(stats);
 
 
       // Fetch recent orders

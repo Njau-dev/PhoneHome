@@ -1,26 +1,34 @@
-from flask import Flask, jsonify, request, json
+from flask import Flask, jsonify, request, json, send_file, render_template_string
 from flask_restful import Resource, Api
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager, get_jwt
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager
 from flask_migrate import Migrate
 from flask_cors import CORS
 from datetime import timedelta, datetime
 from functools import wraps
 from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog, Address, Payment, Shipment, Product, ProductVariation, Compare, CompareItem
 import cloudinary
+from io import BytesIO
+from xhtml2pdf import pisa
 import cloudinary.uploader
+from services.email_service import (
+    serializer, send_password_reset_email, 
+    send_order_confirmation, send_payment_notification,
+    send_shipment_update, send_review_request, send_email
+)
 from flask.views import MethodView
 import os
-import cloudinary.api
+import re
 from dotenv import load_dotenv
 import logging
-from sqlalchemy import func, Table, Column, Integer, ForeignKey
+from sqlalchemy import func
 import traceback
 from sqlalchemy.exc import SQLAlchemyError
 from collections import defaultdict
+from redis import Redis
+from rq import Queue
 
 load_dotenv(override=True)
-logger = logging.getLogger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -32,7 +40,8 @@ required_env_vars = [
     'JWT_SECRET_KEY',
     'CLOUDINARY_CLOUD_NAME',
     'CLOUDINARY_API_KEY',
-    'CLOUDINARY_API_SECRET'
+    'CLOUDINARY_API_SECRET',
+    'FRONTEND_URL'
 ]
 
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
@@ -52,7 +61,8 @@ app.config.update(
     SECRET_KEY=os.getenv('SECRET_KEY'),
     SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI'),
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
-    JWT_SECRET_KEY=os.getenv('JWT_SECRET_KEY')
+    JWT_SECRET_KEY=os.getenv('JWT_SECRET_KEY'),
+    FRONTEND_URL=os.getenv('FRONTEND_URL', 'http://localhost:5173')
 )
 
 
@@ -79,6 +89,130 @@ def check_if_token_in_blacklist(jwt_header, jwt_payload):
     return is_token_blacklisted(jwt_payload)
 
 
+# Rate limiting setup
+redis_conn = Redis()
+q = Queue(connection=redis_conn)
+
+def rate_limit(key_prefix, limit, period):
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            key = f"{key_prefix}:{request.remote_addr}"
+            current = redis_conn.get(key)
+            
+            if current and int(current) >= limit:
+                return jsonify({
+                    "error": "Too many requests",
+                    "message": f"Please wait {period} seconds before trying again"
+                }), 429
+                
+            pipe = redis_conn.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, period)
+            pipe.execute()
+            
+            return f(*args, **kwargs)
+        return wrapped
+    return decorator
+
+class ForgotPasswordResource(Resource):
+    @rate_limit("pwd_reset", int(os.getenv("RESET_EMAIL_LIMIT", 20)), 3600)
+    def post(self):
+        try:
+            email = request.json.get('email')
+            
+            if not email:
+                return {"error": "Email is required"}, 400
+
+            # Validate email format
+            if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+                return {"error": "Invalid email format"}, 400
+
+            user = User.query.filter_by(email=email).first()
+            
+            if not user:
+                return {"message": "If that email exists, we've sent a reset link"}, 200
+            
+            try:
+                token = serializer.dumps(email, salt='password-reset')
+                reset_url = f"{app.config['FRONTEND_URL']}/reset-password/{token}"
+                
+                user.reset_token = token
+                user.reset_token_expiration = datetime.utcnow() + timedelta(
+                    seconds=int(os.getenv("PASSWORD_RESET_TIMEOUT", 3600))
+                )
+                db.session.commit()
+                
+                email_sent = send_password_reset_email(email, reset_url)
+                
+                if not email_sent:
+                    logger.error(f"Failed to send password reset email to {email}")
+                    return {"error": "Failed to send reset email"}, 500
+
+                return {"message": "Password reset email sent"}, 200
+                
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error in password reset process: {str(e)}")
+                return {"error": "An error occurred processing your request"}, 500
+                
+        except Exception as e:
+            logger.error(f"Unexpected error in forgot password: {str(e)}")
+            return {"error": "An unexpected error occurred"}, 500
+
+
+class ResetPasswordResource(Resource):
+    def post(self, token):
+        try:
+            if not request.json or 'password' not in request.json:
+                return {"error": "New password is required"}, 400
+
+            new_password = request.json.get('password')
+            if len(new_password) < 8:
+                return {"error": "Password must be at least 8 characters long"}, 400
+
+            try:
+                email = serializer.loads(
+                    token,
+                    salt='password-reset',
+                    max_age=int(os.getenv("PASSWORD_RESET_TIMEOUT", 3600))
+                )
+            except Exception:
+                return {"error": "Invalid or expired token"}, 400
+
+            user = User.query.filter_by(email=email, reset_token=token).first()
+            if not user:
+                return {"error": "Invalid reset request"}, 400
+
+            if user.reset_token_expiration < datetime.utcnow():
+                return {"error": "Reset token has expired"}, 400
+
+            try:
+                user.password_hash = generate_password_hash(new_password)
+                user.reset_token = None
+                user.reset_token_expiration = None
+                # Create notification for the user
+                notification = Notification(
+                    user_id=user.id,
+                    message="Your password has been reset successfully.",
+                    is_read=False
+                )
+                db.session.add(notification)
+                db.session.commit()
+                
+                return {"message": "Password reset successful"}, 200
+                
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Database error during password reset: {str(e)}")
+                return {"error": "Error updating password"}, 500
+
+        except Exception as e:
+            logger.error(f"Unexpected error in password reset: {str(e)}")
+            return {"error": "An unexpected error occurred"}, 500
+        
+
+
 # Sign Up
 class SignUp(Resource):
     def post(self):
@@ -102,10 +236,32 @@ class SignUp(Resource):
                 phone_number=phone_number,
                 password_hash=hashed_password
             )
+            # Create notification for the user
+            notification = Notification(
+                user_id=new_user.id,
+                message="Your account has been created successfully.",
+                is_read=False
+            )
+
+            db.session.add(notification)
             db.session.add(new_user)
             db.session.commit()
 
-            return {"Message": "Sign-Up Successful!"}, 201
+            # Generate token for the new user
+            token = create_access_token(
+                identity=str(new_user.id), 
+                expires_delta=timedelta(days=1)
+            )
+
+            return {
+                "Message": "Sign-Up Successful!",
+                "token": token,
+                "user": {
+                    "id": new_user.id,
+                    "username": new_user.username,
+                    "email": new_user.email
+                }
+            }, 201
 
         except Exception as e:
             logger.error(f"Error during Sign Up: {e}")
@@ -121,15 +277,14 @@ class Login(Resource):
         user = User.query.filter_by(email=email).first()
 
         if user and check_password_hash(user.password_hash, password):
-            token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=2))
+            token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=1))
             return {"Message": "Login Successful!", "token": token}, 200
         else:
-            return {"Error": "Invalid Email or Password!"}, 401
+            return {"Error": "Invalid Email or Password!"}, 400
 
 # Profile View and Update
 class ProfileView(MethodView):
-    decorators = [jwt_required()]
-
+    @jwt_required()
     def get(self):
         current_user_id = get_jwt_identity()
         user = db.session.get(User, current_user_id)
@@ -172,8 +327,7 @@ class ProfileView(MethodView):
 
 # Profile Stats
 class ProfileStatsView(MethodView):
-    decorators = [jwt_required()]
-
+    @jwt_required()
     def get(self):
         current_user_id = get_jwt_identity()
         user = db.session.get(User, current_user_id)
@@ -212,8 +366,7 @@ class ProfileStatsView(MethodView):
 
 # Profile Orders
 class ProfileOrdersView(MethodView):
-    decorators = [jwt_required()]
-
+    @jwt_required()
     def get(self):
         try:
             current_user_id = get_jwt_identity()
@@ -222,49 +375,53 @@ class ProfileOrdersView(MethodView):
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
-            # Get recent orders
+            # Get recent orders with all necessary relationships
+            orders = (Order.query
+                     .filter_by(user_id=current_user_id)
+                     .order_by(Order.created_at.desc())
+                     .limit(5)
+                     .all())
+
             recent_orders = []
-            orders = Order.query.filter_by(user_id=current_user_id)\
-                .order_by(Order.created_at.desc())\
-                .limit(5).all()
-                
             for order in orders:
-                order_items = OrderItem.query.filter_by(order_id=order.id).all()
+                # Get order items with product details
                 items = []
-                
-                for order_item in order_items:
+                for order_item in order.order_items:
                     if order_item.product:  # Check if product exists
                         item_data = {
                             "id": order_item.product.id,
                             "name": order_item.product.name,
-                            "brand": order_item.product.brand.name if order_item.product.brand else "N/A",
+                            "brand": order_item.product.brand.name if order_item.product.brand else None,
                             "image_url": order_item.product.image_urls[0] if order_item.product.image_urls else None,
                             "quantity": order_item.quantity,
                             "variation_name": order_item.variation_name,
                             "price": order_item.variation_price or order_item.product.price
                         }
                         items.append(item_data)
-                
+
                 order_data = {
                     "id": order.id,
-                    "total_amount": order.total_amount,
+                    "order_reference": order.order_reference,
+                    "total_amount": float(order.total_amount),  # Ensure it's a float
                     "status": order.status,
-                    "payment": order.payment,
                     "date": order.created_at.isoformat(),
-                    "items": items
+                    "showOrderDetails": True,  # Add this flag for frontend
+                    "items": items,
+                    "payment_status": order.payment.status if order.payment else "Pending",
+                    "payment_method": order.payment.payment_method if order.payment else "N/A"
                 }
                 recent_orders.append(order_data)
             
             return jsonify(recent_orders), 200
             
         except Exception as e:
-            logger.error(f"Error fetching profile orders: {e}")
-            return jsonify({"error": "An error occurred while fetching profile orders."}), 500
+            logger.error(f"Error fetching profile orders: {str(e)}")
+            logger.error(f"Stack trace: {traceback.format_exc()}")
+            return jsonify({"error": "An error occurred while fetching profile orders"}), 500
 
 # Profile Wishlist
 class ProfileWishlistView(MethodView):
-    decorators = [jwt_required()]
-
+    @jwt_required()
     def get(self):
         try:
             current_user_id = get_jwt_identity()
@@ -1310,165 +1467,353 @@ class CompareResource(Resource):
 class OrderResource(Resource):
     @jwt_required()
     def get(self):
-        current_user_id = get_jwt_identity()
-        orders = Order.query.filter_by(user_id=current_user_id).all()
+        try:
+            current_user_id = get_jwt_identity()
+            
+            # Update to use session.get instead of query.get
+            user = db.session.get(User, current_user_id)
+            if not user:
+                logger.error(f"User {current_user_id} not found")
+                return {"error": "User not found"}, 404
 
-        if not orders:
-            return {"Message": "No orders found!"}, 404
-        
-        # Fetch order items for all orders
-        order_items = OrderItem.query.filter(OrderItem.order_id.in_([order.id for order in orders])).all()
-        
-        # Extract unique product IDs
-        product_ids = {item.product_id for item in order_items}
+            orders = Order.query.filter_by(user_id=current_user_id).all()
 
-        # Fetch product details in bulk
-        products = Product.query.filter(Product.id.in_(product_ids)).all()
-        product_map = {
-            product.id: {
-                "name": product.name,
-                "image_urls": product.image_urls,
-                "price": product.price
-            } for product in products
-        }
+            if not orders:
+                logger.info(f"No orders found for user {current_user_id}")
+                return {"orders": []}, 200
 
-        order_list = []
-        for order in orders:
-            items = [
-                {
-                    "product_id": item.product_id,
-                    "name": product_map.get(item.product_id, {}).get("name", "Product Not Found"),
-                    "image_urls": product_map.get(item.product_id, {}).get("image_urls", []),
-                    "quantity": item.quantity,
-                    "variation_name": item.variation_name,
-                    "price": item.variation_price if item.variation_price is not None else product_map.get(item.product_id, {}).get("price")
-                } for item in order_items if item.order_id == order.id
-            ]
-            order_list.append({
-                "order_id": order.id,
-                "total_amount": order.total_amount,
-                "status": order.status,
-                "payment_method": order.payment_method,
-                "payment": order.payment,
-                "address": order.address,
-                "date": order.date,
-                "items": items
-            })
+            try:
+                order_list = []
+                for order in orders:
+                    try:
+                        # Get items for this specific order
+                        items = []
+                        for item in order.order_items:
+                            # Get product details with proper error handling
+                            product = db.session.get(Product, item.product_id)
+                            if product:
+                                item_data = {
+                                    "product_id": item.product_id,
+                                    "name": product.name,
+                                    "image_url": product.image_urls[0] if product.image_urls and len(product.image_urls) > 0 else None,
+                                    "quantity": item.quantity,
+                                    "variation_name": item.variation_name,
+                                    "price": float(item.variation_price) if item.variation_price is not None 
+                                            else float(product.price)
+                                }
+                                items.append(item_data)
+
+                        # Build order data matching frontend requirements
+                        order_data = {
+                            "order_reference": order.order_reference,
+                            "created_at": order.created_at.isoformat(),
+                            "status": order.status,
+                            "payment_method": order.payment.payment_method if order.payment else "Not specified",
+                            "payment": order.payment.status if order.payment else "pending",
+                            "items": items,
+                            "total_amount": float(order.total_amount),
+                        }
+                        order_list.append(order_data)
+                    except Exception as e:
+                        logger.error(f"Error processing order {order.id}: {str(e)}")
+                        continue
+
+                return {"orders": order_list}, 200
+
+            except Exception as e:
+                logger.error(f"Error processing orders data: {str(e)}")
+                return {"error": "Error processing orders data"}, 500
+
+        except Exception as e:
+            logger.error(f"Error fetching orders: {str(e)}\n{traceback.format_exc()}")
+            return {"error": "An error occurred while fetching orders"}, 500
         
-        return {"orders": order_list}, 200
 
     @jwt_required()
     def post(self):
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
+        try:
+            current_user_id = get_jwt_identity()
+            data = request.get_json()
 
-        # Fetch cart and validate it
-        cart = Cart.query.filter_by(user_id=current_user_id).first()
-        if not cart:
-            return {"Error": "Cart not found!"}, 404
-        cart_items = CartItem.query.filter_by(cart_id=cart.id).all()
-        if not cart_items:
-            return {"Error": "Your cart is empty!"}, 400
+            # Log incoming data
+            logger.info(f"Creating order for user {current_user_id}")
+            logger.debug(f"Order data: {data}")
 
-        # Validate address and total_amount from frontend
-        address = data.get('address')
-        payment_method = data.get('payment_method')
-        total_amount = data.get('total_amount')
-        if not address or not total_amount:
-            return {"Error": "Address and total amount are required!"}, 400
+            # Validate cart
+            cart = Cart.query.filter_by(user_id=current_user_id).first()
+            if not cart or not cart.items:
+                logger.warning(f"Empty cart for user {current_user_id}")
+                return {"error": "Cart is empty"}, 400
 
-        # Create new Order
-        new_order = Order(
-            user_id=current_user_id,
-            total_amount=total_amount,
-            address=address,
-            payment_method=payment_method,
-            payment=False,
-            status="Order Placed"
-        )
-        db.session.add(new_order)
-        db.session.commit()
+            try:
+                # Create address
+                address_data = data.get('address')
+                if not address_data:
+                    return {"error": "Address is required"}, 400
 
-        # Transfer cart items to OrderItems
-        for item in cart_items:
-            order_item = OrderItem(
-                order_id=new_order.id,
-                product_id=item.product_id,
-                quantity=item.quantity,
-                variation_name=item.variation_name,
-                variation_price=item.variation_price
-            )
-            db.session.add(order_item)
-            db.session.delete(item)  # Remove from cart
+                address = Address(
+                    user_id=current_user_id,
+                    first_name=address_data['firstName'],
+                    last_name=address_data['lastName'],
+                    email=address_data['email'],
+                    phone=address_data['phone'],
+                    city=address_data['city'],
+                    street=address_data['street'],
+                    additional_info=address_data.get('additionalInfo')
+                )
+                db.session.add(address)
+                db.session.flush()
+                logger.debug(f"Address created with ID: {address.id}")
 
-        db.session.commit()
-        return {"Message": "Order placed successfully!"}, 201
-    
+                # Generate order reference
+                order_reference = Order.generate_order_reference()
+                logger.debug(f"Generated order reference: {order_reference}")
 
+                try:
+                    # Create payment entry
+                    payment = Payment(
+                        order_reference=order_reference,
+                        amount=data['total_amount'],
+                        payment_method=data['payment_method'],
+                        status='Pending'
+                    )
+                    db.session.add(payment)
+                    db.session.flush()
+                    logger.debug(f"Payment created with ID: {payment.id}")
+
+                    # Create notification for the user
+                    notification = Notification(
+                        user_id=current_user_id,
+                        message=f"Your order #{order.order_reference} has been placed successfully.",
+                        is_read=False
+                    )
+                    db.session.add(notification)
+
+                    # Create order
+                    order = Order(
+                        user_id=current_user_id,
+                        order_reference=order_reference,
+                        address_id=address.id,
+                        payment_id=payment.id,
+                        total_amount=data['total_amount'],
+                        status='Order Placed'
+                    )
+                    db.session.add(order)
+                    db.session.flush()
+                    logger.debug(f"Order created with ID: {order.id}")
+
+                    # Create order items
+                    for cart_item in cart.items:
+                        order_item = OrderItem(
+                            order_id=order.id,
+                            product_id=cart_item.product_id,
+                            quantity=cart_item.quantity,
+                            variation_name=cart_item.variation_name,
+                            variation_price=cart_item.variation_price
+                        )
+                        db.session.add(order_item)
+
+                    # Clear cart
+                    for item in cart.items:
+                        db.session.delete(item)
+                    db.session.delete(cart)
+
+                    db.session.commit()
+                    logger.info(f"Order {order_reference} created successfully")
+
+                    try:
+                        # Send order confirmation email
+                        email_sent = send_order_confirmation(order)
+                        if not email_sent:
+                            logger.warning(f"Failed to send confirmation email for order {order_reference}")
+                    except Exception as e:
+                        logger.error(f"Email error for order {order_reference}: {str(e)}")
+                        # Don't return error here, just log it
+                    
+                    return {
+                        "message": "Order placed successfully",
+                        "order_reference": order.order_reference
+                    }, 201
+
+                except Exception as e:
+                    logger.error(f"Error creating order/payment: {str(e)}")
+                    raise
+
+            except Exception as e:
+                logger.error(f"Error creating address: {str(e)}")
+                raise
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Order creation failed: {str(e)}\n{traceback.format_exc()}")
+            return {"error": "Failed to create order"}, 500
+            
+                 
 class AdminOrderResource(Resource):
     @jwt_required()
     @admin_required
     def get(self):
-        orders = Order.query.all()
+        try:
+            # Get all orders with eager loading of relationships
+            orders = Order.query.options(
+                db.joinedload(Order.payment),
+                db.joinedload(Order.address),
+                db.joinedload(Order.order_items).joinedload(OrderItem.product)
+            ).all()
 
-        if not orders:
-            return {"Message": "No orders found!"}, 404
-        
-        # Fetch order items for all orders
-        order_items = OrderItem.query.filter(OrderItem.order_id.in_([order.id for order in orders])).all()
-        
-        # Extract unique product IDs
-        product_ids = {item.product_id for item in order_items}
+            if not orders:
+                return {"message": "No orders found"}, 200
 
-        # Fetch product details in bulk (only fetching product names)
-        products = Product.query.filter(Product.id.in_(product_ids)).all()
-        product_map = {
-            product.id: product.name for product in products
-        }
+            order_list = []
+            for order in orders:
+                try:
+                    # Get order items with null checks
+                    items = []
+                    for item in order.order_items:
+                        if item.product:
+                            item_data = {
+                                "product_id": item.product_id,
+                                "name": item.product.name,
+                                "quantity": item.quantity,
+                                "variation_name": item.variation_name,
+                                "price": item.variation_price or item.product.price
+                            }
+                            items.append(item_data)
 
-        # Build order list
-        order_list = []
-        for order in orders:
-            items = [
-                {
-                    "product_id": item.product_id,
-                    "name": product_map.get(item.product_id, "Product Not Found"),
-                    "quantity": item.quantity,
-                    "variation_name": item.variation_name
-                } for item in order_items if item.order_id == order.id
-            ]
-            order_list.append({
-                "order_id": order.id,
-                "user_id": order.user_id,
-                "total_amount": order.total_amount,
-                "status": order.status,
-                "payment_method": order.payment_method,
-                "payment": order.payment,
-                "address": order.address,
-                "date": order.date,
-                "items": items
-            })
-        
-        return {"orders": order_list}, 200
+                    # Build order data with null checks
+                    order_data = {
+                        "id": order.id,
+                        "order_reference": order.order_reference,
+                        "user_id": order.user_id,
+                        "total_amount": float(order.total_amount),
+                        "status": order.status,
+                        "created_at": order.created_at.isoformat(),
+                        "payment_status": order.payment.status if order.payment else "Pending",
+                        "payment_method": order.payment.payment_method if order.payment else "N/A",
+                        "address": {
+                            "first_name": order.address.first_name if order.address else None,
+                            "last_name": order.address.last_name if order.address else None,
+                            "email": order.address.email if order.address else None,
+                            "phone": order.address.phone if order.address else None,
+                            "city": order.address.city if order.address else None,
+                            "street": order.address.street if order.address else None,
+                            "additional_info": order.address.additional_info if order.address else None
+                        } if order.address else None,
+                        "items": items
+                    }
+                    order_list.append(order_data)
+
+                except Exception as e:
+                    logger.error(f"Error processing order {order.id}: {str(e)}")
+                    continue
+
+            return {"orders": order_list}, 200
+
+        except Exception as e:
+            logger.error(f"Error fetching admin orders: {str(e)}")
+            logger.error(f"Stack trace: {traceback.format_exc()}")
+            return {"error": "An error occurred while fetching orders"}, 500
 
 
 class OrderStatusResource(Resource):
     @jwt_required()
     @admin_required
     def put(self, order_id):
-        data = request.get_json()
-        new_status = data.get('status')
+        try:
+            data = request.get_json()
+            new_status = data.get('status')
 
-        ORDER_STATUSES = ["Order Placed", "Packing", "Shipped", "Out for Delivery", "Delivered"]
+            ORDER_STATUSES = ["Order Placed", "Packing", "Shipped", "Out for Delivery", "Delivered"]
 
-        if new_status not in ORDER_STATUSES:
-            return {"Error": "Invalid order status!"}, 400
+            if new_status not in ORDER_STATUSES:
+                return {"error": "Invalid order status"}, 400
 
-        order = Order.query.get_or_404(order_id)
-        order.status = new_status
-        db.session.commit()
+            order = Order.query.get_or_404(order_id)
+            old_status = order.status
+            order.status = new_status
 
-        return {"Message": f"Order status updated to {new_status}!"}, 200
+            # Create notification for the user
+            notification = Notification(
+                user_id=order.user_id,
+                message=f"Order status for Order #{order.order_reference} has been updated. Check your email for more details.",
+                is_read=False
+            )
+            db.session.add(notification)
+
+            # Update payment status if order is delivered
+            if new_status == "Delivered":
+                payment = order.payment
+                if payment:
+                    payment.status = "Success"
+                    # Send payment success notification with invoice
+                    send_payment_notification(payment)
+
+                    # Create notification for the user
+                    notification = Notification(
+                        user_id=order.user_id,
+                        message=f"Payment for Order #{order.order_reference} has been confirmed. Check your email for the receipt.",
+                        is_read=False
+                    )
+                    db.session.add(notification)
+
+                    if payment.status == "Failed":
+                        # Create notification for payment failure
+                        notification = Notification(
+                            user_id=order.user_id,
+                            message=f"Payment for Order #{order.order_reference} has failed. Please try again.",
+                            is_read=False
+                        )
+                        db.session.add(notification)
+                    
+            db.session.commit()
+
+            # Send status update email
+            send_shipment_update(order, old_status, new_status)
+
+            return {"message": f"Order status updated to {new_status}"}, 200
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error updating order status: {str(e)}")
+            return {"error": "Failed to update order status"}, 500
+
+class PaymentResource(Resource):
+    @jwt_required()
+    def get(self, order_id):
+        try:
+            order = Order.query.get_or_404(order_id)
+            
+            # Generate invoice PDF
+            invoice_content = render_template_string("""
+                <h1>Invoice for Order #{{ order.order_reference }}</h1>
+                <p>Date: {{ order.created_at.strftime('%B %d, %Y') }}</p>
+                <h2>Customer Details:</h2>
+                <p>Name: {{ order.address.first_name }} {{ order.address.last_name }}</p>
+                <p>Email: {{ order.address.email }}</p>
+                <p>Phone: {{ order.address.phone }}</p>
+                <h2>Order Items:</h2>
+                {% for item in order.order_items %}
+                <div>
+                    <p>{{ item.product.name }} x {{ item.quantity }}</p>
+                    <p>Price: ${{ item.variation_price or item.product.price }}</p>
+                </div>
+                {% endfor %}
+                <h3>Total Amount: ${{ order.total_amount }}</h3>
+            """, order=order)
+            
+            pdf = BytesIO()
+            pisa.CreatePDF(BytesIO(invoice_content.encode("utf-8")), pdf)
+            pdf.seek(0)
+            
+            return send_file(
+                pdf,
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name=f'invoice_{order.order_reference}.pdf'
+            )
+
+        except Exception as e:
+            return {"error": "Failed to generate invoice"}, 500
 
 
 # Review Management
@@ -1490,28 +1835,43 @@ class ReviewResource(Resource):
 
     @jwt_required()
     def post(self, product_id):
-        current_user_id = get_jwt_identity()
-        data = request.get_json()
-        rating = data.get('rating')
-        comment = data.get('comment')
+        try:
+            current_user_id = get_jwt_identity()
+            data = request.get_json()
+            rating = data.get('rating')
+            comment = data.get('comment')
 
-        product = Product.query.get_or_404(product_id)
+            product = Product.query.get_or_404(product_id)
 
-        # Check if user already reviewed the product
-        existing_review = Review.query.filter_by(user_id=current_user_id, product_id=product.id).first()
-        if existing_review:
-            return {"Error": "You have already reviewed this product."}, 400
+            # Check if user already reviewed the product
+            existing_review = Review.query.filter_by(user_id=current_user_id, product_id=product.id).first()
+            if existing_review:
+                return {"Error": "You have already reviewed this product."}, 400
 
-        new_review = Review(
-            user_id=current_user_id,
-            product_id=product.id,
-            rating=rating,
-            comment=comment
-        )
-        db.session.add(new_review)
-        db.session.commit()
+            # Create new review
+            new_review = Review(
+                user_id=current_user_id,
+                product_id=product.id,
+                rating=rating,
+                comment=comment
+            )
+            db.session.add(new_review)
 
-        return {"Message": "Review added successfully!"}, 201
+            # Create notification for the user
+            notification = Notification(
+                user_id=current_user_id,
+                message=f"Thank you for reviewing {product.name}! Your feedback helps other customers make informed decisions.",
+                is_read=False
+            )
+            db.session.add(notification)
+
+            db.session.commit()
+            return {"Message": "Review added successfully!"}, 201
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error adding review: {str(e)}")
+            return {"Error": "An error occurred while adding the review"}, 500
 
     @jwt_required()
     def delete(self, product_id):
@@ -1714,25 +2074,6 @@ class AuditLogResource(Resource):
 
         return {"Message": "Audit log added!"}, 201
 
-# Password Change Resource (for Users)
-class PasswordChangeResource(Resource):
-    @jwt_required()
-    def post(self):
-        current_user_id = get_jwt_identity()
-        user = User.query.get_or_404(current_user_id)
-        data = request.get_json()
-
-        old_password = data.get('old_password')
-        new_password = data.get('new_password')
-
-        if not check_password_hash(user.password_hash, old_password):
-            return {"Error": "Old password is incorrect!"}, 400
-
-        user.password_hash = generate_password_hash(new_password)
-        db.session.commit()
-        return {"Message": "Password updated successfully!"}, 200
-
-
  
 class CategoryResource(Resource):
     def get(self):
@@ -1908,6 +2249,8 @@ def handle_exception(e):
 api.add_resource(SignUp, '/signup')
 api.add_resource(Login, '/login')
 api.add_resource(Logout, '/logout')
+api.add_resource(ForgotPasswordResource, '/forgot-password')
+api.add_resource(ResetPasswordResource, '/reset-password/<token>')
 
 # Profile routes
 profile_view = ProfileView.as_view('profile_view')
@@ -1946,6 +2289,9 @@ api.add_resource(OrderResource, '/orders')
 api.add_resource(AdminOrderResource, '/orders/admin')
 api.add_resource(OrderStatusResource, '/orders/status/<int:order_id>')
 
+# payment resource
+api.add_resource(PaymentResource, '/orders/<int:order_id>/invoice')
+
 # Review routes
 api.add_resource(ReviewResource, '/reviews/<int:product_id>')
 
@@ -1957,9 +2303,6 @@ api.add_resource(AdminNotificationResource, '/admin/notifications')
 api.add_resource(AdminUserManagement, '/admin/users', '/admin/users/<int:user_id>')
 api.add_resource(AdminManagementResource, '/admin/admins', '/admin/admins/<int:admin_id>')
 api.add_resource(AdminLogin, '/admin/login')
-
-# Password management
-api.add_resource(PasswordChangeResource, '/password/change')
 
 # Audit logs
 api.add_resource(AuditLogResource, '/admin/auditlogs')

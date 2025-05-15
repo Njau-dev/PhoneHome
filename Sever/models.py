@@ -21,6 +21,8 @@ class User(db.Model):
     reviews = db.relationship('Review', backref='user', lazy=True, cascade="all, delete-orphan")
     wishlist_items = db.relationship('WishList', backref='user', lazy=True, cascade="all, delete-orphan")
     notifications = db.relationship('Notification', backref='user', lazy=True, cascade="all, delete-orphan")
+    reset_token = db.Column(db.String(256))
+    reset_token_expiration = db.Column(db.DateTime)
     addresses = db.relationship('Address', backref='user', lazy=True, cascade="all, delete-orphan")
 
     def set_password(self, password):
@@ -186,20 +188,28 @@ class Order(db.Model):
     __tablename__ = 'orders'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    order_reference = db.Column(db.String(50), unique=True, nullable=True)
+    address_id = db.Column(db.Integer, db.ForeignKey('addresses.id'), nullable=True)
+    payment_id = db.Column(db.Integer, db.ForeignKey('payments.id'), nullable=True)
+    total_amount = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(50), nullable=False, default="Order Placed")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # New fields
-    total_amount = db.Column(db.Float, nullable=False)
-    address = db.Column(db.JSON, nullable=False)
-    status = db.Column(db.String(50), nullable=False, default="Order Placed")
-    payment_method = db.Column(db.String(50), nullable=False, default="COD")
-    payment = db.Column(db.Boolean, default=False)
-    date = db.Column(db.Integer, default=lambda: int(datetime.utcnow().timestamp()))
-
     # Relationships
     order_items = db.relationship('OrderItem', backref='order', lazy=True, cascade="all, delete-orphan")
+    address = db.relationship('Address', backref='orders')
+    payment = db.relationship('Payment', backref='order', uselist=False)
 
+    @staticmethod
+    def generate_order_reference():
+        last_order = Order.query.order_by(Order.id.desc()).first()
+        if last_order:
+            last_number = int(last_order.order_reference.split('-')[1])
+            new_number = str(last_number + 1).zfill(3)
+        else:
+            new_number = '001'
+        return f"PHK-{new_number}"
 
 # OrderItem model (supports polymorphic products)
 class OrderItem(db.Model):
@@ -218,14 +228,21 @@ class OrderItem(db.Model):
 class Payment(db.Model):
     __tablename__ = 'payments'
     id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
-    payment_method = db.Column(db.String(50), nullable=False)
+    order_reference = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(50), nullable=False)  # e.g., 'Completed', 'Pending'
+    payment_method = db.Column(db.String(50), nullable=False)  # 'COD' or 'MPESA'
+    status = db.Column(db.String(50), nullable=False, default='Pending')  # 'Pending', 'Success', 'Failed'
+    failure_reason = db.Column(db.Text, nullable=True)
+    
+    # MPESA specific fields
+    transaction_id = db.Column(db.String(100), nullable=True)
+    mpesa_receipt = db.Column(db.String(100), nullable=True)
+    phone_number = db.Column(db.String(15), nullable=True)
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-
-# Shipment model
+# Shipment model - TBD
 class Shipment(db.Model):
     __tablename__ = 'shipments'
     id = db.Column(db.Integer, primary_key=True)
@@ -292,14 +309,15 @@ class Address(db.Model):
     __tablename__ = 'addresses'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    address_line1 = db.Column(db.String(255), nullable=False)
-    address_line2 = db.Column(db.String(255), nullable=True)
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(15), nullable=False)
     city = db.Column(db.String(100), nullable=False)
-    state = db.Column(db.String(100), nullable=False)
-    postal_code = db.Column(db.String(20), nullable=False)
-    country = db.Column(db.String(100), nullable=False)
+    street = db.Column(db.String(255), nullable=False)
+    additional_info = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+    is_default = db.Column(db.Boolean, default=False)
 
 # Notification model
 class Notification(db.Model):

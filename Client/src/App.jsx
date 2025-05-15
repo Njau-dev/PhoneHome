@@ -19,6 +19,8 @@ import Wishlist from './pages/Wishlist'
 import Compare from './pages/Compare'
 import ForgotPassword from './components/ForgotPassword'
 import ResetPassword from './components/ResetPassword'
+import BackToTop from './components/BackToTop'
+import AuthErrorBoundary from './components/AuthErrorBoundary'
 
 const App = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +43,7 @@ const App = () => {
   return (
     <div className='px-4 sm:px-[5vw] md:px-[7vw] 1g:px-[9vw] relative' id='App'>
 
+      <AuthErrorBoundary />
       <ToastContainer />
       <Navbar />
       <SearchBar />
@@ -64,6 +67,7 @@ const App = () => {
       </Routes>
 
       <Footer />
+      <BackToTop />
 
     </div>
   )
