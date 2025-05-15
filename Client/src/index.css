@@ -44,6 +44,7 @@ body {
     --background-dark: #212121;
     --primary-color: #f1f1f1;
     --secondary: hsl(0, 0%, 60%);
+    --secondary-faint: #4b5563;
     --border-color: #94949448;
     --accents: #d5a00d;
 }

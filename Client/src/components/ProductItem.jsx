@@ -1,27 +1,30 @@
 import React, { useContext } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { Link } from 'react-router-dom';
-import { Heart, ShoppingCart, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Heart, ShoppingCart, ChevronRight, Star } from 'lucide-react';
 import { Square3Stack3DIcon } from '@heroicons/react/24/outline';
 
-
-const ProductItem = ({ id, image, name, price, category, hasVariation }) => {
+const ProductItem = ({ id, image, name, price, category, hasVariation, rating, review_count }) => {
     const { currency, addToCart, addToWishlist, addToCompare } = useContext(ShopContext);
 
     const handleAddToWishlist = (e) => {
         e.preventDefault();
-        addToWishlist(id)
+        addToWishlist(id);
     }
 
     const handleAddToCart = (id) => {
         const productId = id;
-        addToCart(productId)
+        addToCart(productId);
     }
 
     const handleAddToCompare = (e) => {
         e.preventDefault();
         addToCompare(id);
     }
+
+    // Ensure rating is a number for display
+    const displayRating = rating || 0;
+    const displayReviewCount = review_count || 0;
 
     return (
         <div className="group relative overflow-hidden rounded-md border border-border hover:border-accent hover:rounded-none transition-all duration-300">
@@ -41,9 +44,27 @@ const ProductItem = ({ id, image, name, price, category, hasVariation }) => {
                     )}
                 </div>
 
-                <div className="p-4 bg-bgdark">
+                <div className="p-4 pt-3 bg-bgdark">
                     <p className="text-sm text-secondary">{category}</p>
                     <p className="text-sm font-medium mt-1 truncate">{name}</p>
+
+                    {/* Rating stars and count */}
+                    <div className="flex items-center mt-1 mb-1">
+                        <div className="flex mr-2">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                    key={star}
+                                    className="w-3 h-3"
+                                    fill={star <= Math.round(displayRating) ? 'var(--accent-color, #d5a00d)' : 'none'}
+                                    stroke="var(--accent-color, #d5a00d)"
+                                />
+                            ))}
+                        </div>
+                        <span className="text-xs text-secondary">
+                            ({displayReviewCount}) {displayReviewCount === 1 ? 'review' : displayReviewCount < 1 ? '' : 'reviews'}
+                        </span>
+                    </div>
+
                     <p className="text-sm font-bold mt-1 text-accent">{currency} {price}</p>
                 </div>
             </Link>
@@ -61,7 +82,7 @@ const ProductItem = ({ id, image, name, price, category, hasVariation }) => {
 
                 {/* Add to Cart button */}
                 {hasVariation ? (
-                    <Link to={`/product/${id}`} className="flex-1 bg-accent text-bgdark py-2 pl-2 rounded text-center text-sm font-medium flex items-center justify-center hover:bg-bgdark hover:border hover:border-accent" title='View product'>
+                    <Link to={`/product/${id}`} className="flex-1 bg-accent text-bgdark py-2 pl-2 rounded text-center text-sm font-medium flex items-center justify-center hover:bg-bgdark hover:border hover:border-accent hover:text-accent" title='View product'>
                         View<ChevronRight className="w-4 h-4 ml-1" />
                     </Link>
                 ) : (
@@ -72,8 +93,8 @@ const ProductItem = ({ id, image, name, price, category, hasVariation }) => {
                         }}
                         className="flex-1 bg-accent text-bgdark py-2 rounded text-center text-sm font-medium flex items-center justify-center hover:bg-bgdark hover:border hover:border-accent hover:text-accent"
                         title="Add to Cart"
-
                     >
+                        Cart
                         <ShoppingCart className="w-4 h-4 ml-1" />
                     </button>
                 )}
@@ -83,7 +104,6 @@ const ProductItem = ({ id, image, name, price, category, hasVariation }) => {
                     className="ml-2 p-2 border border-border rounded hover:border-accent"
                     onClick={handleAddToWishlist}
                     title="Add to Wishlist"
-
                 >
                     <Heart className="w-4 h-4 text-accent" />
                 </button>

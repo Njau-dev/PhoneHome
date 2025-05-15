@@ -8,6 +8,7 @@ import RelatedProducts from '../components/RelatedProducts';
 import { toast } from 'react-toastify';
 import Breadcrumbs from '../components/BreadCrumbs';
 import BrandedSpinner from '../components/BrandedSpinner';
+import ProductTabs from '../components/ProductTab';
 
 const Product = () => {
   const { productId } = useParams();
@@ -18,6 +19,7 @@ const Product = () => {
   const [selectedVariation, setSelectedVariation] = useState(null);
   const [price, setPrice] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [activeTab, setActiveTab] = useState('description');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -149,13 +151,24 @@ const Product = () => {
 
                 {/* Ratings */}
                 <div className='flex items-center gap-1 mt-2'>
-                  <StarIcon className="w-3.5" fill='white' />
-                  <StarIcon className="w-3.5" fill='white' />
-                  <StarIcon className="w-3.5" fill='white' />
-                  <StarIcon className="w-3.5" fill='white' />
-                  <StarIcon className="w-3.5" />
+                  {/* Generate filled or empty stars based on actual rating */}
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <StarIcon
+                      key={star}
+                      className="w-4 md:w-5 lg:w-6"
+                      fill={star <= Math.round(productData.rating) ? 'var(--accents, #d5a00d)' : 'none'}
+                      stroke="var(--accents, #d5a00d)"
+                    />
+                  ))}
 
-                  <p className='pl-2'>(57) Reviews</p>
+                  <p className='pl-2 text-sm md:text-base'>
+                    ({productData.review_count || 0}) Reviews
+                  </p>
+                  {productData.rating > 0 && (
+                    <span className="text-sm md:text-base font-medium ml-1">
+                      {productData.rating.toFixed(1)}
+                    </span>
+                  )}
                 </div>
 
                 {/* ----- add stock quantity here afterwards ------ */}
@@ -167,7 +180,7 @@ const Product = () => {
                 <div className='mt-4'>
                   <h2 className="text-lg font-medium">Key Features</h2>
 
-                  <ul className="mt-2 list-disc pl-5 space-y-2 text-gray-400">
+                  <ul className="mt-2 list-disc pl-5 space-y-2 text-secondary">
 
                     {
                       productData.category === 'Phone' || productData.category === 'Tablet' ? (
@@ -302,49 +315,8 @@ const Product = () => {
             </div>
 
             {/* ---- DESCRIPTION & Review --- */}
-            <div className='mt-20'>
-              <div className='flex'>
-                <b className='border border-border px-5 py-3 text-sm'>Description </b>
-                <p className='border border-border px-5 py-3 text-sm'>Reviews (57)</p>
-              </div>
 
-              <div className='flex flex-col gap-4 border border-border px-6 py-6  text-sm text-gray-500'>
-                <p>{productData.description}</p>
-
-                <ul className="mt-2 list-disc pl-5 space-y-2 text-gray-400">
-
-                  {
-                    productData.type === 'phone' || productData.type === 'tablet' ? (
-                      <>
-                        <li><strong>RAM:</strong> {productData.ram}</li>
-                        <li><strong>Internal Storage:</strong> {productData.storage}</li>
-                        <li><strong>Processor:</strong> {productData.processor}</li>
-                        <li><strong>Main Camera:</strong> {productData.main_camera}</li>
-                        <li><strong>Front Camera:</strong> {productData.front_camera}</li>
-                        <li><strong>Display:</strong> {productData.display}</li>
-                        <li><strong>Operating System:</strong> {productData.os}</li>
-                        <li><strong>Connectivity:</strong> {productData.connectivity}</li>
-                        <li><strong>Colors:</strong> {productData.colors}</li>
-                        <li><strong>Battery:</strong> {productData.battery}</li>
-                      </>
-                    ) : productData.type === 'audio' ? (
-                      // Render only battery for audio products
-                      <li><strong>Battery:</strong> {productData.battery}</li>
-                    ) : productData.type === 'laptop' ? (
-                      <>
-                        <li><strong>RAM:</strong> {productData.ram}</li>
-                        <li><strong>Internal Storage:</strong> {productData.storage}</li>
-                        <li><strong>Display:</strong> {productData.display}</li>
-                        <li><strong>Processor:</strong> {productData.processor}</li>
-                        <li><strong>Operating System:</strong> {productData.os}</li>
-                        <li><strong>Battery:</strong> {productData.battery}</li>
-                      </>
-                    ) : null
-                  }
-                </ul>
-              </div>
-
-            </div>
+            <ProductTabs productData={productData} />
 
             {/* ----Related Products */}
 

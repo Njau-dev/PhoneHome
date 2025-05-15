@@ -200,6 +200,8 @@ const Collection = () => {
   // Change page
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  console.log(currentProducts);
+
   return (
     <>
       <Breadcrumbs />
@@ -375,6 +377,8 @@ const Collection = () => {
                       image={product.image_urls}
                       category={product.category}
                       hasVariation={product.hasVariation}
+                      rating={product.rating}
+                      review_count={product.review_count}
                     />
                   ))
                 ) : (

@@ -3,15 +3,23 @@ import { ShopContext } from '../context/ShopContext';
 import Title from '../components/Title';
 import axios from 'axios';
 import Breadcrumbs from '../components/BreadCrumbs';
-import { RefreshCcw, Package, ArrowRight, Clock } from 'lucide-react';
+import { RefreshCcw, Package, ArrowRight, Clock, FileText, Star } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import BrandedSpinner from '../components/BrandedSpinner';
+import OrderDetailsModal from '../components/OrderDetailsModal';
+import ReviewModal from '../components/ReviewModal';
+import { toast } from 'react-toastify';
 
 const Orders = () => {
   const { backendUrl, token, currency } = useContext(ShopContext);
   const [orderData, setOrderData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [reviewModalData, setReviewModalData] = useState(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   // Format price for display
   const formatPrice = (price) => {
@@ -39,6 +47,7 @@ const Orders = () => {
       relative: getRelativeTimeString(date)
     };
   };
+
   // Get relative time (e.g., "2 days ago")
   const getRelativeTimeString = (date) => {
     const now = new Date();
@@ -69,6 +78,49 @@ const Orders = () => {
     return "Unpaid";
   };
 
+  // Track order function - simply refreshes the order data
+  const handleTrackOrder = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  // View order details function
+  const handleViewOrderDetails = (order) => {
+    setSelectedOrder(order);
+    setShowDetailsModal(true);
+  };
+
+  // Open review modal
+  const handleOpenReviewModal = (item) => {
+    setReviewModalData({
+      productId: item.product_id,
+      productName: item.name,
+      productImage: item.image_url,
+    });
+    setShowReviewModal(true);
+  };
+
+  // Close review modal
+  const handleCloseReviewModal = (wasSubmitted = false, reviewData = null) => {
+    // If a review was submitted with rating data
+    if (wasSubmitted && reviewData) {
+      // Find the item that was reviewed and update its review property
+      const updatedOrderData = orderData.map(item => {
+        if (item.product_id === reviewModalData.productId) {
+          return {
+            ...item,
+            review: reviewData
+          };
+        }
+        return item;
+      });
+
+      setOrderData(updatedOrderData);
+    }
+
+    setShowReviewModal(false);
+    setReviewModalData(null);
+  };
+
   // Load order data from API
   const loadOrderData = async () => {
     setIsLoading(true);
@@ -88,12 +140,18 @@ const Orders = () => {
         let allOrderItems = [];
 
         response.data.orders.forEach((order) => {
+          // Create a shared address object for all items in this order
+          const orderAddress = order.address;
+
           order.items.forEach((item) => {
             item.status = order.status;
             item.payment = order.payment;
             item.paymentMethod = order.payment_method;
             item.date = order.created_at;
             item.orderId = order.order_reference || `ORD-${Math.floor(Math.random() * 10000)}`;
+            item.product_id = item.product_id;
+            item.address = orderAddress;
+            item.review = item.review || null;
             allOrderItems.push(item);
           });
         });
@@ -120,6 +178,7 @@ const Orders = () => {
           status: item.status,
           paymentMethod: item.paymentMethod,
           payment: item.payment,
+          address: item.address,
           items: []
         };
       }
@@ -129,9 +188,88 @@ const Orders = () => {
     return Object.values(groupedOrders);
   };
 
+  // Download invoice or receipt
+  const downloadDocument = async (orderId, docType) => {
+    let toastId = null;
+    try {
+      // Show loading indicator
+      toastId = toast.loading(`Generating ${docType}...`);
+
+      // Convert document type to lowercase for API URL
+      const docTypeParam = docType.toLowerCase();
+
+      const response = await axios.get(`${backendUrl}/payment/${orderId}/${docTypeParam}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      });
+
+      // Create a blob URL for the PDF
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a link and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${docType}_${orderId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+
+      // Clean up
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      // Update toast with success message
+      toast.update(toastId, {
+        render: `${docType} downloaded successfully!`,
+        type: "success",
+        isLoading: false,
+        autoClose: 3000,
+        closeOnClick: true
+      });
+    } catch (error) {
+      console.error(`Error downloading ${docType}:`, error);
+
+      // Extract error message if available
+      let errorMessage = `Could not download ${docType}.`;
+      if (error.response && error.response.data && error.response.data.error) {
+        errorMessage += ` ${error.response.data.error}`;
+      } else {
+        errorMessage += ' Please try again later.';
+      }
+
+      // Dismiss the loading toast if it exists
+      if (toastId) {
+        toast.dismiss(toastId);
+      }
+
+      // Show error toast
+      toast.error(errorMessage, {
+        autoClose: 5000,
+        closeOnClick: true
+      });
+    }
+  };
+
+
+  // Check if user can see invoice (if order is processing)
+  const canViewInvoice = (status) => {
+    return status === 'Order Placed' || status === 'Packing' ||
+      status === 'Shipped' || status === 'Out for Delivery';
+  };
+
+  // Check if user can see receipt (if order is delivered and paid)
+  const canViewReceipt = (status, payment) => {
+    return status === 'Delivered' && (payment === 'Success' || payment === 'Paid');
+  };
+
+  // Check if user can review a product (if order is delivered)
+  const canReviewProduct = (status) => {
+    return status === 'Delivered';
+  };
+
   useEffect(() => {
     loadOrderData();
-  }, [token]);
+  }, [token, refreshTrigger]);
 
   return (
     <>
@@ -295,6 +433,28 @@ const Orders = () => {
                               </p>
                             </div>
                           </div>
+
+                          {/* Review Button or Rating Display - only shown for delivered items */}
+                          {canReviewProduct(order.status) && (
+                            <div className="mt-3 sm:mt-0 ml-auto sm:ml-2">
+                              {item.review ? (
+                                // If item has been reviewed, show the rating
+                                <div className="flex items-center text-xs sm:text-sm bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded-full">
+                                  <Star size={14} className="mr-1" />
+                                  Rating: {item.review.rating}/5
+                                </div>
+                              ) : (
+                                // If not reviewed, show review button
+                                <button
+                                  onClick={() => handleOpenReviewModal(item)}
+                                  className="flex items-center text-xs sm:text-sm bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded-full hover:bg-amber-500 hover:text-bgdark transition-all"
+                                >
+                                  <Star size={14} className="mr-1" />
+                                  Review
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -305,10 +465,22 @@ const Orders = () => {
                         Total Items: <span className="font-medium text-primary">{order.items.length}</span>
                       </div>
 
-                      <div className="flex gap-3">
-                        <button className="border border-accent bg-accent text-bgdark px-4 py-2 text-sm font-medium rounded-md hover:bg-transparent hover:text-accent transition-all">
-                          Track Order
-                        </button>
+                      <div className="flex flex-wrap gap-2">
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleViewOrderDetails(order)}
+                            className="border border-accent bg-bgdark text-accent px-4 py-2 text-sm font-medium rounded-md hover:bg-accent hover:text-bgdark transition-all"
+                          >
+                            View Details
+                          </button>
+                          <button
+                            onClick={handleTrackOrder}
+                            className="border border-accent bg-accent text-bgdark px-4 py-2 text-sm font-medium rounded-md hover:bg-transparent hover:text-accent transition-all"
+                          >
+                            Track Order
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -318,6 +490,31 @@ const Orders = () => {
           )}
         </div>
       </div>
+
+      {/* Order Details Modal */}
+      {showDetailsModal && selectedOrder && (
+        <OrderDetailsModal
+          order={selectedOrder}
+          onClose={() => setShowDetailsModal(false)}
+          formatPrice={formatPrice}
+          formatDate={formatDate}
+          canViewInvoice={canViewInvoice(selectedOrder.status)}
+          canViewReceipt={canViewReceipt(selectedOrder.status, selectedOrder.payment)}
+          downloadDocument={downloadDocument}
+        />
+      )}
+
+      {/* Review Modal */}
+      {showReviewModal && reviewModalData && (
+        <ReviewModal
+          productId={reviewModalData.productId}
+          productName={reviewModalData.productName}
+          productImage={reviewModalData.productImage}
+          onClose={handleCloseReviewModal}
+          backendUrl={backendUrl}
+          token={token}
+        />
+      )}
     </>
   );
 };

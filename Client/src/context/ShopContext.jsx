@@ -234,26 +234,7 @@ const ShopContextProvider = (props) => {
         }
     };
 
-    // Add getUserWishlist function
-    const getUserWishlist = async () => {
-        try {
-            if (!token) return;
-
-            const response = await axios.get(`${backendUrl}/wishlist`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                }
-            });
-
-            setWishlistItems(response.data);
-        } catch (error) {
-            console.error('Error fetching wishlist:', error);
-        }
-    };
-
     // Function to fetch and set all compare items
-    // Modify the fetchCompareItems function
     const fetchCompareItems = async () => {
         try {
             if (token) {
@@ -389,6 +370,7 @@ const ShopContextProvider = (props) => {
             { name: 'Name', key: 'name' },
             { name: 'Brand', key: 'brand' },
             { name: 'Category', key: 'category' },
+            { name: 'Rating', key: 'rating' },
             { name: 'Price', key: 'price', format: (value) => `${currency} ${formatPrice(value)}` },
             { name: 'RAM', key: 'ram' },
             { name: 'Storage', key: 'storage' },
@@ -410,7 +392,6 @@ const ShopContextProvider = (props) => {
             setToken(storedToken);
             setIsLoggedIn(true);
             getUserCart(storedToken);
-            getUserWishlist();
             fetchCompareItems();
         } else {
             // If no token, still load compare items from localStorage
@@ -445,7 +426,7 @@ const ShopContextProvider = (props) => {
         navigate, backendUrl,
         token, setToken,
         getProductCategory, getBrandName,
-        getUserWishlist, wishlistItems, addToWishlist,
+        wishlistItems, addToWishlist,
         compareItems, addToCompare, removeFromCompare,
         fetchCompareItems, formatPrice, getCompareSpecifications
     };

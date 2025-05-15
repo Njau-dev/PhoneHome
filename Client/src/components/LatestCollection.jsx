@@ -31,7 +31,6 @@ const LatestCollection = () => {
                 <p className='w-3/4 m-auto text-sm sm:text-base'>Take a look at the most recent devices and technology here at Phone Home Kenya</p>
             </div>
 
-
             {/* Rendering the products in carousel */}
             {latestProducts.length > 0 ? (
                 <ProductCarousel
@@ -47,6 +46,8 @@ const LatestCollection = () => {
                                 price={product.price}
                                 category={product.category}
                                 hasVariation={product.hasVariation}
+                                review_count={product.review_count}
+                                rating={product.rating}
                             />
                         </div>
                     ))}

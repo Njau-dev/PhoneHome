@@ -6,7 +6,7 @@ from flask_migrate import Migrate
 from flask_cors import CORS
 from datetime import timedelta, datetime
 from functools import wraps
-from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog, Address, Payment, Shipment, Product, ProductVariation, Compare, CompareItem
+from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog, Address, Payment, Product, ProductVariation, Compare, CompareItem
 import cloudinary
 from io import BytesIO
 from xhtml2pdf import pisa
@@ -339,9 +339,11 @@ class ProfileStatsView(MethodView):
             # Get order count
             order_count = Order.query.filter_by(user_id=current_user_id).count()
             
-            # Get total payment amount
+            # Get total payment amount (only for successful payments)
             total_payment = db.session.query(func.sum(Order.total_amount)).\
-                filter(Order.user_id == current_user_id).scalar() or 0
+                join(Payment, Order.order_reference == Payment.order_reference).\
+                filter(Order.user_id == current_user_id, Payment.status == 'Success').\
+                scalar() or 0
             
             # Get wishlist count - modified to count items in wishlist_products
             wishlist = WishList.query.filter_by(user_id=current_user_id).first()
@@ -362,7 +364,7 @@ class ProfileStatsView(MethodView):
         except Exception as e:
             logger.error(f"Error fetching profile stats: {e}")
             return jsonify({"error": "An error occurred while fetching profile stats."}), 500
-
+        
 
 # Profile Orders
 class ProfileOrdersView(MethodView):
@@ -496,6 +498,14 @@ class ProductResource(Resource):
             all_products = []
             
             def serialize_product(product, product_type):
+                # Calculate average rating
+                reviews = Review.query.filter_by(product_id=product.id).all()
+                avg_rating = 0
+                if reviews:
+                    avg_rating = sum(review.rating for review in reviews) / len(reviews)
+                    # Round to 1 decimal place
+                    avg_rating = round(avg_rating, 1)
+                
                 base_data = {
                     'id': product.id,
                     'name': product.name,
@@ -505,9 +515,12 @@ class ProductResource(Resource):
                     'category': product.category.name,
                     'brand': product.brand.name,
                     'type': product_type,
-                    'hasVariation': product.hasVariation,  # **Added field**
-                    'isBestSeller': product.isBestSeller  # **Added field**
+                    'hasVariation': product.hasVariation,
+                    'isBestSeller': product.isBestSeller,
+                    'rating': avg_rating,  # Added average rating
+                    'review_count': len(reviews)  # Added count of reviews
                 }
+                
                 if product_type == 'phone':
                     additional_data = {
                         'ram': product.ram,
@@ -731,6 +744,8 @@ class ProductResource(Resource):
 
 
 class ProductUpdateResource(Resource):
+    @jwt_required()
+    @admin_required
     def put(self, product_id):
         try:
             # Determine the product type and fetch the product by its ID
@@ -913,6 +928,32 @@ class GetProductById(Resource):
             product = Product.query.get_or_404(product_id)
             category = product.category.name  
 
+            # Get reviews for this product
+            reviews = Review.query.filter_by(product_id=product.id).all()
+            
+            # Calculate average rating
+            avg_rating = 0
+            if reviews:
+                avg_rating = sum(review.rating for review in reviews) / len(reviews)
+                # Round to 1 decimal place
+                avg_rating = round(avg_rating, 1)
+            
+            # Serialize reviews
+            serialized_reviews = []
+            for review in reviews:
+                # Get the user who wrote the review
+                user = User.query.get(review.user_id)
+                user_name = user.username if user else "Anonymous"
+                
+                serialized_reviews.append({
+                    "id": review.id,
+                    "user_id": review.user_id,
+                    "user_name": user_name,
+                    "rating": review.rating,
+                    "comment": review.comment,
+                    "created_at": review.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                })
+            
             # Base product data that all products share
             product_data = {
                 "id": product.id,
@@ -924,7 +965,10 @@ class GetProductById(Resource):
                 "image_urls": product.image_urls,
                 "type": product.type,
                 "hasVariation": product.hasVariation,
-                "isBestSeller": product.isBestSeller
+                "isBestSeller": product.isBestSeller,
+                "rating": avg_rating,  
+                "review_count": len(reviews),
+                "reviews": serialized_reviews
             }
 
             # If product has variations, fetch and include them
@@ -1264,20 +1308,17 @@ class WishlistResource(Resource):
             data = request.get_json()
             
             if not data or 'product_id' not in data:
-                logger.error("Missing product_id in request")
                 return {"Error": "Product ID is required"}, 400
 
             # Validate product_id is an integer
             try:
                 product_id = int(data['product_id'])
             except (TypeError, ValueError):
-                logger.error(f"Invalid product ID format: {data.get('product_id')}")
                 return {"Error": "Invalid product ID format"}, 400
 
             # Check if product exists
             product = db.session.get(Product, product_id)
             if not product:
-                logger.error(f"Product not found: {product_id}")
                 return {"Error": "Product not found"}, 404
 
             # Get or create wishlist
@@ -1288,22 +1329,19 @@ class WishlistResource(Resource):
                     db.session.add(wishlist)
                     db.session.commit()
                 except SQLAlchemyError as e:
-                    logger.error(f"Error creating wishlist: {e}")
                     db.session.rollback()
                     return {"Error": "Failed to create wishlist"}, 500
 
             # Check if product is already in wishlist
             if product in wishlist.products:
-                return {"Message": "Product already in wishlist"}, 200
+                return {"Message": "Product already in wishlist"}, 201
 
             # Add product to wishlist
             try:
                 wishlist.products.append(product)
                 db.session.commit()
-                logger.info(f"Product {product_id} added to wishlist for user {current_user_id}")
-                return {"Message": "Product added to wishlist!"}, 201
+                return {"Message": "Product added to wishlist!"}, 200
             except SQLAlchemyError as e:
-                logger.error(f"Database error while adding to wishlist: {e}")
                 db.session.rollback()
                 return {"Error": "Failed to add product to wishlist"}, 500
 
@@ -1321,7 +1359,7 @@ class WishlistResource(Resource):
             if not wishlist:
                 return {"Error": "Wishlist not found"}, 404
 
-            product = Product.query.get(product_id)
+            product = db.session.get(Product, product_id)
             if not product:
                 return {"Error": "Product not found"}, 404
 
@@ -1400,7 +1438,7 @@ class CompareResource(Resource):
                 db.session.commit()
             
             # Check if product exists
-            product = Product.query.get(data['product_id'])
+            product = db.session.get(Product, data['product_id'])
             if not product:
                 return {"error": "Product not found"}, 404
                 
@@ -1470,7 +1508,6 @@ class OrderResource(Resource):
         try:
             current_user_id = get_jwt_identity()
             
-            # Update to use session.get instead of query.get
             user = db.session.get(User, current_user_id)
             if not user:
                 logger.error(f"User {current_user_id} not found")
@@ -1486,12 +1523,40 @@ class OrderResource(Resource):
                 order_list = []
                 for order in orders:
                     try:
+                        # Get address information
+                        address_data = None
+                        if order.address_id:
+                            address = db.session.get(Address, order.address_id)
+                            if address:
+                                address_data = {
+                                    "name": address.first_name,
+                                    "phone": address.phone,
+                                    "street": address.street,
+                                    "city": address.city,
+                                    "additional_info": address.additional_info
+                                }
+                            else:
+                                logger.error(f"Address {order.address_id} not found for order {order.id}")
+
                         # Get items for this specific order
                         items = []
                         for item in order.order_items:
-                            # Get product details with proper error handling
                             product = db.session.get(Product, item.product_id)
                             if product:
+                                # Get review for this product by this user
+                                review = Review.query.filter_by(
+                                    user_id=current_user_id, 
+                                    product_id=item.product_id
+                                ).first()
+                                
+                                review_data = None
+                                if review:
+                                    review_data = {
+                                        "rating": review.rating,
+                                        "comment": review.comment,
+                                        "created_at": review.created_at.isoformat()
+                                    }
+                                    
                                 item_data = {
                                     "product_id": item.product_id,
                                     "name": product.name,
@@ -1499,11 +1564,12 @@ class OrderResource(Resource):
                                     "quantity": item.quantity,
                                     "variation_name": item.variation_name,
                                     "price": float(item.variation_price) if item.variation_price is not None 
-                                            else float(product.price)
+                                            else float(product.price),
+                                    "review": review_data
                                 }
                                 items.append(item_data)
 
-                        # Build order data matching frontend requirements
+                        # Build order data with address
                         order_data = {
                             "order_reference": order.order_reference,
                             "created_at": order.created_at.isoformat(),
@@ -1512,6 +1578,7 @@ class OrderResource(Resource):
                             "payment": order.payment.status if order.payment else "pending",
                             "items": items,
                             "total_amount": float(order.total_amount),
+                            "address": address_data
                         }
                         order_list.append(order_data)
                     except Exception as e:
@@ -1527,7 +1594,6 @@ class OrderResource(Resource):
         except Exception as e:
             logger.error(f"Error fetching orders: {str(e)}\n{traceback.format_exc()}")
             return {"error": "An error occurred while fetching orders"}, 500
-        
 
     @jwt_required()
     def post(self):
@@ -1779,42 +1845,417 @@ class OrderStatusResource(Resource):
 
 class PaymentResource(Resource):
     @jwt_required()
-    def get(self, order_id):
+    def get(self, order_id, doc_type):
         try:
-            order = Order.query.get_or_404(order_id)
+            # Validate document type
+            if doc_type not in ['invoice', 'receipt']:
+                return {"error": "Invalid document type"}, 400
+                
+            current_user_id = get_jwt_identity()
+            order = Order.query.filter_by(order_reference=order_id).first()
             
-            # Generate invoice PDF
-            invoice_content = render_template_string("""
-                <h1>Invoice for Order #{{ order.order_reference }}</h1>
-                <p>Date: {{ order.created_at.strftime('%B %d, %Y') }}</p>
-                <h2>Customer Details:</h2>
-                <p>Name: {{ order.address.first_name }} {{ order.address.last_name }}</p>
-                <p>Email: {{ order.address.email }}</p>
-                <p>Phone: {{ order.address.phone }}</p>
-                <h2>Order Items:</h2>
-                {% for item in order.order_items %}
-                <div>
-                    <p>{{ item.product.name }} x {{ item.quantity }}</p>
-                    <p>Price: ${{ item.variation_price or item.product.price }}</p>
-                </div>
-                {% endfor %}
-                <h3>Total Amount: ${{ order.total_amount }}</h3>
-            """, order=order)
+            if not order:
+                return {"error": "Order not found"}, 404
+                
+            # Check if the order belongs to the current user
+            if str(order.user_id) != current_user_id:
+                print(f"DEBUG - JWT User ID: {current_user_id}, Type: {type(current_user_id)}")
+                print(f"DEBUG - Order User ID: {order.user_id}, Type: {type(order.user_id)}")
+                return {"error": "Unauthorized access to this order"}, 403
+                
+            # Check if trying to access receipt for non-delivered order
+            if doc_type == 'receipt' and order.status != 'Delivered':
+                return {"error": "Receipt is only available for delivered orders"}, 400
             
+            # Hard-coded company info since we don't have AppSettings
+            company_name = "Phone Home Kenya"
+            
+            # Select template based on document type
+            if doc_type == 'invoice':
+                template = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Invoice for Order #{{ order.order_reference }}</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            color: #333;
+                            line-height: 1.5;
+                            margin: 0;
+                            padding: 20px;
+                            background-color: #111;
+                            color: #e4e4e4;
+                        }
+                        .document {
+                            max-width: 800px;
+                            margin: 0 auto;
+                            padding: 30px;
+                            background-color: #1a1a1a;
+                            border: 1px solid #333;
+                            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                        }
+                        .header {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            margin-bottom: 30px;
+                            border-bottom: 2px solid #e81cff;
+                            padding-bottom: 20px;
+                        }
+                        h1, h2, h3 {
+                            color: #e81cff;
+                            margin-top: 0;
+                        }
+                        .document-title {
+                            font-size: 24px;
+                            font-weight: bold;
+                            text-transform: uppercase;
+                        }
+                        .info-section {
+                            margin-bottom: 20px;
+                        }
+                        .info-grid {
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 20px;
+                        }
+                        .info-box {
+                            padding: 15px;
+                            background-color: #222;
+                            border-radius: 5px;
+                        }
+                        .info-box h3 {
+                            margin-top: 0;
+                            font-size: 16px;
+                            color: #e81cff;
+                            border-bottom: 1px solid #444;
+                            padding-bottom: 5px;
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin: 20px 0;
+                        }
+                        th {
+                            background-color: #333;
+                            color: #e81cff;
+                            text-align: left;
+                            padding: 10px;
+                        }
+                        td {
+                            padding: 10px;
+                            border-bottom: 1px solid #444;
+                        }
+                        .totals {
+                            margin-top: 20px;
+                            text-align: right;
+                        }
+                        .total-row {
+                            font-weight: bold;
+                            font-size: 18px;
+                            color: #e81cff;
+                        }
+                        .footer {
+                            margin-top: 30px;
+                            text-align: center;
+                            font-size: 12px;
+                            color: #888;
+                            border-top: 1px solid #444;
+                            padding-top: 20px;
+                        }
+                        .company-name {
+                            font-size: 24px;
+                            font-weight: bold;
+                            color: #e81cff;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="document">
+                        <div class="header">
+                            <div>
+                                <h1 class="document-title">INVOICE</h1>
+                                <p>Order #{{ order.order_reference }}</p>
+                            </div>
+                            <div class="company-name">{{ company_name }}</div>
+                        </div>
+                        
+                        <div class="info-grid">
+                            <div class="info-box">
+                                <h3>ORDER INFORMATION</h3>
+                                <p><strong>Date:</strong> {{ order.created_at.strftime('%B %d, %Y') }}</p>
+                                <p><strong>Payment Method:</strong> {{ order.payment.payment_method if order.payment else "N/A" }}</p>
+                                <p><strong>Order Status:</strong> {{ order.status }}</p>
+                            </div>
+                            
+                            <div class="info-box">
+                                <h3>CUSTOMER DETAILS</h3>
+                                <p><strong>Name:</strong> {{ order.address.first_name }} {{ order.address.last_name if order.address.last_name else "" }}</p>
+                                <p><strong>Phone:</strong> {{ order.address.phone }}</p>
+                                <p><strong>Address:</strong> {{ order.address.street }}, {{ order.address.city }}</p>
+                                {% if order.address.additional_info %}
+                                <p><strong>Additional:</strong> {{ order.address.additional_info }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <h2>ORDER ITEMS</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Variation</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in order.order_items %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td>{{ item.variation_name if item.variation_name else "Standard" }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>{{ "%.2f"|format(item.variation_price or item.product.price) }}</td>
+                                    <td>{{ "%.2f"|format((item.variation_price or item.product.price) * item.quantity) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        
+                        <div class="totals">
+                            <p><strong>Subtotal:</strong> {{ "%.2f"|format(order.total_amount) }}</p>
+                            <p><strong>Shipping:</strong> {{ "%.2f"|format(order.shipping_cost) if order.shipping_cost else "0.00" }}</p>
+                            <p class="total-row">TOTAL: {{ "%.2f"|format(order.total_amount + (order.shipping_cost or 0)) }}</p>
+                        </div>
+                        
+                        <div class="footer">
+                            <p>Thank you for your order! This is not a receipt.</p>
+                            <p>For questions, please contact customer support.</p>
+                            <p>© {{ now.year }} {{ company_name }}. All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """
+            else:  # receipt template
+                template = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Receipt for Order #{{ order.order_reference }}</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            color: #333;
+                            line-height: 1.5;
+                            margin: 0;
+                            padding: 20px;
+                            background-color: #111;
+                            color: #e4e4e4;
+                        }
+                        .document {
+                            max-width: 800px;
+                            margin: 0 auto;
+                            padding: 30px;
+                            background-color: #1a1a1a;
+                            border: 1px solid #333;
+                            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                        }
+                        .header {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            margin-bottom: 30px;
+                            border-bottom: 2px solid #4caf50;
+                            padding-bottom: 20px;
+                        }
+                        h1, h2, h3 {
+                            color: #4caf50;
+                            margin-top: 0;
+                        }
+                        .document-title {
+                            font-size: 24px;
+                            font-weight: bold;
+                            text-transform: uppercase;
+                        }
+                        .company-name {
+                            font-size: 24px;
+                            font-weight: bold;
+                            color: #4caf50;
+                        }
+                        .paid-stamp {
+                            position: absolute;
+                            top: 100px;
+                            right: 100px;
+                            font-size: 40px;
+                            color: #4caf50;
+                            border: 5px solid #4caf50;
+                            padding: 10px 20px;
+                            transform: rotate(-15deg);
+                            opacity: 0.7;
+                        }
+                        .info-section {
+                            margin-bottom: 20px;
+                        }
+                        .info-grid {
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 20px;
+                        }
+                        .info-box {
+                            padding: 15px;
+                            background-color: #222;
+                            border-radius: 5px;
+                        }
+                        .info-box h3 {
+                            margin-top: 0;
+                            font-size: 16px;
+                            color: #4caf50;
+                            border-bottom: 1px solid #444;
+                            padding-bottom: 5px;
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin: 20px 0;
+                        }
+                        th {
+                            background-color: #333;
+                            color: #4caf50;
+                            text-align: left;
+                            padding: 10px;
+                        }
+                        td {
+                            padding: 10px;
+                            border-bottom: 1px solid #444;
+                        }
+                        .totals {
+                            margin-top: 20px;
+                            text-align: right;
+                        }
+                        .total-row {
+                            font-weight: bold;
+                            font-size: 18px;
+                            color: #4caf50;
+                        }
+                        .footer {
+                            margin-top: 30px;
+                            text-align: center;
+                            font-size: 12px;
+                            color: #888;
+                            border-top: 1px solid #444;
+                            padding-top: 20px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="document">
+                        <div class="header">
+                            <div>
+                                <h1 class="document-title">RECEIPT</h1>
+                                <p>Order #{{ order.order_reference }}</p>
+                            </div>
+                            <div class="company-name">{{ company_name }}</div>
+                        </div>
+                        
+                        <div class="paid-stamp">PAID</div>
+                        
+                        <div class="info-grid">
+                            <div class="info-box">
+                                <h3>PAYMENT INFORMATION</h3>
+                                <p><strong>Date:</strong> {{ order.created_at.strftime('%B %d, %Y') }}</p>
+                                <p><strong>Payment Method:</strong> {{ order.payment.payment_method if order.payment else "N/A" }}</p>
+                                <p><strong>Payment Status:</strong> PAID</p>
+                                <p><strong>Delivery Date:</strong> {{ order.delivered_at.strftime('%B %d, %Y') if order.delivered_at else "N/A" }}</p>
+                            </div>
+                            
+                            <div class="info-box">
+                                <h3>CUSTOMER DETAILS</h3>
+                                <p><strong>Name:</strong> {{ order.address.first_name }} {{ order.address.last_name if order.address.last_name else "" }}</p>
+                                <p><strong>Phone:</strong> {{ order.address.phone }}</p>
+                                <p><strong>Address:</strong> {{ order.address.street }}, {{ order.address.city }}</p>
+                                {% if order.address.additional_info %}
+                                <p><strong>Additional:</strong> {{ order.address.additional_info }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <h2>ITEMS PURCHASED</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Variation</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in order.order_items %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td>{{ item.variation_name if item.variation_name else "Standard" }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>{{ "%.2f"|format(item.variation_price or item.product.price) }}</td>
+                                    <td>{{ "%.2f"|format((item.variation_price or item.product.price) * item.quantity) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        
+                        <div class="totals">
+                            <p><strong>Subtotal:</strong> {{ "%.2f"|format(order.total_amount) }}</p>
+                            <p><strong>Shipping:</strong> {{ "%.2f"|format(order.shipping_cost) if order.shipping_cost else "0.00" }}</p>
+                            <p class="total-row">TOTAL PAID: {{ "%.2f"|format(order.total_amount + (order.shipping_cost or 0)) }}</p>
+                        </div>
+                        
+                        <div class="footer">
+                            <p>Thank you for your purchase!</p>
+                            <p>This receipt serves as proof of payment.</p>
+                            <p>© {{ now.year }} {{ company_name }}. All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """
+            
+            # Get current date for copyright year
+            now = datetime.now()
+            
+            # Render the template with context
+            doc_content = render_template_string(
+                template, 
+                order=order, 
+                company_name=company_name,
+                now=now
+            )
+            
+            # Generate PDF
             pdf = BytesIO()
-            pisa.CreatePDF(BytesIO(invoice_content.encode("utf-8")), pdf)
+            pisa_status = pisa.CreatePDF(BytesIO(doc_content.encode("utf-8")), pdf)
+            
+            if pisa_status.err:
+                logger.error(f"PDF generation error: {pisa_status.err}")
+                return {"error": "Failed to generate PDF document"}, 500
+                
             pdf.seek(0)
             
+            # Send the PDF file
             return send_file(
                 pdf,
                 mimetype='application/pdf',
                 as_attachment=True,
-                download_name=f'invoice_{order.order_reference}.pdf'
+                download_name=f'{doc_type}_{order.order_reference}.pdf'
             )
 
         except Exception as e:
-            return {"error": "Failed to generate invoice"}, 500
-
+            logger.error(f"Error generating {doc_type}: {str(e)}\n{traceback.format_exc()}")
+            return {"error": f"Failed to generate {doc_type}: {str(e)}"}, 500
 
 # Review Management
 class ReviewResource(Resource):
@@ -2290,7 +2731,7 @@ api.add_resource(AdminOrderResource, '/orders/admin')
 api.add_resource(OrderStatusResource, '/orders/status/<int:order_id>')
 
 # payment resource
-api.add_resource(PaymentResource, '/orders/<int:order_id>/invoice')
+api.add_resource(PaymentResource, '/payment/<string:order_id>/<string:doc_type>')
 
 # Review routes
 api.add_resource(ReviewResource, '/reviews/<int:product_id>')
