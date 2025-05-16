@@ -13,19 +13,19 @@ const ShopByBrandsContainer = () => {
     const featuredBrands = [
         {
             name: 'Samsong',
-            bannerImage: 'src/assets/images/Samsung-banner-1-scaled.jpg',
+            bannerImage: '/assets/images/Samsung-banner-1-scaled.jpg',
             tagline: 'Innovation for Everyone',
             description: "Discover Samsung's latest electronics with cutting - edge technology and sleek design."
         },
         {
             name: 'Apple',
-            bannerImage: 'src/assets/images/iphone-16-banner.webp',
+            bannerImage: '/assets/images/iphone-16-banner.webp',
             tagline: 'Think Different',
             description: 'Experience the premium quality and seamless ecosystem of Apple products.'
         },
         {
             name: 'Xiaomi',
-            bannerImage: 'src/assets/images/brands/xiaomi-banner.jpg',
+            bannerImage: '/assets/images/brands/xiaomi-banner.jpg',
             tagline: 'Innovation for Everyone',
             description: "High-quality tech at affordable prices with Xiaomi's innovative product lineup."
         }

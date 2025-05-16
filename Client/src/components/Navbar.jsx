@@ -1,5 +1,4 @@
 import { useContext, useState } from 'react'
-import Logo from '/src/assets/logo.png'
 import { NavLink } from 'react-router-dom'
 import { ArrowLeftCircleIcon, Bars3BottomRightIcon, MagnifyingGlassIcon, ShoppingBagIcon, UserIcon } from '@heroicons/react/24/outline'
 import { ShopContext } from '../context/ShopContext'
@@ -23,7 +22,7 @@ const Navbar = () => {
         <div className='flex items-center justify-between py-3 font-medium Nav'>
 
             <NavLink to='/'>
-                <img src={Logo} alt="Logo" className='w-28' />
+                <img src='/assets/logo.png' alt="Logo" className='w-28' />
             </NavLink>
 
             <ul className='hidden sm:flex gap-5 text-sm text-primary'>
@@ -98,7 +97,7 @@ const Navbar = () => {
                     <div onClick={() => setVisible(false)} className="flex flex-col justify-between gap-4 p-3 cursor-pointer">
 
                         <div className='flex items-center justify-between'>
-                            <img src={Logo} alt="Logo" className='w-28' />
+                            <img src='/assets/logo.png' alt="Logo" className='w-28' />
 
                             <div className='flex items-center'>
                                 <ArrowLeftCircleIcon className='h-5 text-accent mx-2' />

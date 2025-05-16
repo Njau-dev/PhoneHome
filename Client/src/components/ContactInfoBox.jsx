@@ -1,6 +1,5 @@
 import React from 'react'
 import { Phone, Mail, Instagram, Facebook, Twitter } from 'lucide-react'
-import Logo from '/src/assets/logo.png'
 
 const ContactInfoBox = () => {
     return (
@@ -18,7 +17,7 @@ const ContactInfoBox = () => {
                             {/* <div className="text-accent text-4xl font-bold">
                                 LOGO
                             </div> */}
-                            <img src={Logo} alt="" />
+                            <img src='/assets/logo.png' alt="" />
                         </div>
                     </div>
                 </div>

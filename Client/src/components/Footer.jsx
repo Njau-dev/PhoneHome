@@ -1,13 +1,11 @@
 import React from 'react'
-import Logo from '/src/assets/logo.png'
-
 
 const Footer = () => {
     return (
         <div>
             <div className='flex flex-col sm:grid grid-cols-[2fr_1fr_1fr] gap-14 sm:gap-4 mb-8 mt-28 text-sm border-t-2 border-border pt-7 pl-2'>
                 <div>
-                    <img src={Logo} className='mb-5 w-32' alt="Logo" />
+                    <img src='/assets/logo.png' className='mb-5 w-32' alt="Logo" />
                     <p className='w-full md:w-2/3 text-primary'>Phone Home is a shop based in Nairobi, Kenya which focuses on delivering quality products namely Phones, Tablets, Laptops, Audio devices and services to their clients all over Kenya.</p>
                 </div>
 

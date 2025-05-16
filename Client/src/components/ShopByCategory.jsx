@@ -7,22 +7,22 @@ const ShopByCategorySection = () => {
     const categories = [
         {
             name: 'Phones',
-            image: 'src/assets/images/phone-banner.jpg',
+            image: '/assets/images/phone-banner.jpg',
             link: '/collection/phone',
         },
         {
             name: 'Tablets',
-            image: 'src/assets/images/ipad_pro_home.jpg',
+            image: '/assets/images/ipad_pro_home.jpg',
             link: '/collection/tablet',
         },
         {
             name: 'Laptops',
-            image: 'src/assets/images/laptop-category.png',
+            image: '/assets/images/laptop-category.png',
             link: '/collection/laptop',
         },
         {
             name: 'Audio',
-            image: 'src/assets/images/Airpods-Max-e.png',
+            image: '/assets/images/Airpods-Max-e.png',
             link: '/collection/audio',
         },
     ];
@@ -30,7 +30,7 @@ const ShopByCategorySection = () => {
     return (
         <div className="w-full bg-bgdark my-10">
             {/* category section with background image */}
-            <div className="relative w-full h-96 lg:h-[480px] bg-contain bg-center rounded-lg" style={{ backgroundImage: "url('src/assets/images/CMF-1-Banner.webp')" }}>
+            <div className="relative w-full h-96 lg:h-[480px] bg-contain bg-center rounded-lg" style={{ backgroundImage: "url('/assets/images/CMF-1-Banner.webp')" }}>
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-primary">
                     {/* Larger title wrapper */}
                     <div className="transform scale-125 md:scale-150">

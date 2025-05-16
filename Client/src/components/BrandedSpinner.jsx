@@ -1,5 +1,4 @@
 import React from 'react';
-import logo from '../assets/logo.png';
 
 const BrandedSpinner = ({ message = "Loading..." }) => {
     return (
@@ -14,7 +13,7 @@ const BrandedSpinner = ({ message = "Loading..." }) => {
                 {/* Logo with pulsing effect */}
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 flex items-center justify-center">
                     <img
-                        src={logo}
+                        src='/assets/logo.png'
                         alt="Logo"
                         className="w-14 h-auto object-contain animate-pulse-subtle"
                     />

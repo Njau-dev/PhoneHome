@@ -4,25 +4,25 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 const Hero = () => {
   const slides = [
     {
-      image: 'src/assets/images/hero/galaxy-s25-ultra-hero-3.jpg',
+      image: '/assets/images/hero/galaxy-s25-ultra-hero-3.jpg',
       title: 'Latest Arrivals',
       subtitle: 'OUR BESTSELLERS',
       cta: 'SHOP NOW'
     },
     {
-      image: 'src/assets/images/hero/galaxy-s25-ultra-category.jpg',
+      image: '/assets/images/hero/galaxy-s25-ultra-category.jpg',
       title: 'New Collection',
       subtitle: 'PREMIUM PHONES',
       cta: 'EXPLORE NOW'
     },
     {
-      image: 'src/assets/images/hero/Apple_MacBook_Air_13.jpg',
+      image: '/assets/images/hero/Apple_MacBook_Air_13.jpg',
       title: 'Limited Edition',
       subtitle: 'EXCLUSIVE DEVICES',
       cta: 'DISCOVER MORE'
     },
     {
-      image: '/src/assets/images/hero/oraimo_banner.jpg',
+      image: '/assets/images/hero/oraimo_banner.jpg',
       title: 'Special Offers',
       subtitle: 'SEASONAL DEALS',
       cta: 'VIEW DEALS'
