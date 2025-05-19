@@ -29,17 +29,17 @@ const OurPolicy = () => {
   ];
 
   return (
-    <div className="text-center my-10 relative">
+    <div className="text-center sm:my-10 relative">
       {/* Decorative elements */}
       <div className="absolute top-20 left-10 w-12 h-12 rounded-full bg-accent opacity-10 animate-pulse delay:300  md:block"></div>
       <div className="absolute bottom-10 right-10 w-16 h-16 rounded-full bg-accent opacity-10 animate-pulse delay-300  md:block"></div>
 
-      <div className='text-center text-[27px] sm:text-3xl py-8 animate-fade-in'>
+      <div className='text-center text-[20px] sm:text-3xl py-8 animate-fade-in'>
         <Title text1={'WHY'} text2={'CHOOSE US'} />
-        <p className='w-3/4 m-auto text-sm sm:text-base'>Take a look at our company policies.</p>
+        <p className='w-3/4 m-auto text-xs sm:text-base text-secondary'>Take a look at our company policies.</p>
       </div>
 
-      <div className='grid grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 px-4 py-12 text-center text-primary w-11/12 md:w-4/5 mx-auto'>
+      <div className='grid grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8 sm:px-4 sm:py-12 text-center text-primary w-11/12 md:w-4/5 mx-auto'>
         {policies.map((policy, index) => (
           <div
             key={index}

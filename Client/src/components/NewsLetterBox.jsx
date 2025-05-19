@@ -19,20 +19,20 @@ const NewsLetterBox = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto bg-bgdark my-20">
-      <div className='text-center text-[27px] sm:text-3xl py-8'>
+    <div className="max-w-4xl mx-auto bg-bgdark sm:my-20">
+      <div className='text-center text-[20px] sm:text-3xl py-8'>
         <Title text1={'NEWSLETTER'} text2={'UPDATES'} />
-        <p className='w-3/4 m-auto text-sm sm:text-base text-secondary'>
+        <p className='w-3/4 m-auto text-xs sm:text-base text-secondary'>
           Subscribe to receive exclusive offers and the latest news directly in your inbox.
         </p>
       </div>
 
 
-      <div className="flex flex-col md:flex-row gap-8 items-center  border border-border  rounded-xl p-8 md:p-12 ">
+      <div className="flex flex-col md:flex-row gap-8 items-center  border border-border rounded-xl p-6 sm:p-8 md:p-12 ">
         {/* Left side - Form */}
         <div className="md:w-1/2">
           <div className="mb-6">
-            <p className="text-secondary">
+            <p className="text-secondary text-[11px] sm:text-sm md:text-base">
               Stay updated with the latest products, special offers, and helpful tips for your devices
             </p>
           </div>
@@ -44,7 +44,7 @@ const NewsLetterBox = () => {
                 <input
                   type="email"
                   placeholder="Enter your email address"
-                  className="bg-transparent border-none w-full focus:outline-none text-primary placeholder:text-secondary"
+                  className="bg-transparent border-none w-full focus:outline-none text-xs sm:text-base text-primary placeholder:text-secondary"
                   value={email}
                   onChange={handleEmailChange}
                   required
@@ -53,7 +53,7 @@ const NewsLetterBox = () => {
               <div className="ml-auto">
                 <button
                   type="submit"
-                  className="bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark font-medium py-3 px-8 rounded-full transition duration-300 flex items-center"
+                  className="bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark text-sm sm:text-base font-medium py-2 sm:py-3 px-4 sm:px-8 rounded-full transition duration-300 flex items-center"
                 >
                   {subscribed ? 'Subscribed!' : 'Subscribe'}
                   {!subscribed && <Send size={16} className="ml-2" />}

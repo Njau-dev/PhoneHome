@@ -27,8 +27,8 @@ const RelatedProducts = ({ category, brand }) => {
         }
     }, [products, category, brand])
     return (
-        <div className='my-24'>
-            <div className='text-center text-3xl py-2'>
+        <div className='my-12 sm:my-24'>
+            <div className='text-center text-[20px] sm:text-3xl py-2'>
                 <Title text1={'RELATED'} text2={'PRODUCTS'} />
             </div>
 
@@ -39,7 +39,7 @@ const RelatedProducts = ({ category, brand }) => {
                         className="pb-6"
                     >
                         {related.map((product, index) => (
-                            <div key={index} className="px-3">
+                            <div key={index} className="px-1.5 sm:px-3">
                                 <ProductItem
                                     id={product.id}
                                     image={product.image_urls}

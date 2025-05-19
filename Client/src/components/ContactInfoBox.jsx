@@ -3,8 +3,8 @@ import { Phone, Mail, Instagram, Facebook, Twitter } from 'lucide-react'
 
 const ContactInfoBox = () => {
     return (
-        <div className="max-w-6xl mx-auto bg-bgdark my-20">
-            <div className="flex flex-col md:flex-row gap-16 items-center border border-border rounded-xl p-8 md:p-12">
+        <div className="max-w-6xl mx-auto bg-bgdark my-10 sm:my-20">
+            <div className="flex flex-col md:flex-row gap-12 sm:gap-16 items-center border border-border rounded-xl p-8 md:p-12">
                 {/* Left side - Logo */}
                 <div className="md:w-1/2 flex justify-center">
                     <div className="relative">
@@ -24,9 +24,9 @@ const ContactInfoBox = () => {
 
                 {/* Right side - Contact Information */}
                 <div className="md:w-1/2">
-                    <div className="mb-6">
-                        <h3 className="text-xl font-medium mb-4">Contact Information</h3>
-                        <p className="text-secondary">
+                    <div className="mb-3 sm:mb-6">
+                        <h3 className="text-lg sm:text-xl font-medium mb-4">Contact Information</h3>
+                        <p className="text-secondary text-sm sm:text-base">
                             We're here to assist you. Feel free to reach out through any of the following channels.
                         </p>
                     </div>

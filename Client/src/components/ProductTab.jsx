@@ -17,8 +17,7 @@ const ProductTabs = ({ productData }) => {
 
     return (
         <div className="mt-12 mb-20">
-            <div className="text-[24px] md:text-2xl text-center">
-
+            <div className="text-[18px] md:text-2xl text-center">
                 <Title text1={'PRODUCT'} text2={'INFORMATION'} />
             </div>
 

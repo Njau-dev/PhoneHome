@@ -31,7 +31,7 @@ const ShoppingProcessSection = () => {
         },
         {
             icon: <Package className="w-12 h-12 text-primary" />,
-            title: "Enjoy Your Product",
+            title: "Unbox Your Product",
             description: "Unbox your new tech with our hassle-free warranty policy."
         }
     ];
@@ -40,12 +40,10 @@ const ShoppingProcessSection = () => {
         <div className="w-full bg-bgdark py-8 sm:py-16 my-6 sm:my-10 relative overflow-hidden">
             {/* SVG Pattern Background stays the same */}
 
-            <div className="container mx-auto px-4 relative z-10">
-                <div className="text-center mb-8 sm:mb-16">
-                    <h2 className="text-[27px] sm:text-3xl text-primary mb-3 sm:mb-4">
-                        <Title text1={"SHOPPING"} text2={"PROCESS"} />
-                    </h2>
-                    <p className='w-11/12 sm:w-3/4 m-auto text-sm sm:text-base'>
+            <div className="container mx-auto px-2 sm:px-4 relative z-10">
+                <div className='text-center text-[20px] sm:text-3xl py-6 sm:py-8'>
+                    <Title text1={"SHOPPING"} text2={"PROCESS"} />
+                    <p className='w-3/4 m-auto text-xs sm:text-base text-secondary'>
                         Shop with confidence using our streamlined shopping experience
                     </p>
                 </div>
@@ -81,7 +79,7 @@ const ShoppingProcessSection = () => {
                                 </div>
                             </div>
 
-                            <h3 className="text-sm sm:text-lg lg:text-xl font-semibold text-primary mb-2 sm:mb-3">
+                            <h3 className="text-center text-sm sm:text-lg lg:text-xl font-semibold text-primary mb-2 sm:mb-3">
                                 {step.title}
                             </h3>
 

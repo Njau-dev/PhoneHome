@@ -52,6 +52,8 @@ const Breadcrumbs = ({ productData }) => {
                 return Square3Stack3DIcon;
             case 'contact':
                 return Phone;
+            case 'product':
+                return null;
             default:
                 return Info;
         }
@@ -142,7 +144,7 @@ const Breadcrumbs = ({ productData }) => {
     const PageIcon = getPageIcon(pathSegments);
 
     return (
-        <nav className="flex p-4 text-xs md:text-sm border-t border-border bg-black/15" aria-label="Breadcrumb">
+        <nav className="flex p-2.5 sm:p-4 text-xs md:text-sm border-t border-border bg-black/15" aria-label="Breadcrumb">
             <div className="flex items-center justify-between w-full">
                 <ol className="inline-flex items-center space-x-1 md:space-x-2">
                     {breadcrumbs.map((crumb, index) => (
@@ -165,16 +167,18 @@ const Breadcrumbs = ({ productData }) => {
                 </ol>
 
                 {/* Page Icon Container */}
-                <div className="ml-4">
-                    <PageIcon
-                        className="text-accent h-6 w-6 
-                        hover:scale-110 
-                        hover:rotate-6 
-                        transition-transform 
-                        duration-300 
-                        ease-in-out"
-                    />
-                </div>
+                {PageIcon && (
+                    <div className="ml-4">
+                        <PageIcon
+                            className="text-accent h-6 w-6 
+            hover:scale-110 
+            hover:rotate-6 
+            transition-transform 
+            duration-300 
+            ease-in-out"
+                        />
+                    </div>
+                )}
             </div>
         </nav>
     );

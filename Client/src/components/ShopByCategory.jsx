@@ -30,7 +30,7 @@ const ShopByCategorySection = () => {
     return (
         <div className="w-full bg-bgdark my-10">
             {/* category section with background image */}
-            <div className="relative w-full h-96 lg:h-[480px] bg-contain bg-center rounded-lg" style={{ backgroundImage: "url('/assets/images/CMF-1-Banner.webp')" }}>
+            <div className="relative w-full h-80 sm:h-96 lg:h-[480px] bg-contain bg-center rounded-lg" style={{ backgroundImage: "url('/assets/images/CMF-1-Banner.webp')" }}>
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-primary">
                     {/* Larger title wrapper */}
                     <div className="transform scale-125 md:scale-150">
@@ -38,7 +38,7 @@ const ShopByCategorySection = () => {
                     </div>
                     <button
                         onClick={() => navigate('/collection')}
-                        className='bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent rounded text-bgdark text-base mt-12 mb-3 py-3 px-11 transition-all duration-300'
+                        className='bg-accent text-bgdark  hover:bg-bgdark hover:text-accent hover:border border-accent rounded text-base mt-12 mb-3 py-3 px-11 transition-all duration-300'
                     >
                         SHOP COLLECTION
                     </button>
@@ -46,12 +46,12 @@ const ShopByCategorySection = () => {
             </div>
 
             {/* Categories section that overlaps the hero */}
-            <div className="container mx-auto px-4 -mt-20 lg:-mt-32 pb-16">
+            <div className="container mx-auto px-4 -mt-20 lg:-mt-32 pb-8 sm:pb-16">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {categories.map((category) => (
                         <div
                             key={category.name}
-                            className="relative overflow-hidden rounded-lg shadow-lg h-80 group cursor-pointer"
+                            className="relative overflow-hidden rounded-lg shadow-lg h-72 sm:h-80 group cursor-pointer"
                             onClick={() => navigate(category.link)}
                         >
                             <img

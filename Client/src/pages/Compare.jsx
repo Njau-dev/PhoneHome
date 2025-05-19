@@ -56,7 +56,7 @@ const Compare = () => {
             <div className="bg-bgdark text-primary pt-4 sm:pt-8 pb-16">
                 <div className="container mx-auto px-4 xl:px-0 max-w-screen-2xl">
                     {/* Page Header */}
-                    <div className="mb-12 text-center text-[24px] sm:text-3xl">
+                    <div className="mb-12 text-center text-[20px] sm:text-3xl">
                         <Title text1={'PRODUCT'} text2={'COMPARISON'} />
                         <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
                             Compare product features side by side to make the best choice

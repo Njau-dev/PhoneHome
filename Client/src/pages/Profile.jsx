@@ -179,7 +179,7 @@ const Profile = () => {
     <>
       <Breadcrumbs />
       <div className="bg-bgdark text-primary pt-4 sm:pt-8">
-        <div className="container mx-auto px-4 xl:px-0 max-w-screen-2xl">
+        <div className="container mx-auto sm:px-4 xl:px-0 max-w-screen-2xl">
           {isLoading ? (
             <div className="flex justify-center items-center min-h-64 py-16">
               <BrandedSpinner message='Loading profile data...' />
@@ -199,7 +199,7 @@ const Profile = () => {
           ) : (
             <div className="max-w-full mx-auto">
               {/* Profile Header */}
-              <div className="mb-12 text-center text-[27px] sm:text-3xl">
+              <div className="mb-12 text-center text-[20px] sm:text-3xl">
                 <Title text1={'MY'} text2={'PROFILE'} />
                 <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
                   Manage your personal information and track your orders

@@ -197,11 +197,11 @@ const Cart = () => {
     <>
       <Breadcrumbs />
       <div className='pt-4'>
-        <div className="text-2xl mb-3">
+        <div className="text-[20px] sm:text-3xl mb-3">
           <Title text1={'YOUR'} text2={'CART'} />
         </div>
 
-        <div className="border-t pt-14 border-border flex flex-col lg:flex-row lg:justify-between lg:gap-10">
+        <div className="pt-14 border-border flex flex-col lg:flex-row lg:justify-between lg:gap-10">
           {/* Cart Table */}
           <div className="w-full lg:w-2/3 flex-1">
             <table className="w-full border-collapse">

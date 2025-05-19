@@ -274,10 +274,10 @@ const Orders = () => {
   return (
     <>
       <Breadcrumbs />
-      <div className="bg-bgdark text-primary pt-4 sm:pt-8 pb-16">
-        <div className="container mx-auto px-4 xl:px-0 max-w-screen-2xl">
+      <div className="bg-bgdark text-primary pt-6 sm:pt-8 pb-10 sm:pb-16">
+        <div className="container mx-auto sm:px-4 xl:px-0 max-w-screen-2xl">
           {/* Page Header */}
-          <div className="mb-8 text-center text-[27px] sm:text-3xl">
+          <div className="mb-8 text-center text-[20px] sm:text-3xl">
             <Title text1={'MY'} text2={'ORDERS'} />
             <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
               Track and manage your order history
@@ -306,8 +306,8 @@ const Orders = () => {
               <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Package className="w-8 h-8 text-accent" />
               </div>
-              <h3 className="text-xl font-bold mb-2">No orders yet</h3>
-              <p className="text-secondary mb-8">Start shopping to see your orders here</p>
+              <h3 className="text-lg sm:text-xl font-bold mb-2">No orders yet</h3>
+              <p className="text-secondary text-sm mb-6 sm:mb-8">Start shopping to see your orders here</p>
               <button
                 onClick={() => window.location.href = '/collection'}
                 className="bg-accent text-bgdark px-8 py-3 rounded-full hover:bg-bgdark hover:text-accent hover:border border-accent transition-all"

@@ -174,7 +174,7 @@ const Product = () => {
                 {/* ----- add stock quantity here afterwards ------ */}
 
 
-                <p className='mt-5 text-2xl font-medium text-accent'>{currency} {price}</p>
+                <p className='mt-5 text-lg md:text-2xl font-medium text-accent'>{currency} {price.toLocaleString()}</p>
 
                 {/* Product Key Features */}
                 <div className='mt-4'>
@@ -239,7 +239,7 @@ const Product = () => {
                               onClick={() => {
                                 handleVariationSelect(item);
                               }}
-                              className={`border border-border rounded-3xl py-3 px-6 ${selectedVariation === item ? 'bg-accent text-bgdark' : ''}`}
+                              className={`border border-border rounded-3xl py-2 px-4 sm:py-3 sm:px-6 text-sm sm:text-base ${selectedVariation === item ? 'bg-accent text-bgdark' : ''}`}
                             >
                               {item.ram} / {item.storage}
                             </button>
@@ -253,23 +253,23 @@ const Product = () => {
 
                   {/* Price display after selecting a variation */}
                   {selectedVariation && (
-                    <div className='mt-4'>
-                      <p className='mt-5 text-2xl font-medium text-accent'>
-                        Price: {currency} {price}
+                    <div className='mt-2 md:mt-4'>
+                      <p className='text-lg md:text-2xl font-medium text-accent'>
+                        Price: {currency} {price.toLocaleString()}
                       </p>
                     </div>
                   )}
 
                 </div>
 
-                <div className="product-actions  flex items-center mt-4 space-x-4">
+                <div className="product-actions  flex items-center mt-2 sm:mt-4 space-x-4">
 
                   {/* Quantity Input */}
 
-                  <div className="quantity-selector rounded-3xl flex items-center border border-accent">
+                  <div className="quantity-selector flex w-fit bg-border hover:border-accent border border-transparent rounded-full transition-all">
                     <button
                       onClick={() => handleQuantityChange('decrease')}
-                      className="px-4 py-2 text-lg font-bold"
+                      className="px-2 sm:px-3 py-1 sm:py-2 text-sm sm:text-lg hover:text-accent transition-colors"
                     >
                       -
                     </button>
@@ -277,11 +277,11 @@ const Product = () => {
                       type="number"
                       value={quantity}
                       readOnly
-                      className="w-16 text-center text-primary text-lg outline-none bg-bgdark"
+                      className="w-12 sm:w-16 text-center text-primary text-sm sm:text-lg outline-none bg-border"
                     />
                     <button
                       onClick={() => handleQuantityChange('increase')}
-                      className="px-4 py-2 text-lg font-bold"
+                      className="px-2 sm:px-3 py-1 sm:py-2 text-sm sm:text-lg hover:text-accent transition-colors"
                     >
                       +
                     </button>
@@ -291,8 +291,7 @@ const Product = () => {
 
                   <button
                     onClick={handleAddToCart}
-                    // disabled={variations && variations.length > 0 && !selectedVariation}
-                    className={`bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark font-semibold w-[60%] py-3 px-6 active:bg-accent active:text-bgdark rounded-3xl ${(!selectedVariation && variations.length > 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent text-bgdark font-medium w-full sm:w-[60%] py-2 sm:py-3 px-4 sm:px-6 text-sm sm:text-base active:bg-accent active:text-bgdark rounded-full transition-all ${(!selectedVariation && variations.length > 0) ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     Add to Cart
                   </button>
@@ -300,14 +299,21 @@ const Product = () => {
 
                 {/* Add to Wishlist and compare Buttons */}
                 <div className='flex items-center mt-4 space-x-4'>
-                  <HeartIcon onClick={handleAddToWishlist}
-                    className="bg-bgdark h-12 hover:fill-accent text-accent font-semibold py-2 px-6 hover:cursor-pointer"
-                  />  <span>Add to Wishlist</span>
+                  <div className="flex items-center gap-2">
+                    <HeartIcon
+                      onClick={handleAddToWishlist}
+                      className="h-8 sm:h-10 hover:fill-accent text-accent p-1.5 sm:p-2 hover:cursor-pointer transition-all"
+                    />
+                    <span className="text-sm sm:text-base">Add to Wishlist</span>
+                  </div>
 
-
-                  <Square3Stack3DIcon onClick={handleAddToCompare}
-                    className="bg-bgdark h-12 hover:scale-105 text-accent font-semibold py-2 px-6 hover:cursor-pointer" />   <span>Compare specs</span>
-
+                  <div className="flex items-center gap-2">
+                    <Square3Stack3DIcon
+                      onClick={handleAddToCompare}
+                      className="h-8 sm:h-10 hover:scale-105 text-accent p-1.5 sm:p-2 hover:cursor-pointer transition-all"
+                    />
+                    <span className="text-sm sm:text-base">Compare specs</span>
+                  </div>
                 </div>
 
               </div>

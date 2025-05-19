@@ -200,8 +200,6 @@ const Collection = () => {
   // Change page
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-  console.log(currentProducts);
-
   return (
     <>
       <Breadcrumbs />
@@ -333,12 +331,14 @@ const Collection = () => {
         {/* Right side */}
         <div className='flex-1'>
 
-          <div className='flex justify-between items-center text-lg sm:text-2xl my-3'>
-            <Title text1={'ALL'} text2={'PRODUCTS'} />
+          <div className='flex justify-between items-center my-3'>
+            <div className='text-[18px] sm:text-2xl'>
+              <Title text1={'OUR'} text2={'SHOP'} />
+            </div>
 
             {/* PRODUCT SORTING  */}
             <select value={sortOption}
-              onChange={(e) => setSortOption(e.target.value)} className='border border-border bg-bgdark text-sm px-3 py-2 mb-3'>
+              onChange={(e) => setSortOption(e.target.value)} className='border border-border bg-bgdark text-xs sm:text-sm px-3 py-2 mb-3'>
               <option value="relevant">Sort by: Relevant</option>
               <option value="low-high">Sort by: Low to High</option>
               <option value="high-low">Sort by: High to Low</option>
@@ -366,7 +366,7 @@ const Collection = () => {
               </p>
 
               {/* Display products */}
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-6">
                 {Array.isArray(currentProducts) && currentProducts.length > 0 ? (
                   currentProducts.map((product, index) => (
                     <ProductItem

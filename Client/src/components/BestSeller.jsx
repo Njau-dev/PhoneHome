@@ -25,10 +25,10 @@ const BestSeller = () => {
     }, [products]);
 
     return (
-        <div className='container mx-auto my-10 px-4'>
-            <div className='text-center text-3xl py-8'>
+        <div className='container mx-auto my-3 sm:my-10 sm:px-4'>
+            <div className='text-center text-[20px] sm:text-3xl py-6 sm:py-8'>
                 <Title text1={'BEST'} text2={'SELLERS'} />
-                <p className='w-3/4 m-auto text-sm sm:text-base'>
+                <p className='w-3/4 m-auto text-xs sm:text-base text-secondary'>
                     Discover our most reviewed and loved devices at Phone Home Kenya
                 </p>
             </div>
@@ -39,7 +39,7 @@ const BestSeller = () => {
                     className="pb-6"
                 >
                     {bestSeller.map((product, index) => (
-                        <div key={index} className="px-3">
+                        <div key={index} className="px-1.5 sm:px-3">
                             <ProductItem
                                 id={product.id}
                                 image={product.image_urls}

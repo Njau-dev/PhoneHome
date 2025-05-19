@@ -182,10 +182,10 @@ const PlaceOrder = () => {
         {/* -----RIGHT SIDE---------- */}
 
         <div className='mt-8 border-2 border-accent p-3 rounded-lg '>
-          <div className='m-4 min-w-80 lg:min-w-[420px]'>
+          <div className='w-full lg:min-w-[420px] p-2 sm:p-4'>
             <CartTotal />
           </div>
-          <div className='mt-12 m-4 text-xl'>
+          <div className='mt-4 p-2 sm:px-4 text-base sm:text-lg'>
             <Title text1={'PAYMENT'} text2={'METHOD'} />
 
             {/* ----------Payment method selection---------- */}

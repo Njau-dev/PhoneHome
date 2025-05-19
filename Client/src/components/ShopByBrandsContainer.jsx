@@ -3,8 +3,6 @@ import { ShopContext } from '../context/ShopContext';
 import BrandMarquee from './BrandMarquee';
 import BrandSection from './BrandSection';
 import Title from './Title';
-import { FaApple } from 'react-icons/fa6';
-import { SiSamsung } from 'react-icons/si';
 
 const ShopByBrandsContainer = () => {
     const { products } = useContext(ShopContext);
@@ -33,12 +31,10 @@ const ShopByBrandsContainer = () => {
 
     return (
         <div className="w-full bg-bgdark">
-            <div className="container mx-auto px-4 py-12">
-                <div className="text-center mb-10">
-                    <div className="text-[27px] md:text-3xl">
-                        <Title text1={'EXPLORE'} text2={'TOP BRANDS'} />
-                    </div>
-                    <p className="text-primary/80 mt-4 max-w-2xl mx-auto">
+            <div className="container mx-auto sm:px-4 py-6 sm:py-12">
+                <div className='text-center text-[20px] sm:text-3xl py-6 sm:py-8'>
+                    <Title text1={'EXPLORE'} text2={'TOP BRANDS'} />
+                    <p className='w-3/4 m-auto text-xs sm:text-base text-secondary'>
                         Browse through our collection of premium electronic brands offering the latest technology and innovation
                     </p>
                 </div>

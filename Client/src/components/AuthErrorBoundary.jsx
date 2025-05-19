@@ -1,25 +1,34 @@
-import { useEffect } from 'react';
+import { useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { ShopContext } from '../context/ShopContext';
 
 const AuthErrorBoundary = () => {
     const navigate = useNavigate();
+    const { setToken, setCartItems, setWishlistItems, setCompareItems } = useContext(ShopContext);
 
     useEffect(() => {
-        // Add axios interceptor for response errors
         const interceptor = axios.interceptors.response.use(
             (response) => response,
             (error) => {
                 if (error.response?.status === 401) {
-                    // Clear local storage
-                    localStorage.removeItem('token');
+                    // Clear all auth-related state
+                    setToken(null);
+                    setCartItems({});
+                    setWishlistItems([]);
+                    setCompareItems([]);
+
+                    // Clear localStorage
+                    localStorage.clear();
 
                     // Show error message
-                    toast.error('Session expired. Please login again.');
+                    toast.error('Session expired. Please login again.', {
+                        toastId: 'session-expired'
+                    });
 
-                    // Redirect to login
-                    navigate('/login');
+                    // Force redirect to login
+                    navigate('/login', { replace: true });
                 }
                 return Promise.reject(error);
             }
@@ -29,7 +38,7 @@ const AuthErrorBoundary = () => {
         return () => {
             axios.interceptors.response.eject(interceptor);
         };
-    }, [navigate]);
+    }, [navigate, setToken, setCartItems, setWishlistItems, setCompareItems]);
 
     return null;
 };

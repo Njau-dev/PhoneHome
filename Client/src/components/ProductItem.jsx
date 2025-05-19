@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { Link } from 'react-router-dom';
-import { Heart, ShoppingCart, ChevronRight, Star } from 'lucide-react';
+import { Heart, ShoppingCart, ChevronRight, Star, Eye } from 'lucide-react';
 import { Square3Stack3DIcon } from '@heroicons/react/24/outline';
 
 const ProductItem = ({ id, image, name, price, category, hasVariation, rating, review_count }) => {
@@ -44,7 +44,7 @@ const ProductItem = ({ id, image, name, price, category, hasVariation, rating, r
                     )}
                 </div>
 
-                <div className="p-4 pt-3 bg-bgdark">
+                <div className="p-2 sm:p-4 bg-bgdark">
                     <p className="text-sm text-secondary">{category}</p>
                     <p className="text-sm font-medium mt-1 truncate">{name}</p>
 
@@ -70,7 +70,7 @@ const ProductItem = ({ id, image, name, price, category, hasVariation, rating, r
             </Link>
 
             {/* Action buttons that slide up on hover */}
-            <div className="absolute bottom-0 left-0 right-0 bg-bgdark border-t border-border transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 p-3 flex justify-between items-center">
+            <div className="absolute bottom-0 left-0 right-0 bg-bgdark border-t border-border transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 p-2 md:p-3 flex justify-between items-center">
                 {/* Add to Compare button */}
                 <button
                     className="mr-2 p-2 border border-border rounded hover:border-accent"
@@ -82,8 +82,8 @@ const ProductItem = ({ id, image, name, price, category, hasVariation, rating, r
 
                 {/* Add to Cart button */}
                 {hasVariation ? (
-                    <Link to={`/product/${id}`} className="flex-1 bg-accent text-bgdark py-2 pl-2 rounded text-center text-sm font-medium flex items-center justify-center hover:bg-bgdark hover:border hover:border-accent hover:text-accent" title='View product'>
-                        View<ChevronRight className="w-4 h-4 ml-1" />
+                    <Link to={`/product/${id}`} className="flex-1 bg-accent text-bgdark py-2 rounded text-center text-sm font-medium flex items-center justify-center hover:bg-bgdark hover:border hover:border-accent hover:text-accent" title='View product'>
+                        <span className='hidden md:block mr-2'>View</span><Eye className="w-4 h-4" />
                     </Link>
                 ) : (
                     <button
@@ -94,8 +94,8 @@ const ProductItem = ({ id, image, name, price, category, hasVariation, rating, r
                         className="flex-1 bg-accent text-bgdark py-2 rounded text-center text-sm font-medium flex items-center justify-center hover:bg-bgdark hover:border hover:border-accent hover:text-accent"
                         title="Add to Cart"
                     >
-                        Cart
-                        <ShoppingCart className="w-4 h-4 ml-1" />
+                        <span className='hidden md:block mr-2'>Cart</span>
+                        <ShoppingCart className="w-4 h-4" />
                     </button>
                 )}
 

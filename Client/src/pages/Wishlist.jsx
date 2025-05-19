@@ -93,9 +93,9 @@ const Wishlist = () => {
         <>
             <Breadcrumbs />
             <div className="bg-bgdark text-primary pt-4 sm:pt-8 pb-16">
-                <div className="container mx-auto px-4 xl:px-0 max-w-screen-2xl">
+                <div className="container mx-auto sm:px-4 xl:px-0 max-w-screen-2xl">
                     {/* Page Header */}
-                    <div className="mb-12 text-center text-[27px] sm:text-3xl">
+                    <div className="mb-12 text-center text-[20px] sm:text-3xl">
                         <Title text1={'MY'} text2={'WISHLIST'} />
                         <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
                             View and manage your favorite products
@@ -122,21 +122,21 @@ const Wishlist = () => {
                     ) : (
                         <div className="max-w-full mx-auto">
                             {/* Wishlist Stats */}
-                            <div className="bg-bgdark rounded-xl p-6 border border-border hover:border-accent transition-all shadow-md hover:shadow-lg shadow-black/30 mb-8">
+                            <div className="bg-bgdark rounded-xl p-4 sm:p-6 border border-border hover:border-accent transition-all shadow-md hover:shadow-lg shadow-black/30 mb-8">
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-lg font-medium">Saved Items</h3>
                                     <div className="p-2 bg-accent/20 rounded-full">
                                         <Heart className="w-5 h-5 text-accent" />
                                     </div>
                                 </div>
-                                <p className="text-3xl font-bold">{wishlistItems.length > 0 ? wishlistItems.length : 0}</p>
+                                <p className="text-3xl font-bold">{wishlistItems ? wishlistItems.length : 0}</p>
                                 <p className="text-secondary text-sm mt-4">Items in your wishlist</p>
                             </div>
 
                             {/* Wishlist Table */}
-                            <div className="bg-bgdark rounded-xl p-6 border border-border transition-all shadow-md hover:shadow-lg shadow-black/30">
+                            <div className="bg-bgdark rounded-xl p-4 sm:p-6 border border-border transition-all shadow-md hover:shadow-lg shadow-black/30">
                                 <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-xl font-bold">Wishlist Items</h3>
+                                    <h3 className="text-lg sm:text-xl font-bold">Wishlist Items</h3>
                                 </div>
 
                                 <div className="overflow-x-auto" style={{ maxWidth: '100%' }}>
@@ -198,7 +198,7 @@ const Wishlist = () => {
                                             <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
                                                 <Heart className="w-8 h-8 text-accent" />
                                             </div>
-                                            <h3 className="text-xl font-bold mb-2">Your wishlist is empty</h3>
+                                            <h3 className="text-lg sm:text-xl font-bold mb-2">Your wishlist is empty</h3>
                                             <p className="text-secondary mb-8">Browse our collection and add items to your wishlist</p>
                                             <Link to="/collection">
                                                 <button className="bg-accent text-bgdark px-8 py-3 rounded-full hover:bg-bgdark hover:text-accent hover:border border-accent transition-all">

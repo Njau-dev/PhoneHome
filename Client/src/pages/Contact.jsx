@@ -8,12 +8,11 @@ const Contact = () => {
   return (
     <>
       <Breadcrumbs />
-      <div className="container mx-auto px-4">
-        <div className="pt-10 text-center">
-          <div className="text-3xl">
-            <Title text1={'CONTACT'} text2={'US'} />
-          </div>
-          <p className="w-3/4 m-auto text-sm sm:text-base text-secondary">We are here to help you with any questions you may have. Reach out to us and we'll respond as soon as we can.</p>
+      <div className="container mx-auto sm:px-4">
+        <div className="my-8 md:my-12 text-center text-[20px] sm:text-3xl">
+          <Title text1={'CONTACT'} text2={'US'} />
+          <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
+            We are here to help you with any questions you may have. Reach out to us and we'll respond as soon as we can.</p>
         </div>
         <ContactInfoBox />
         <NewsLetterBox />

@@ -25,10 +25,10 @@ const LatestCollection = () => {
     }, [products]);
 
     return (
-        <div className='container mx-auto my-10 px-4'>
-            <div className="text-center py-8 text-3xl">
+        <div className='container mx-auto my-3 sm:my-10 sm:px-4'>
+            <div className="text-center py-6 sm:py-8 text-[20px] sm:text-3xl">
                 <Title text1={'LATEST'} text2={'ARRIVALS'} />
-                <p className='w-3/4 m-auto text-sm sm:text-base'>Take a look at the most recent devices and technology here at Phone Home Kenya</p>
+                <p className='w-3/4 m-auto text-xs sm:text-base text-secondary'>Take a look at the most recent devices and technology here at Phone Home Kenya</p>
             </div>
 
             {/* Rendering the products in carousel */}
@@ -38,7 +38,7 @@ const LatestCollection = () => {
                     className=" pb-6"
                 >
                     {latestProducts.map((product, index) => (
-                        <div key={index} className="px-3">
+                        <div key={index} className="px-1.5 sm:px-3">
                             <ProductItem
                                 id={product.id}
                                 image={product.image_urls}
