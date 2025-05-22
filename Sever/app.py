@@ -21,6 +21,7 @@ import os
 import re
 from dotenv import load_dotenv
 import logging
+import sys
 from sqlalchemy import func
 import traceback
 from sqlalchemy.exc import SQLAlchemyError
@@ -32,6 +33,18 @@ load_dotenv(override=True)
 
 # Initialize Flask app
 app = Flask(__name__)
+
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
+# This configures Flask to use Gunicorn's stderr - for production
+gunicorn_logger = logging.getLogger('gunicorn.error')
+app.logger.handlers = gunicorn_logger.handlers
+app.logger.setLevel(logging.INFO)
 
 #Validate environment variables
 required_env_vars = [
@@ -62,9 +75,59 @@ app.config.update(
     SQLALCHEMY_DATABASE_URI=os.getenv('SQLALCHEMY_DATABASE_URI'),
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
     JWT_SECRET_KEY=os.getenv('JWT_SECRET_KEY'),
-    FRONTEND_URL=os.getenv('FRONTEND_URL', 'http://localhost:5173')
+    FRONTEND_URL=os.getenv('FRONTEND_URL', 'https://phonehome.co.ke')
 )
 
+def sync_admin_users():
+    """Sync users with admin role to the admins table"""
+    try:
+        # Get all users with admin role
+        admin_users = User.query.filter_by(role="admin").all()
+        logger.info(f"Found {len(admin_users)} admin users to sync")
+        
+        for user in admin_users:
+            # Check if admin already exists in admins table
+            existing_admin = Admin.query.filter_by(email=user.email).first()
+            
+            if not existing_admin:
+                # Create new admin entry
+                new_admin = Admin(
+                    username=user.username,
+                    email=user.email,
+                    password_hash=user.password_hash
+                )
+                
+                try:
+                    # First add and flush to get the admin ID
+                    db.session.add(new_admin)
+                    db.session.flush()
+                    
+                    # Now create audit log with the new admin's ID
+                    audit_log = AuditLog(
+                        admin_id=new_admin.id,  # Now we have the ID
+                        action=f"Admin account auto-created for user {user.username} (ID: {user.id})"
+                    )
+                    db.session.add(audit_log)
+                    
+                    # Create notification for the user
+                    notification = Notification(
+                        user_id=user.id,
+                        message="Your admin account has been created. You can now login to the admin dashboard.",
+                        is_read=False
+                    )
+                    db.session.add(notification)
+                    
+                    # Finally commit everything
+                    db.session.commit()
+                    logger.info(f"Created admin account for user {user.username}")
+                    
+                except SQLAlchemyError as e:
+                    db.session.rollback()
+                    logger.error(f"Database error creating admin for user {user.id}: {str(e)}")
+                    continue
+                    
+    except Exception as e:
+        logger.error(f"Error in sync_admin_users: {str(e)}\n{traceback.format_exc()}")
 
 # Initialize Extensions
 db.init_app(app)
@@ -72,6 +135,15 @@ migrate = Migrate(app, db)
 cors = CORS(app)
 api = Api(app)
 jwt = JWTManager(app)
+
+# Initialize admin sync within app context
+with app.app_context():
+    try:
+        sync_admin_users()
+        logger.info("Successfully completed initial admin sync")
+    except Exception as e:
+        logger.error(f"Error in initial admin sync: {str(e)}")
+
 
 # Token Blacklist Model
 class BlacklistToken(db.Model):
@@ -116,7 +188,7 @@ def rate_limit(key_prefix, limit, period):
     return decorator
 
 class ForgotPasswordResource(Resource):
-    @rate_limit("pwd_reset", int(os.getenv("RESET_EMAIL_LIMIT", 20)), 3600)
+    @rate_limit("pwd_reset", int(os.getenv("RESET_EMAIL_LIMIT", 3)), 3600)
     def post(self):
         try:
             email = request.json.get('email')
@@ -212,7 +284,6 @@ class ResetPasswordResource(Resource):
             return {"error": "An unexpected error occurred"}, 500
         
 
-
 # Sign Up
 class SignUp(Resource):
     def post(self):
@@ -236,15 +307,16 @@ class SignUp(Resource):
                 phone_number=phone_number,
                 password_hash=hashed_password
             )
-            # Create notification for the user
+            
+            db.session.add(new_user)
+            db.session.commit()
+            
             notification = Notification(
                 user_id=new_user.id,
                 message="Your account has been created successfully.",
                 is_read=False
             )
-
             db.session.add(notification)
-            db.session.add(new_user)
             db.session.commit()
 
             # Generate token for the new user
@@ -264,7 +336,7 @@ class SignUp(Resource):
             }, 201
 
         except Exception as e:
-            logger.error(f"Error during Sign Up: {e}")
+            logger.error("Error during Sign Up:\n" + traceback.format_exc())
             return {"Error": "Internal Server Error"}, 500
 
 # Login
@@ -277,10 +349,22 @@ class Login(Resource):
         user = User.query.filter_by(email=email).first()
 
         if user and check_password_hash(user.password_hash, password):
-            token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=1))
-            return {"Message": "Login Successful!", "token": token}, 200
+            token = create_access_token(
+                identity=str(user.id), 
+                expires_delta=timedelta(days=1)
+            )
+            return {
+                "message": "Login successful",
+                "token": token,
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "role": user.role or "user"  # Default to "user" if role is None
+                }
+            }, 200
         else:
-            return {"Error": "Invalid Email or Password!"}, 400
+            return {"error": "Invalid Email or Password!"}, 400
 
 # Profile View and Update
 class ProfileView(MethodView):
@@ -475,10 +559,10 @@ def admin_required(f):
 # Product (Phones, Laptops, Tablets, Audio) Management
 
 # Initialize logger
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 # Allowed extensions for file uploads
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'avif'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -836,8 +920,7 @@ class ProductUpdateResource(Resource):
         except Exception as e:
             db.session.rollback()
             return {"Error": f"An error occurred: {str(e)}"}, 500
-
-
+        
 
 class ProductVariationResource(Resource):
     def post(self, product_id):
@@ -1025,20 +1108,44 @@ class DeleteProductById(Resource):
         try:
             # Fetch the product by ID or return 404 if not found
             product = Product.query.get_or_404(product_id)
-
-            # Log the product information before deletion
             logger.info(f"Attempting to delete product with ID {product_id}: {product.name}")
 
-            # Delete the product from the database
-            db.session.delete(product)
-            db.session.commit()
+            try:
+                # Delete related cart items first
+                CartItem.query.filter_by(product_id=product_id).delete()
+                
+                # Delete related order items (if you want to preserve order history, consider soft deletes)
+                OrderItem.query.filter_by(product_id=product_id).delete()
+                
+                # Remove from wishlists
+                wishlists = WishList.query.all()
+                for wishlist in wishlists:
+                    if product in wishlist.products:
+                        wishlist.products.remove(product)
+                
+                # Remove from compare lists
+                CompareItem.query.filter_by(product_id=product_id).delete()
+                
+                # Delete product variations
+                ProductVariation.query.filter_by(product_id=product_id).delete()
+                
+                # Delete reviews
+                Review.query.filter_by(product_id=product_id).delete()
 
-            logger.info(f"Product with ID {product_id} deleted successfully")
-            return {"Message": f"{product.name} deleted successfully"}, 200
+                # Finally delete the product
+                db.session.delete(product)
+                db.session.commit()
+
+                logger.info(f"Product with ID {product_id} deleted successfully")
+                return {"Message": f"{product.name} deleted successfully"}, 200
+
+            except SQLAlchemyError as e:
+                db.session.rollback()
+                logger.error(f"Database error deleting product {product_id}: {str(e)}")
+                return {"Error": "Database error occurred while deleting product"}, 500
 
         except Exception as e:
-            # Log the error and return a 500 response in case of an error
-            logger.error(f"Error deleting product with ID {product_id}: {e}")
+            logger.error(f"Error deleting product with ID {product_id}: {str(e)}")
             return {"Error": "An error occurred while deleting the product"}, 500
 
 
@@ -1266,7 +1373,6 @@ class CartResource(Resource):
         except Exception as e:
             return {"Error": f"Unexpected error: {str(e)}"}, 500
 
-   
 
 # Wishlist Management
 class WishlistResource(Resource):
@@ -1780,6 +1886,92 @@ class AdminOrderResource(Resource):
             logger.error(f"Stack trace: {traceback.format_exc()}")
             return {"error": "An error occurred while fetching orders"}, 500
 
+class AdminOrderDetailResource(Resource):
+    @jwt_required()
+    @admin_required
+    def get(self, order_id):
+        try:
+            order = Order.query.options(
+                db.joinedload(Order.payment),
+                db.joinedload(Order.address),
+                db.joinedload(Order.order_items).joinedload(OrderItem.product)
+            ).get_or_404(order_id)
+
+            order_details = {
+                "order": {
+                    # Order info
+                    "id": order.id,
+                    "order_reference": order.order_reference,
+                    "status": order.status,
+                    "total_amount": float(order.total_amount),
+                    "created_at": order.created_at.isoformat(),
+                    "updated_at": order.updated_at.isoformat(),
+
+                    
+                    # User info
+                    "user_id": order.user_id,
+                    "username": order.user.username,
+                    "email": order.user.email,
+                    "phone_number": order.user.phone_number,
+                    
+                    # Payment info
+                    "payment_id": order.payment.id if order.payment else None,
+                    "payment_status": order.payment.status if order.payment else "Pending",
+                    "payment_method": order.payment.payment_method if order.payment else None,
+                    "transaction_id": order.payment.transaction_id if order.payment else None,
+                    "payment_date": order.payment.created_at.isoformat() if order.payment else None,      
+
+
+                    # Separate address object
+                    "address": {
+                        "first_name": order.address.first_name,
+                        "last_name": order.address.last_name,
+                        "email": order.address.email,
+                        "phone": order.address.phone,
+                        "city": order.address.city,
+                        "street": order.address.street,
+                        "additional_info": order.address.additional_info
+                    } if order.address else None,
+                    
+                    # Separate items array
+                    "items": []           
+                },
+                
+                
+            }
+
+            # Process order items
+            for item in order.order_items:
+                product = item.product
+                if product:
+                    item_data = {
+                        "id": item.id,
+                        "product": {
+                            "id": product.id,
+                            "name": product.name,
+                            "image_url": product.image_urls[0] if product.image_urls else None,
+                            "brand": product.brand.name if product.brand else None,
+                            "category": product.category.name if product.category else None
+                        },
+                        "quantity": item.quantity,
+                        "unit_price": float(item.variation_price or product.price),
+                        "total_price": float(item.variation_price or product.price) * item.quantity
+                    }
+
+                    # Add variation details if present
+                    if item.variation_name:
+                        item_data["variation"] = {
+                            "name": item.variation_name,
+                            "price": float(item.variation_price)
+                        }
+
+                    order_details["order"]["items"].append(item_data)
+
+            return order_details, 200
+
+        except Exception as e:
+            logger.error(f"Error fetching admin order details: {str(e)}\n{traceback.format_exc()}")
+            return {"error": "An error occurred while fetching order details"}, 500
 
 class OrderStatusResource(Resource):
     @jwt_required()
@@ -2375,7 +2567,7 @@ class AdminNotificationResource(Resource):
 # Admin Management Resource for managing Users
 class AdminUserManagement(Resource):
     @jwt_required()
-    @admin_required  # Admin-only access
+    @admin_required
     def get(self):
         users = User.query.all()
         user_list = [
@@ -2384,7 +2576,8 @@ class AdminUserManagement(Resource):
                 "username": user.username,
                 "email": user.email,
                 "phone_number": user.phone_number,
-                "address": user.address
+                "address": user.address,
+                "is_admin": user.role == "admin"  # Add this to show admin status
             }
             for user in users
         ]
@@ -2392,97 +2585,151 @@ class AdminUserManagement(Resource):
 
     @jwt_required()
     @admin_required
+    def patch(self, user_id):
+        try:
+            # Get the user
+            user = User.query.get_or_404(user_id)
+            data = request.get_json()
+            
+            # Check if is_admin is in the request data
+            if 'is_admin' not in data:
+                return {"error": "is_admin field is required"}, 400
+
+            # Update the role based on is_admin value
+            new_role = "admin" if data['is_admin'] else "user"
+            old_role = user.role
+            user.role = new_role
+
+            # Create an audit log for this action
+            current_admin_id = get_jwt_identity()
+            audit_log = AuditLog(
+                admin_id=current_admin_id,
+                action=f"Changed user {user.username} (ID: {user.id}) role from {old_role} to {new_role}"
+            )
+            db.session.add(audit_log)
+
+            # Create notification for the user
+            notification = Notification(
+                user_id=user.id,
+                message=f"Your account role has been changed to {new_role}.",
+                is_read=False
+            )
+            db.session.add(notification)
+
+            db.session.commit()
+
+            #sync with admins table
+            if new_role == "admin":
+                sync_admin_users()
+
+            return {
+                "message": f"User role updated successfully to {new_role}",
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "is_admin": user.role == "admin"
+                }
+            }, 200
+
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error updating user role: {str(e)}")
+            return {"error": "An error occurred while updating user role"}, 500
+
+    @jwt_required()
+    @admin_required
     def delete(self, user_id):
-        user = User.query.get_or_404(user_id)
-        db.session.delete(user)
-        db.session.commit()
-        return {"Message": "User deleted successfully!"}, 200
-
-    @jwt_required()
-    @admin_required
-    def put(self, user_id):
-        user = User.query.get_or_404(user_id)
-        data = request.get_json()
-
-        user.username = data.get('username', user.username)
-        user.email = data.get('email', user.email)
-        user.phone_number = data.get('phone_number', user.phone_number)
-        user.address = data.get('address', user.address)
-
-        db.session.commit()
-        return {"Message": "User updated successfully!"}, 200
-
-# Admin Management Resource for CRUD on Admins
-class AdminManagementResource(Resource):
-    @jwt_required()
-    @admin_required
-    def get(self):
-        admins = Admin.query.all()
-        admin_list = [
-            {
-                "id": admin.id,
-                "username": admin.username,
-                "email": admin.email
+        try:
+            # Start a transaction
+            user = User.query.get_or_404(user_id)
+            
+            # Store user info for logging
+            user_info = {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email
             }
-            for admin in admins
-        ]
-        return {"admins": admin_list}, 200
-
-    @jwt_required()
-    @admin_required
-    def post(self):
-        data = request.get_json()
-        username = data.get('username')
-        email = data.get('email')
-        password = data.get('password')
-
-        if Admin.query.filter_by(email=email).first():
-            return {"Error": "Admin with this email already exists!"}, 400
-
-        hashed_password = generate_password_hash(password)
-        new_admin = Admin(
-            username=username,
-            email=email,
-            password_hash=hashed_password,
-        )
-        db.session.add(new_admin)
-        db.session.commit()
-        return {"Message": "New admin created!"}, 201
-
-    @jwt_required()
-    @admin_required
-    def delete(self, admin_id):
-        admin = Admin.query.get_or_404(admin_id)
-        db.session.delete(admin)
-        db.session.commit()
-        return {"Message": "Admin deleted!"}, 200
-
-    @jwt_required()
-    @admin_required
-    def put(self, admin_id):
-        admin = Admin.query.get_or_404(admin_id)
-        data = request.get_json()
-
-        admin.username = data.get('username', admin.username)
-        admin.email = data.get('email', admin.email)
-        admin.password_hash = generate_password_hash(data.get('password', admin.password_hash))
-
-        db.session.commit()
-        return {"Message": "Admin updated successfully!"}, 200
+            
+            try:
+                # Create audit log
+                current_admin_id = get_jwt_identity()
+                audit_log = AuditLog(
+                    admin_id=current_admin_id,
+                    action=f"Deleted user {user.username} (ID: {user.id})"
+                )
+                db.session.add(audit_log)
+                
+                # Delete related records in the correct order (respecting foreign key constraints)
+                
+                # 1. First delete cart items
+                cart = Cart.query.filter_by(user_id=user.id).first()
+                if cart:
+                    CartItem.query.filter_by(cart_id=cart.id).delete()
+                    db.session.delete(cart)
+                
+                # 2. Delete other related records
+                WishList.query.filter_by(user_id=user.id).delete()
+                Compare.query.filter_by(user_id=user.id).delete()
+                Notification.query.filter_by(user_id=user.id).delete()
+                Review.query.filter_by(user_id=user.id).delete()
+                Address.query.filter_by(user_id=user.id).delete()
+                
+                # 3. Update orders instead of deleting them
+                Order.query.filter_by(user_id=user.id).update({Order.user_id: None})
+                
+                # 4. Finally delete the user
+                db.session.delete(user)
+                db.session.commit()
+                
+                # Log successful deletion
+                logger.info(f"User successfully deleted: {user_info}")
+                return {"message": "User deleted successfully!", "user": user_info}, 200
+                
+            except SQLAlchemyError as e:
+                db.session.rollback()
+                logger.error(f"Database error while deleting user {user_id}: {str(e)}\n{traceback.format_exc()}")
+                return {"error": "Database error occurred while deleting user"}, 500
+                
+        except SQLAlchemyError as e:
+            logger.error(f"Database error while fetching user {user_id}: {str(e)}\n{traceback.format_exc()}")
+            return {"error": "User not found or database error"}, 404
+            
+        except Exception as e:
+            logger.error(f"Unexpected error while deleting user {user_id}: {str(e)}\n{traceback.format_exc()}")
+            return {"error": "An unexpected error occurred while deleting user"}, 500
 
 class AdminLogin(Resource):
     def post(self):
-        data = request.get_json()
-        email = data.get('email')
-        password = data.get('password')
+        try:
+            data = request.get_json()
+            email = data.get('email')
+            password = data.get('password')
 
-        admin = Admin.query.filter_by(email=email).first()
+            admin = Admin.query.filter_by(email=email).first()
 
-        if admin and check_password_hash(admin.password_hash, password):
-            access_token = create_access_token(identity=str(admin.id))
-            return {"access_token": access_token}, 200
-        else:
-            return {"error": "Invalid credentials!"}, 401
+            if admin and check_password_hash(admin.password_hash, password):
+                # Create token with 2 hour expiration
+                access_token = create_access_token(
+                    identity=str(admin.id),
+                    expires_delta=timedelta(hours=2)
+                )
+                return {
+                    "message": "Login successful",
+                    "access_token": access_token,
+                    "user": {
+                        "id": admin.id,
+                        "name": admin.username,
+                        "email": admin.email,
+                        "role": "admin"
+                    }
+                }, 200
+            else:
+                return {"error": "Invalid credentials!"}, 401
+                
+        except Exception as e:
+            logger.error(f"Admin login error: {str(e)}\n{traceback.format_exc()}")
+            return {"error": "An error occurred during login"}, 500
 
 # Audit Logs Resource (Admin-only)
 class AuditLogResource(Resource):
@@ -2595,19 +2842,29 @@ class BrandResource(Resource):
         try:
             if category_id:
                 # If category_id is provided, filter brands by category
-                brands = Brand.query.filter_by(category_id=category_id).all()
+                category = Category.query.get_or_404(category_id)
+                brands = category.brands.all()
             else:
                 # If no category_id, return all brands
                 brands = Brand.query.all()
             
-            return [{
-                "id": brand.id, 
-                "name": brand.name,
-                "category": {
-                    "id": brand.category.id,
-                    "name": brand.category.name
+            # Format response to include all categories for each brand
+            brand_list = []
+            for brand in brands:
+                brand_data = {
+                    "id": brand.id, 
+                    "name": brand.name,
+                    "categories": [
+                        {
+                            "id": category.id,
+                            "name": category.name
+                        } for category in brand.categories
+                    ]
                 }
-            } for brand in brands], 200
+                brand_list.append(brand_data)
+            
+            return brand_list, 200
+            
         except Exception as e:
             logger.error(f"Error fetching brands: {e}")
             return {"Error": "An error occurred while fetching brands"}, 500
@@ -2616,16 +2873,31 @@ class BrandResource(Resource):
         try:
             data = request.get_json()
             
-            if not all(key in data for key in ['name', 'category_id']):
-                return {"Error": "Name and category_id are required"}, 400
-                
-            # Verify category exists
-            category = Category.query.get_or_404(data['category_id'])
+            if not data.get('name'):
+                return {"Error": "Brand name is required"}, 400
             
-            new_brand = Brand(
-                name=data['name'],
-                category_id=data['category_id']
-            )
+            if not data.get('category_ids') or not isinstance(data.get('category_ids'), list):
+                return {"Error": "At least one category_id is required as a list"}, 400
+                
+            # Check if brand already exists
+            existing_brand = Brand.query.filter_by(name=data['name']).first()
+            if existing_brand:
+                return {"Error": "Brand with this name already exists"}, 400
+            
+            # Verify all categories exist
+            category_ids = data['category_ids']
+            categories = Category.query.filter(Category.id.in_(category_ids)).all()
+            
+            if len(categories) != len(category_ids):
+                return {"Error": "One or more category IDs are invalid"}, 400
+            
+            # Create new brand
+            new_brand = Brand(name=data['name'])
+            
+            # Add categories to the brand
+            for category in categories:
+                new_brand.categories.append(category)
+            
             db.session.add(new_brand)
             db.session.commit()
             
@@ -2634,43 +2906,122 @@ class BrandResource(Resource):
                 "brand": {
                     "id": new_brand.id,
                     "name": new_brand.name,
-                    "category": {
-                        "id": category.id,
-                        "name": category.name
-                    }
+                    "categories": [
+                        {
+                            "id": category.id,
+                            "name": category.name
+                        } for category in new_brand.categories
+                    ]
                 }
             }, 201
+            
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error creating brand: {e}")
             return {"Error": "An error occurred while creating the brand"}, 500
-        
 
-# Single Brand Resource for managing a specific brand
-class SingleBrandResource(Resource):
-    # @jwt_required()
-    # @admin_required
+class BrandDetailResource(Resource):
     def get(self, brand_id):
-        brand = Brand.query.get_or_404(brand_id)
-        return {"id": brand.id, "name": brand.name}, 200
+        try:
+            brand = Brand.query.get_or_404(brand_id)
+            return {
+                "id": brand.id,
+                "name": brand.name,
+                "categories": [
+                    {
+                        "id": category.id,
+                        "name": category.name
+                    } for category in brand.categories
+                ]
+            }, 200
+        except Exception as e:
+            logger.error(f"Error fetching brand {brand_id}: {e}")
+            return {"Error": "Brand not found"}, 404
 
-    @jwt_required()
-    # @admin_required
     def put(self, brand_id):
-        data = request.get_json()
-        brand = Brand.query.get_or_404(brand_id)
-        brand.name = data['name']
-        db.session.commit()
-        return {"Message": "Brand Updated Successfully!"}, 200
+        try:
+            brand = Brand.query.get_or_404(brand_id)
+            data = request.get_json()
+            
+            # Update brand name if provided
+            if data.get('name'):
+                # Check if another brand has this name
+                existing_brand = Brand.query.filter(
+                    Brand.name == data['name'], 
+                    Brand.id != brand_id
+                ).first()
+                if existing_brand:
+                    return {"Error": "Brand with this name already exists"}, 400
+                brand.name = data['name']
+            
+            # Update categories if provided
+            if data.get('category_ids') is not None:
+                if not isinstance(data.get('category_ids'), list):
+                    return {"Error": "category_ids must be a list"}, 400
+                
+                # Clear existing categories
+                brand.categories.clear()
+                
+                # Add new categories
+                if data['category_ids']:  # Only if list is not empty
+                    categories = Category.query.filter(Category.id.in_(data['category_ids'])).all()
+                    if len(categories) != len(data['category_ids']):
+                        return {"Error": "One or more category IDs are invalid"}, 400
+                    
+                    for category in categories:
+                        brand.categories.append(category)
+            
+            db.session.commit()
+            
+            return {
+                "Message": "Brand updated successfully!",
+                "brand": {
+                    "id": brand.id,
+                    "name": brand.name,
+                    "categories": [
+                        {
+                            "id": category.id,
+                            "name": category.name
+                        } for category in brand.categories
+                    ]
+                }
+            }, 200
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error updating brand {brand_id}: {e}")
+            return {"Error": "An error occurred while updating the brand"}, 500
 
-    @jwt_required()
-    # @admin_required
     def delete(self, brand_id):
-        brand = Brand.query.get_or_404(brand_id)
-        db.session.delete(brand)
-        db.session.commit()
-        return {"Message": "Brand Deleted Successfully!"}, 200
-
+        try:
+            brand = Brand.query.get_or_404(brand_id)
+            
+            # Check if brand has associated products
+            products_count = Product.query.filter_by(brand_id=brand_id).count()
+            if products_count > 0:
+                return {
+                    "Error": f"Cannot delete brand '{brand.name}' because it has {products_count} associated products"
+                }, 400
+            
+            # Clear category associations using the association table directly
+            brand_category_table = Brand.categories.property.secondary
+            db.session.execute(
+                brand_category_table.delete().where(
+                    brand_category_table.c.brand_id == brand_id
+                )
+            )
+            
+            # Delete the brand
+            db.session.delete(brand)
+            db.session.commit()
+            
+            return {"Message": f"Brand '{brand.name}' deleted successfully!"}, 200
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error deleting brand {brand_id}: {str(e)}")
+            return {"Error": "An error occurred while deleting the brand"}, 500
+        
 
 # Error Handling
 @app.errorhandler(404)
@@ -2711,7 +3062,7 @@ api.add_resource(ProductUpdateResource, '/products/<int:product_id>')
 
 #brand routes
 api.add_resource(BrandResource, '/brands')
-api.add_resource(SingleBrandResource, '/brands/<int:brand_id>')
+api.add_resource(BrandDetailResource, '/brands/<int:brand_id>')
 
 #category route
 api.add_resource(CategoryResource, '/categories', '/categories/<int:category_id>')
@@ -2728,6 +3079,7 @@ api.add_resource(CompareResource, '/compare', '/compare/<int:product_id>')
 # Order routes
 api.add_resource(OrderResource, '/orders')
 api.add_resource(AdminOrderResource, '/orders/admin')
+api.add_resource(AdminOrderDetailResource, '/orders/admin/<int:order_id>')
 api.add_resource(OrderStatusResource, '/orders/status/<int:order_id>')
 
 # payment resource
@@ -2741,8 +3093,13 @@ api.add_resource(NotificationResource, '/notifications')
 api.add_resource(AdminNotificationResource, '/admin/notifications')
 
 # Admin and User Management routes
-api.add_resource(AdminUserManagement, '/admin/users', '/admin/users/<int:user_id>')
-api.add_resource(AdminManagementResource, '/admin/admins', '/admin/admins/<int:admin_id>')
+api.add_resource(AdminUserManagement, 
+    '/admin/users', 
+    '/admin/user/<int:user_id>',
+    '/user/<int:user_id>/admin'
+)
+
+# admin login
 api.add_resource(AdminLogin, '/admin/login')
 
 # Audit logs

@@ -10,7 +10,7 @@ const ShopByBrandsContainer = () => {
     // Featured brands with their details
     const featuredBrands = [
         {
-            name: 'Samsong',
+            name: 'Samsung',
             bannerImage: '/assets/images/Samsung-banner-1-scaled.jpg',
             tagline: 'Innovation for Everyone',
             description: "Discover Samsung's latest electronics with cutting - edge technology and sleek design."

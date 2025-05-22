@@ -8,11 +8,13 @@ const Navbar = () => {
 
     const [visible, setVisible] = useState(false);
 
-    const { setShowSearch, getCartCount, navigate, token, setToken, setCartItems } = useContext(ShopContext);
+    const { setShowSearch, getCartCount, navigate, token, setToken, setCartItems, user, setUser } = useContext(ShopContext);
 
     const logout = () => {
         localStorage.removeItem('token')
         setToken('')
+        localStorage.removeItem('user')
+        setUser(null)
         setCartItems({})
         navigate('/login')
     }
@@ -47,10 +49,18 @@ const Navbar = () => {
                     <hr className='w-2/4 border-none h-[1.5px] bg-accent hidden' />
                 </NavLink>
 
-                {/* <NavLink to='/admin' className='flex flex-col items-center gap-1'>
-                <p className='nav-links'>Admin Panel</p>
-                <hr className='w-2/4 border-none h-[1.5px] bg-accent hidden'/>
-            </NavLink> */}
+                {/* Admin Panel Link - Only visible for admin users */}
+                {user?.role === 'admin' && (
+                    <a
+                        href="https://admin.phonehome.co.ke"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className='flex flex-col items-center gap-1'
+                    >
+                        <p className='nav-links'>ADMIN</p>
+                        <hr className='w-2/4 border-none h-[1.5px] bg-accent hidden' />
+                    </a>
+                )}
 
             </ul>
 

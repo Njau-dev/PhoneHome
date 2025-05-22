@@ -33,6 +33,7 @@ const ShopContextProvider = (props) => {
     const [wishlistItems, setWishlistItems] = useState([]);
     const [compareItems, setCompareItems] = useState([]);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [user, setUser] = useState(null);
     const navigate = useNavigate();
 
     const addToCart = async (productId, selectedVariation = null, quantity = 1) => {
@@ -404,6 +405,16 @@ const ShopContextProvider = (props) => {
     useEffect(() => {
         if (token) {
             fetchCompareItems();
+            try {
+                const userData = localStorage.getItem('user');
+                // Parse the stored JSON string to an object
+                const parsedUser = userData ? JSON.parse(userData) : null;
+                setUser(parsedUser);
+            } catch (error) {
+                console.error('Error parsing user data:', error);
+                localStorage.removeItem('user');
+                setUser(null);
+            }
         }
     }, [token]);
 
@@ -419,7 +430,7 @@ const ShopContextProvider = (props) => {
 
 
     const value = {
-        products, currency, delivery_fee,
+        products, currency, delivery_fee, user, setUser,
         search, setSearch, showSearch, setShowSearch,
         cartItems, addToCart, setCartItems,
         getCartCount, getCartAmount,

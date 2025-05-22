@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 const Login = () => {
 
   const [currentState, setCurrentState] = useState('Login');
-  const { navigate, setToken, token, backendUrl } = useContext(ShopContext)
+  const { navigate, setToken, token, backendUrl, user, setUser } = useContext(ShopContext)
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -25,6 +25,8 @@ const Login = () => {
           toast.success(response.data.Message);
           setToken(response.data.token)
           localStorage.setItem('token', response.data.token)
+          localStorage.setItem('user', JSON.stringify(response.data.user))
+          setUser(response.data.user)
         }
 
       } else {
@@ -35,6 +37,8 @@ const Login = () => {
           toast.success(response.data.Message)
           setToken(response.data.token)
           localStorage.setItem('token', response.data.token)
+          localStorage.setItem('user', JSON.stringify(response.data.user))
+          setUser(response.data.user)
         }
       }
 
@@ -45,7 +49,7 @@ const Login = () => {
 
         // Backend errors based on status codes
         if (status === 400) {
-          toast.error('Missing required fields.');
+          toast.error('Invalid Credentials or Missing required fields.');
         } else if (status === 409) {
           toast.error('User already exists.');
         } else if (status === 500) {

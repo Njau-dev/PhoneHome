@@ -49,22 +49,29 @@ class Admin(db.Model):
         return check_password_hash(self.password_hash, password)
 
 
-# Category model
+# Association table for the many-to-many relationship
+brand_categories = db.Table('brand_categories',
+    db.Column('brand_id', db.Integer, db.ForeignKey('brands.id'), primary_key=True),
+    db.Column('category_id', db.Integer, db.ForeignKey('categories.id'), primary_key=True)
+)
+
+# Updated Category model
 class Category(db.Model):
     __tablename__ = 'categories'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False, index=True)
     products = db.relationship('Product', backref='category', lazy=True, cascade="all, delete-orphan")
-    brands = db.relationship('Brand', backref='category', lazy=True, cascade="all, delete-orphan")
+    # Many-to-many relationship with brands
+    brands = db.relationship('Brand', secondary=brand_categories, back_populates='categories', lazy='dynamic')
 
-
-# Brand model
+# Updated Brand model
 class Brand(db.Model):
     __tablename__ = 'brands'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False, index=True)
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
     products = db.relationship('Product', backref='brand', lazy=True, cascade="all, delete-orphan")
+    # Many-to-many relationship with categories
+    categories = db.relationship('Category', secondary=brand_categories, back_populates='brands', lazy='dynamic')
 
 
 # Product base model

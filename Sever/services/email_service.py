@@ -130,7 +130,7 @@ def send_email(to_email, subject, html_content, attachments=None):
         email_logger.debug("API client initialized")
         
         sender = SendSmtpEmailTo(
-            email=os.getenv("BREVO_SENDER_EMAIL", "no-reply@phonehome.com"),
+            email=os.getenv("BREVO_SENDER_EMAIL", "no-reply@phonehome.co.ke"),
             name=os.getenv("BREVO_SENDER_NAME", "Phone Home")
         )
         
