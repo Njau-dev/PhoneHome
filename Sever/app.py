@@ -4,7 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager
 from flask_migrate import Migrate
 from flask_cors import CORS
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from functools import wraps
 from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog, Address, Payment, Product, ProductVariation, Compare, CompareItem
 import cloudinary
@@ -16,6 +16,7 @@ from services.email_service import (
     send_order_confirmation, send_payment_notification,
     send_shipment_update, send_review_request, send_email
 )
+from services.mpesa_service import mpesa_service
 from flask.views import MethodView
 import os
 import re
@@ -161,6 +162,26 @@ def check_if_token_in_blacklist(jwt_header, jwt_payload):
     return is_token_blacklisted(jwt_payload)
 
 
+
+# Define the admin_required decorator
+def admin_required(f):
+    @wraps(f)
+    def decorator(*args, **kwargs):
+        current_user_id = get_jwt_identity()
+        admin = db.session.get(Admin, current_user_id)
+        if not admin:
+            return {"Error": "Admin privileges required"}, 403
+        return f(*args, **kwargs)
+    return decorator
+
+
+
+# Allowed extensions for file uploads
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'avif'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 # Rate limiting setup
 redis_conn = Redis()
 q = Queue(connection=redis_conn)
@@ -210,7 +231,7 @@ class ForgotPasswordResource(Resource):
                 reset_url = f"{app.config['FRONTEND_URL']}/reset-password/{token}"
                 
                 user.reset_token = token
-                user.reset_token_expiration = datetime.utcnow() + timedelta(
+                user.reset_token_expiration = datetime.now(timezone.utc) + timedelta(
                     seconds=int(os.getenv("PASSWORD_RESET_TIMEOUT", 3600))
                 )
                 db.session.commit()
@@ -256,7 +277,7 @@ class ResetPasswordResource(Resource):
             if not user:
                 return {"error": "Invalid reset request"}, 400
 
-            if user.reset_token_expiration < datetime.utcnow():
+            if user.reset_token_expiration < datetime.now(timezone.utc):
                 return {"error": "Reset token has expired"}, 400
 
             try:
@@ -544,30 +565,7 @@ class Logout(Resource):
         return {"Message": "Logout Successful!"}, 200
     
 
-# Define the admin_required decorator
-def admin_required(f):
-    @wraps(f)
-    def decorator(*args, **kwargs):
-        current_user_id = get_jwt_identity()
-        admin = db.session.get(Admin, current_user_id)
-        if not admin:
-            return {"Error": "Admin privileges required"}, 403
-        return f(*args, **kwargs)
-    return decorator
-
-
 # Product (Phones, Laptops, Tablets, Audio) Management
-
-# Initialize logger
-# logger = logging.getLogger(__name__)
-
-# Allowed extensions for file uploads
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'avif'}
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# Product Resource (Production-Ready Version)
 class ProductResource(Resource):
     def get(self):
         try:
@@ -1498,7 +1496,7 @@ class CompareResource(Resource):
                 return {"message": "Compare list is empty"}, 200
                 
             # Delete items older than 24 hours
-            twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
+            twenty_four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
             old_items = CompareItem.query.filter(
                 CompareItem.compare_id == compare.id,
                 CompareItem.created_at <= twenty_four_hours_ago
@@ -1635,7 +1633,8 @@ class OrderResource(Resource):
                             address = db.session.get(Address, order.address_id)
                             if address:
                                 address_data = {
-                                    "name": address.first_name,
+                                    "first_name": address.first_name,
+                                    "last_name": address.last_name,
                                     "phone": address.phone,
                                     "street": address.street,
                                     "city": address.city,
@@ -1679,9 +1678,12 @@ class OrderResource(Resource):
                         order_data = {
                             "order_reference": order.order_reference,
                             "created_at": order.created_at.isoformat(),
+                            "updated_at": order.updated_at.isoformat(),
                             "status": order.status,
                             "payment_method": order.payment.payment_method if order.payment else "Not specified",
                             "payment": order.payment.status if order.payment else "pending",
+                            "failure_reason": order.payment.failure_reason if order.payment else None,
+                            "checkout_request_id": order.payment.checkout_request_id if order.payment else None,
                             "items": items,
                             "total_amount": float(order.total_amount),
                             "address": address_data
@@ -1818,8 +1820,7 @@ class OrderResource(Resource):
         except Exception as e:
             db.session.rollback()
             logger.error(f"Order creation failed: {str(e)}\n{traceback.format_exc()}")
-            return {"error": "Failed to create order"}, 500
-            
+            return {"error": "Failed to create order"}, 500          
                  
 class AdminOrderResource(Resource):
     @jwt_required()
@@ -2449,6 +2450,384 @@ class PaymentResource(Resource):
             logger.error(f"Error generating {doc_type}: {str(e)}\n{traceback.format_exc()}")
             return {"error": f"Failed to generate {doc_type}: {str(e)}"}, 500
 
+class MpesaPaymentResource(Resource):
+    @jwt_required()
+    def post(self):
+        """Initiate M-Pesa STK Push payment and create order on success"""
+        try:
+            current_user_id = get_jwt_identity()
+            data = request.get_json()
+            
+            # Log incoming data
+            logger.info(f"Creating M-Pesa payment for user {current_user_id}")
+            logger.debug(f"Payment data: {data}")
+
+            # Validate required fields
+            required_fields = ['phone_number', 'total_amount', 'address']
+            for field in required_fields:
+                if not data.get(field):
+                    return {"error": f"{field} is required"}, 400
+
+            # Validate cart exists and has items
+            cart = Cart.query.filter_by(user_id=current_user_id).first()
+            if not cart or not cart.items:
+                logger.warning(f"Empty cart for user {current_user_id}")
+                return {"error": "Cart is empty"}, 400
+
+            phone_number = data['phone_number']
+            amount = float(data['total_amount'])
+            
+            # Validate amount
+            if amount <= 0:
+                return {"error": "Amount must be greater than 0"}, 400
+
+            # Generate order reference for STK push
+            order_reference = Order.generate_order_reference()
+            logger.debug(f"Generated order reference: {order_reference}")
+
+            # Initiate STK Push first (before creating order)
+            result = mpesa_service.initiate_stk_push(
+                phone_number=phone_number,
+                amount=amount,
+                order_reference=order_reference
+            )
+
+            if not result["success"]:
+                logger.error(f"STK Push failed: {result.get('error')}")
+                return {"error": result["error"]}, 400
+
+            # STK Push successful - now create order and payment records
+            try:
+                # Create address
+                address_data = data.get('address')
+                address = Address(
+                    user_id=current_user_id,
+                    first_name=address_data['firstName'],
+                    last_name=address_data['lastName'],
+                    email=address_data['email'],
+                    phone=address_data['phone'],
+                    city=address_data['city'],
+                    street=address_data['street'],
+                    additional_info=address_data.get('additionalInfo')
+                )
+                db.session.add(address)
+                db.session.flush()
+                logger.debug(f"Address created with ID: {address.id}")
+
+                # Create payment record with STK push details
+                payment = Payment(
+                    order_reference=order_reference,
+                    amount=amount,
+                    payment_method="MPESA",
+                    status="Pending",
+                    phone_number=phone_number,
+                    checkout_request_id=result["checkout_request_id"],
+                    merchant_request_id=result["merchant_request_id"]
+                )
+                db.session.add(payment)
+                db.session.flush()
+                logger.debug(f"Payment created with ID: {payment.id}")
+
+                # Create order
+                order = Order(
+                    user_id=current_user_id,
+                    order_reference=order_reference,
+                    address_id=address.id,
+                    payment_id=payment.id,
+                    total_amount=amount,
+                    status='Pending Payment'  # Different status since payment is pending
+                )
+                db.session.add(order)
+                db.session.flush()
+                logger.debug(f"Order created with ID: {order.id}")
+
+                # Create order items
+                for cart_item in cart.items:
+                    order_item = OrderItem(
+                        order_id=order.id,
+                        product_id=cart_item.product_id,
+                        quantity=cart_item.quantity,
+                        variation_name=cart_item.variation_name,
+                        variation_price=cart_item.variation_price
+                    )
+                    db.session.add(order_item)
+
+                # Create initial notification
+                notification = Notification(
+                    user_id=current_user_id,
+                    message=f"Order #{order.order_reference} created. Please complete M-Pesa payment on your phone.",
+                    is_read=False
+                )
+                db.session.add(notification)
+
+                # Clear cart only after successful order creation
+                for item in cart.items:
+                    db.session.delete(item)
+                db.session.delete(cart)
+
+                db.session.commit()
+                logger.info(f"Order {order_reference} created successfully with pending payment")
+
+                return {
+                    "success": True,
+                    "message": "Order created successfully. Please check your phone for M-Pesa prompt.",
+                    "order_reference": order.order_reference,
+                    "checkout_request_id": result["checkout_request_id"]
+                }, 201
+
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error creating order after successful STK push: {str(e)}")
+                return {"error": "STK push successful but order creation failed. Please contact support."}, 500
+
+        except Exception as e:
+            logger.error(f"M-Pesa payment initiation failed: {str(e)}")
+            return {"error": "Payment initiation failed"}, 500
+
+class MpesaCallbackResource(Resource):
+    def post(self):
+        """Handle M-Pesa callback"""
+        try:
+            callback_data = request.get_json()
+            logger.info(f"M-Pesa Callback received: {callback_data}")
+            
+            # Extract callback data
+            stk_callback = callback_data.get("Body", {}).get("stkCallback", {})
+            
+            merchant_request_id = stk_callback.get("MerchantRequestID")
+            checkout_request_id = stk_callback.get("CheckoutRequestID")
+            result_code = stk_callback.get("ResultCode")
+            result_desc = stk_callback.get("ResultDesc")
+            
+            if not checkout_request_id:
+                logger.error("No CheckoutRequestID in callback")
+                return {"ResultCode": 1, "ResultDesc": "Invalid callback data"}
+            
+            # Find payment record
+            payment = Payment.query.filter_by(checkout_request_id=checkout_request_id).first()
+            if not payment:
+                logger.error(f"Payment not found for CheckoutRequestID: {checkout_request_id}")
+                return {"ResultCode": 1, "ResultDesc": "Payment record not found"}
+            
+            # Find associated order
+            order = Order.query.filter_by(order_reference=payment.order_reference).first()
+            if not order:
+                logger.error(f"Order not found for reference: {payment.order_reference}")
+                return {"ResultCode": 1, "ResultDesc": "Order not found"}
+            
+            # Update payment record
+            payment.result_code = str(result_code)
+            payment.result_desc = result_desc
+            
+            if result_code == 0:  # Success
+                # Extract transaction details from callback metadata
+                callback_metadata = stk_callback.get("CallbackMetadata", {}).get("Item", [])
+                
+                transaction_id = None
+                mpesa_receipt = None
+                phone_number = None
+                
+                for item in callback_metadata:
+                    name = item.get("Name")
+                    value = item.get("Value")
+                    
+                    if name == "MpesaReceiptNumber":
+                        mpesa_receipt = value
+                        transaction_id = value  # Use receipt as transaction ID
+                    elif name == "PhoneNumber":
+                        phone_number = str(value)
+                
+                # Update payment with success details
+                payment.status = "Success"
+                payment.transaction_id = transaction_id
+                payment.mpesa_receipt = mpesa_receipt
+                if phone_number:
+                    payment.phone_number = phone_number
+                payment.failure_reason = None  # Clear any previous failure reason
+                
+                # Update order status to paid and confirmed
+                order.status = "Order Placed"
+                
+                # Create success notification
+                notification = Notification(
+                    user_id=order.user_id,
+                    message=f"Payment successful for order #{order.order_reference}. M-Pesa Receipt: {mpesa_receipt}. Your order is being processed.",
+                    is_read=False
+                )
+                db.session.add(notification)
+                
+                logger.info(f"Payment successful for order {payment.order_reference}")
+                
+                try:
+                    # Send order confirmation email after successful payment
+                    email_sent = send_order_confirmation(order)
+                    if not email_sent:
+                        logger.warning(f"Failed to send confirmation email for order {order.order_reference}")
+                except Exception as e:
+                    logger.error(f"Email error for order {order.order_reference}: {str(e)}")
+                    # Don't fail the callback for email issues
+                
+            else:  # Payment Failed
+                payment.status = "Failed"
+                payment.failure_reason = result_desc
+                
+                # Update order status to payment failed
+                order.status = "Payment Failed"
+                
+                # Create failure notification
+                notification = Notification(
+                    user_id=order.user_id,
+                    message=f"Payment failed for order #{order.order_reference}. Reason: {result_desc}. Please try again or contact support.",
+                    is_read=False
+                )
+                db.session.add(notification)
+                
+                logger.warning(f"Payment failed for order {payment.order_reference}: {result_desc}")
+            
+            db.session.commit()
+            
+            # Return success response to Safaricom
+            return {"ResultCode": 0, "ResultDesc": "Callback processed successfully"}
+            
+        except Exception as e:
+            logger.error(f"M-Pesa callback processing failed: {str(e)}")
+            db.session.rollback()  # Rollback any partial changes
+            return {"ResultCode": 1, "ResultDesc": "Callback processing failed"}
+        
+class MpesaPaymentRetryResource(Resource):
+    @jwt_required()
+    def post(self):
+        """Retry M-Pesa STK Push payment for an existing order"""
+        try:
+            current_user_id = get_jwt_identity()
+            data = request.get_json()
+            
+            # Log incoming data
+            logger.info(f"Retrying M-Pesa payment for user {current_user_id}")
+            logger.debug(f"Retry payment data: {data}")
+
+            # Validate required fields for retry
+            required_fields = ['phone_number', 'order_reference']
+            for field in required_fields:
+                if not data.get(field):
+                    return {"error": f"{field} is required"}, 400
+
+            order_reference = data['order_reference']
+            phone_number = data['phone_number']
+            
+            # Find existing order and verify ownership
+            order = Order.query.filter_by(order_reference=order_reference).first()
+            if not order:
+                logger.warning(f"Order {order_reference} not found for retry")
+                return {"error": "Order not found"}, 404
+            
+            if str(order.user_id) != current_user_id:
+                logger.warning(f"Unauthorized retry attempt for order {order_reference} by user {current_user_id}")
+                return {"error": "Unauthorized access to order"}, 403
+            
+            # Check if order can be retried (should be in failed payment state)
+            if order.status not in ['Pending Payment', 'Payment Failed']:
+                logger.warning(f"Cannot retry payment for order {order_reference} with status {order.status}")
+                return {"error": "Order payment cannot be retried"}, 400
+            
+            # Get existing payment record
+            payment = order.payment
+            if not payment:
+                logger.error(f"No payment record found for order {order_reference}")
+                return {"error": "No payment record found"}, 404
+            
+            amount = payment.amount
+            
+            # Validate amount
+            if amount <= 0:
+                return {"error": "Invalid payment amount"}, 400
+
+            # Initiate new STK Push
+            result = mpesa_service.initiate_stk_push(
+                phone_number=phone_number,
+                amount=amount,
+                order_reference=order_reference
+            )
+
+            if not result["success"]:
+                logger.error(f"STK Push retry failed: {result.get('error')}")
+                return {"error": result["error"]}, 400
+
+            # Update existing payment record with new STK push details
+            try:
+                payment.phone_number = phone_number
+                payment.status = "Pending"
+                payment.checkout_request_id = result["checkout_request_id"]
+                payment.merchant_request_id = result["merchant_request_id"]
+                payment.updated_at = datetime.now(timezone.utc)
+                
+                # Update order status back to pending payment
+                order.status = 'Pending Payment'
+                order.updated_at = datetime.now(timezone.utc)
+
+                # Create retry notification
+                notification = Notification(
+                    user_id=current_user_id,
+                    message=f"Payment retry initiated for order #{order.order_reference}. Please complete M-Pesa payment on your phone.",
+                    is_read=False
+                )
+                db.session.add(notification)
+
+                db.session.commit()
+                logger.info(f"Payment retry initiated successfully for order {order_reference}")
+
+                return {
+                    "success": True,
+                    "message": "Payment retry initiated successfully. Please check your phone for M-Pesa prompt.",
+                    "order_reference": order.order_reference,
+                    "checkout_request_id": result["checkout_request_id"]
+                }, 200
+
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error updating payment record for retry: {str(e)}")
+                return {"error": "STK push successful but payment update failed. Please contact support."}, 500
+
+        except Exception as e:
+            logger.error(f"M-Pesa payment retry failed: {str(e)}")
+            return {"error": "Payment retry failed"}, 500
+
+class PaymentStatusResource(Resource):
+    @jwt_required()
+    def get(self, order_reference):
+        """Check payment status for an order"""
+        try:
+            current_user_id = get_jwt_identity()
+            
+            # Find order and verify ownership
+            order = Order.query.filter_by(order_reference=order_reference).first()
+            if not order:
+                return {"error": "Order not found"}, 404
+            
+            if str(order.user_id) != current_user_id:
+                return {"error": "Unauthorized access"}, 403
+            
+            payment = order.payment
+            if not payment:
+                return {"error": "No payment record found"}, 404
+            
+            return {
+                "order_reference": order_reference,
+                "payment_method": payment.payment_method,
+                "payment_status": payment.status,
+                "amount": float(payment.amount),
+                "phone_number": payment.phone_number,
+                "transaction_id": payment.transaction_id,
+                "mpesa_receipt": payment.mpesa_receipt,
+                "failure_reason": payment.failure_reason,
+                "created_at": payment.created_at.isoformat(),
+                "updated_at": payment.updated_at.isoformat()
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error fetching payment status: {str(e)}")
+            return {"error": "Failed to fetch payment status"}, 500
+   
 # Review Management
 class ReviewResource(Resource):
     @jwt_required()
@@ -3082,8 +3461,14 @@ api.add_resource(AdminOrderResource, '/orders/admin')
 api.add_resource(AdminOrderDetailResource, '/orders/admin/<int:order_id>')
 api.add_resource(OrderStatusResource, '/orders/status/<int:order_id>')
 
-# payment resource
+# payment docs invoice and receipt routes
 api.add_resource(PaymentResource, '/payment/<string:order_id>/<string:doc_type>')
+
+# payment resource
+api.add_resource(MpesaPaymentResource, '/mpesa/initiate')
+api.add_resource(MpesaPaymentRetryResource, '/mpesa/retry')
+api.add_resource(MpesaCallbackResource, '/ganji/inaflow')
+api.add_resource(PaymentStatusResource, '/payment/status/<string:order_reference>')
 
 # Review routes
 api.add_resource(ReviewResource, '/reviews/<int:product_id>')

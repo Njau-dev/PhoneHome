@@ -238,13 +238,17 @@ class Payment(db.Model):
     order_reference = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     payment_method = db.Column(db.String(50), nullable=False)  # 'COD' or 'MPESA'
-    status = db.Column(db.String(50), nullable=False, default='Pending')  # 'Pending', 'Success', 'Failed'
+    status = db.Column(db.String(50), nullable=False, default='Pending')
     failure_reason = db.Column(db.Text, nullable=True)
     
     # MPESA specific fields
     transaction_id = db.Column(db.String(100), nullable=True)
     mpesa_receipt = db.Column(db.String(100), nullable=True)
     phone_number = db.Column(db.String(15), nullable=True)
+    checkout_request_id = db.Column(db.String(100), nullable=True)  
+    merchant_request_id = db.Column(db.String(100), nullable=True)  
+    result_code = db.Column(db.String(10), nullable=True)          
+    result_desc = db.Column(db.Text, nullable=True)               
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -343,6 +347,3 @@ class AuditLog(db.Model):
     admin_id = db.Column(db.Integer, db.ForeignKey('admins.id'), nullable=False)
     action = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-
-

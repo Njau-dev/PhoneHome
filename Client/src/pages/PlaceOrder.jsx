@@ -2,15 +2,25 @@ import React, { useContext, useState } from 'react'
 import Title from '../components/Title'
 import CartTotal from '../components/CartTotal'
 import { ShopContext } from '../context/ShopContext';
-import axios from 'axios';
 import { toast } from 'react-toastify';
 import Breadcrumbs from '../components/BreadCrumbs';
+import MpesaPaymentModal from '../components/MpesaPaymentModal';
 
 const PlaceOrder = () => {
 
   const [selectedMethod, setSelectedMethod] = useState('COD');
+  const [selectedPaymentOption, setSelectedPaymentOption] = useState('MPESA'); // For Pay on Order sub-options
+  const [showMpesaModal, setShowMpesaModal] = useState(false);
 
   const { navigate, backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
+
+  // Payment options for "Pay on Order" - easily extensible
+  const paymentOptions = [
+    { id: 'MPESA', name: 'M-Pesa', available: true },
+    { id: 'PAYPAL', name: 'PayPal', available: false },
+    { id: 'CARD', name: 'Credit/Debit Card', available: false },
+    // Add more payment methods here as needed
+  ];
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -27,14 +37,53 @@ const PlaceOrder = () => {
     const value = e.target.value
 
     setFormData(data => ({ ...data, [name]: value }))
-
   }
+
+  const handleMpesaPayment = () => {
+    // Validate form first
+    const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'city', 'street'];
+    const missingFields = requiredFields.filter(field => !formData[field]);
+
+    if (missingFields.length > 0) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setShowMpesaModal(true);
+  };
+
+  const handlePayOnOrder = () => {
+    // Validate form first
+    const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'city', 'street'];
+    const missingFields = requiredFields.filter(field => !formData[field]);
+
+    if (missingFields.length > 0) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    // Handle different payment options
+    switch (selectedPaymentOption) {
+      case 'MPESA':
+        handleMpesaPayment();
+        break;
+      case 'PAYPAL':
+        toast.info('PayPal payment coming soon!');
+        break;
+      case 'CARD':
+        toast.info('Card payment coming soon!');
+        break;
+      default:
+        toast.warning('Please select a payment option');
+    }
+  };
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
 
     if (!token) {
       toast.info('Please log in to complete the order')
+      return;
     }
 
     try {
@@ -51,33 +100,32 @@ const PlaceOrder = () => {
               payment_method: "COD"
             };
 
-            const response = await axios.post(
-              backendUrl + "/orders",
-              orderData,
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                }
-              }
-            );
+            const response = await fetch(backendUrl + "/orders", {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(orderData)
+            });
+
+            const data = await response.json();
 
             if (response.status === 201) {
-              toast.success(response.data.Message);
+              toast.success(data.message);
               navigate("/orders");
               setCartItems({});
+            } else {
+              toast.error(data.error || "Failed to place order");
             }
           } catch (error) {
-            toast.error(error.response?.data?.Error || "Failed to place order");
+            toast.error("Failed to place order");
             console.error("Order error:", error);
           }
           break;
 
-        // Placeholder for other payment methods
-        case "Credit Card":
-        case "PayPal":
-        case "Mpesa":
-          console.log("Other payment methods will be implemented later.");
+        case "PAY_ON_ORDER":
+          handlePayOnOrder();
           break;
 
         default:
@@ -92,11 +140,10 @@ const PlaceOrder = () => {
     }
   };
 
-
   return (
     <>
       <Breadcrumbs />
-      <form onSubmit={onSubmitHandler} className='flex flex-col sm:flex-row justify-between gap-4 pt-3 sm:pt-10 min-h-[70vh]'>
+      <div onSubmit={onSubmitHandler} className='flex flex-col sm:flex-row justify-between gap-4 pt-3 sm:pt-10 min-h-[70vh]'>
 
         {/* -----LEFT sIDE----- */}
         <div className='flex flex-col gap-4 w-full sm:max-w-[750px]'>
@@ -166,21 +213,16 @@ const PlaceOrder = () => {
             />
           </div>
 
-
           <textarea
             placeholder="Additional Information"
             name='additionalInfo'
             value={formData.additionalInfo}
             onChange={onChangeHandler}
-            required
             className="w-full h-32 p-3 text-primary placeholder:text-secondary bg-bgdark border border-border focus:border-accent focus:outline-none transition-colors duration-300 rounded resize-none"
           ></textarea>
-
-
         </div>
 
         {/* -----RIGHT SIDE---------- */}
-
         <div className='mt-8 border-2 border-accent p-3 rounded-lg '>
           <div className='w-full lg:min-w-[420px] p-2 sm:p-4'>
             <CartTotal />
@@ -209,32 +251,90 @@ const PlaceOrder = () => {
 
               {/* Pay on Order */}
               <div
-                onClick={() => setSelectedMethod('order')}
-                className={`flex items-center gap-3 p-2 px-3 cursor-pointer ${selectedMethod === 'order' ? 'bg-gray-800' : ''}`}
+                onClick={() => setSelectedMethod('PAY_ON_ORDER')}
+                className={`flex items-center gap-3 p-2 px-3 cursor-pointer ${selectedMethod === 'PAY_ON_ORDER' ? 'bg-gray-800' : ''}`}
               >
-                <p className={`min-w-3.5 h-3.5 border ${selectedMethod === 'order' ? 'border-accent bg-accent' : 'border-primary'} rounded-full`}></p>
+                <p className={`min-w-3.5 h-3.5 border ${selectedMethod === 'PAY_ON_ORDER' ? 'border-accent bg-accent' : 'border-primary'} rounded-full`}></p>
                 <p className='text-base font-medium'>Pay on Order</p>
               </div>
 
-              {/* Conditional Info for Pay on Order */}
-              {selectedMethod === 'order' && (
-                <div
-                  className={`p-2 px-3 text-sm text-gray-300 border-l-2 bg-border border-accent transition-all duration-300`}
-                >
-                  Pay when you order: This applies for orders outside Nairobi county
+              {/* Conditional Info and Payment Options for Pay on Order */}
+              {selectedMethod === 'PAY_ON_ORDER' && (
+                <div className='transition-all duration-300'>
+                  <div className={`p-2 px-3 text-sm text-gray-300 border-l-2 bg-border border-accent mb-3`}>
+                    Pay when placing order: Available for all locations including outside Nairobi CBD.
+                  </div>
+
+                  {/* Payment Options */}
+                  <div className='ml-4 flex flex-col gap-2'>
+                    {paymentOptions.map((option) => (
+                      <div
+                        key={option.id}
+                        onClick={() => option.available && setSelectedPaymentOption(option.id)}
+                        className={`flex items-center gap-3 p-2 px-3 cursor-pointer ${!option.available ? 'opacity-50 cursor-not-allowed' : ''
+                          } ${selectedPaymentOption === option.id && option.available ? 'bg-gray-700' : ''}`}
+                      >
+                        <p className={`min-w-3 h-3 border ${selectedPaymentOption === option.id && option.available
+                          ? 'border-accent bg-accent'
+                          : 'border-primary'
+                          } rounded-full`}></p>
+                        <p className={`text-sm font-medium ${!option.available ? 'text-gray-500' : ''}`}>
+                          {option.name}
+                          {!option.available && ' (Coming Soon)'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
             <div className='w-full text-center mt-8'>
-              <button type='submit' className='bg-accent  hover:bg-bgdark hover:text-accent hover:border border-accent rounded text-bgdark text-base mt-8 mb-3 py-3 px-12'>PLACE ORDER</button>
+              {selectedMethod === 'PAY_ON_ORDER' ? (
+                <button
+                  type='button'
+                  onClick={handlePayOnOrder}
+                  className='bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent rounded text-bgdark text-base mt-8 mb-3 py-3 px-12'
+                >
+                  PAY NOW
+                </button>
+              ) : (
+                <button
+                  type='submit'
+                  className='bg-accent hover:bg-bgdark hover:text-accent hover:border border-accent rounded text-bgdark text-base mt-8 mb-3 py-3 px-12'
+                >
+                  PLACE ORDER
+                </button>
+              )}
             </div>
           </div>
-
         </div>
-      </form>
-    </>
+      </div>
 
+      {/* M-Pesa Payment Modal */}
+      {showMpesaModal && (
+        <MpesaPaymentModal
+          isOpen={showMpesaModal}
+          onClose={() => setShowMpesaModal(false)}
+          orderData={{
+            total_amount: getCartAmount() + delivery_fee,
+            address: formData,
+            payment_method: "MPESA",
+          }}
+          onSuccess={() => {
+            setShowMpesaModal(false);
+            navigate("/orders");
+            setCartItems({});
+          }}
+          // Remove onSTKPushSent callback completely
+          onModalClose={() => {
+            setShowMpesaModal(false);
+            navigate("/orders");
+            setCartItems({});
+          }}
+        />
+      )}
+    </>
   )
 }
 

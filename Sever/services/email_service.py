@@ -9,7 +9,7 @@ from xhtml2pdf import pisa
 from models import db, User, Order, OrderItem, Payment
 from functools import wraps
 from flask import request, jsonify
-from datetime import timedelta
+from datetime import timedelta, timezone
 from werkzeug.security import generate_password_hash
 import logging
 import logging.handlers
@@ -225,7 +225,7 @@ def send_password_reset_email(user_email, reset_url):
                 template=BASE_TEMPLATE,
                 subject=subject,
                 content=content,
-                current_year=datetime.utcnow().year
+                current_year=datetime.now(timezone.utc).year
             )
         except Exception as e:
             email_logger.error(f"Template rendering failed: {str(e)}")
@@ -302,7 +302,7 @@ def send_order_confirmation(order):
             BASE_TEMPLATE, 
             subject=subject, 
             content=content,
-            current_year=datetime.utcnow().year
+            current_year=datetime.now(timezone.utc).year
         )
         
         # Generate PDF invoice with error handling

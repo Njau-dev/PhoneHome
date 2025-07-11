@@ -3,7 +3,7 @@ import { ShopContext } from '../context/ShopContext';
 import Title from '../components/Title';
 import axios from 'axios';
 import Breadcrumbs from '../components/BreadCrumbs';
-import { RefreshCcw, Package, ArrowRight, Clock, FileText, Star } from 'lucide-react';
+import { RefreshCcw, Package, ArrowRight, Clock, Star, AlertTriangle } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import BrandedSpinner from '../components/BrandedSpinner';
 import OrderDetailsModal from '../components/OrderDetailsModal';
@@ -11,7 +11,7 @@ import ReviewModal from '../components/ReviewModal';
 import { toast } from 'react-toastify';
 
 const Orders = () => {
-  const { backendUrl, token, currency } = useContext(ShopContext);
+  const { backendUrl, token, currency, delivery_fee } = useContext(ShopContext);
   const [orderData, setOrderData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -20,6 +20,8 @@ const Orders = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [reviewModalData, setReviewModalData] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showMpesaModal, setShowMpesaModal] = useState(false);
+  const [retryOrderData, setRetryOrderData] = useState(null);
 
   // Format price for display
   const formatPrice = (price) => {
@@ -70,12 +72,37 @@ const Orders = () => {
 
   // Determine payment status based on payment method and order status
   const getPaymentStatus = (item) => {
-    if (item.payment === "successful") return "Paid";
-    if (item.payment === "failed") return "Failed";
+    if (item.payment === "Success" || item.payment === "success") return "Paid";
+    if (item.payment === "Failed" || item.payment === "failed") return "Failed";
+    if (item.payment === "Pending" || item.payment === "pending") return "Processing";
+    if (item.payment === "Cancelled" || item.payment === "cancelled") return "Cancelled";
     if (item.payment === "refunded") return "Refunded";
     if (item.paymentMethod === "COD" && item.status !== "Delivered") return "Unpaid";
     if (item.paymentMethod === "COD" && item.status === "Delivered") return "Paid";
     return "Unpaid";
+  };
+
+  // Check if payment can be retried
+  const canRetryPayment = (order) => {
+    const paymentStatus = getPaymentStatus(order);
+    return (
+      order.paymentMethod === "MPESA" &&
+      (paymentStatus === "Failed" || paymentStatus === "Pending" || paymentStatus === "Cancelled")
+    );
+  };
+
+  // Handle payment retry
+  const handleRetryPayment = (order) => {
+    const orderTotal = order.items.reduce((total, item) => total + (item.price * item.quantity), 0);
+
+    setRetryOrderData({
+      order_reference: order.id,
+      total_amount: orderTotal + delivery_fee,
+      address: order.address,
+      payment_method: "MPESA",
+      is_retry: true
+    });
+    setShowMpesaModal(true);
   };
 
   // Track order function - simply refreshes the order data
@@ -137,18 +164,24 @@ const Orders = () => {
       });
 
       if (response.data.orders) {
+        // Sort orders by the most recently updated
+        const sortedOrders = response.data.orders.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
         let allOrderItems = [];
 
-        response.data.orders.forEach((order) => {
+        sortedOrders.forEach((order) => {
           // Create a shared address object for all items in this order
           const orderAddress = order.address;
 
           order.items.forEach((item) => {
             item.status = order.status;
             item.payment = order.payment;
+            item.failure_reason = order.failure_reason;
+            item.checkout_request_id = order.checkout_request_id;
             item.paymentMethod = order.payment_method;
-            item.date = order.created_at;
-            item.orderId = order.order_reference || `ORD-${Math.floor(Math.random() * 10000)}`;
+            item.created_at = order.created_at;
+            item.updated_at = order.updated_at;
+            item.orderId = order.order_reference;
             item.product_id = item.product_id;
             item.address = orderAddress;
             item.review = item.review || null;
@@ -156,7 +189,7 @@ const Orders = () => {
           });
         });
 
-        setOrderData(allOrderItems.reverse());
+        setOrderData(allOrderItems);
       }
     } catch (error) {
       console.error('Error loading orders:', error);
@@ -174,10 +207,13 @@ const Orders = () => {
       if (!groupedOrders[item.orderId]) {
         groupedOrders[item.orderId] = {
           id: item.orderId,
-          date: item.date,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
           status: item.status,
           paymentMethod: item.paymentMethod,
           payment: item.payment,
+          failure_reason: item.failure_reason,
+          checkout_request_id: item.checkout_request_id,
           address: item.address,
           items: []
         };
@@ -186,6 +222,26 @@ const Orders = () => {
     });
 
     return Object.values(groupedOrders);
+  };
+
+  // Get order statistics
+  const getOrderStats = () => {
+    const groupedOrders = getGroupedOrders();
+
+    return {
+      total: groupedOrders.length,
+      processing: groupedOrders.filter(order =>
+        order.status !== 'Delivered' &&
+        order.status !== 'Order Placed' &&
+        getPaymentStatus(order) !== 'Failed'
+      ).length,
+      delivered: groupedOrders.filter(order => order.status === 'Delivered').length,
+      failed: groupedOrders.filter(order => {
+        const paymentStatus = getPaymentStatus(order);
+        return paymentStatus === 'Failed' || paymentStatus === 'Cancelled';
+      }).length,
+      totalItems: orderData.length
+    };
   };
 
   // Download invoice or receipt
@@ -250,7 +306,6 @@ const Orders = () => {
     }
   };
 
-
   // Check if user can see invoice (if order is processing)
   const canViewInvoice = (status) => {
     return status === 'Order Placed' || status === 'Packing' ||
@@ -270,6 +325,14 @@ const Orders = () => {
   useEffect(() => {
     loadOrderData();
   }, [token, refreshTrigger]);
+
+  const orderStats = getOrderStats();
+
+  const handleOrderUpdate = () => {
+    // Trigger refresh by incrementing the refreshTrigger
+    setRefreshTrigger(prev => prev + 1);
+  };
+
 
   return (
     <>
@@ -318,7 +381,7 @@ const Orders = () => {
           ) : (
             <div className="space-y-6">
               {/* Order Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
                 <div className="bg-bgdark rounded-xl p-6 border border-border hover:border-accent transition-all shadow-md hover:shadow-lg shadow-black/30">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-lg font-medium">Total Orders</h3>
@@ -326,7 +389,7 @@ const Orders = () => {
                       <Package className="w-5 h-5 text-accent" />
                     </div>
                   </div>
-                  <p className="text-3xl font-bold">{getGroupedOrders().length}</p>
+                        <p className="text-3xl font-bold">{orderStats.total}</p>
                   <p className="text-secondary text-sm mt-4">Orders placed</p>
                 </div>
 
@@ -337,11 +400,7 @@ const Orders = () => {
                       <Clock className="w-5 h-5 text-blue-400" />
                     </div>
                   </div>
-                  <p className="text-3xl font-bold">
-                    {getGroupedOrders().filter(order =>
-                      order.status !== 'Delivered' && order.status !== 'Order Placed'
-                    ).length}
-                  </p>
+                        <p className="text-3xl font-bold">{orderStats.processing}</p>
                   <p className="text-secondary text-sm mt-4">Orders in progress</p>
                 </div>
 
@@ -352,11 +411,20 @@ const Orders = () => {
                       <ArrowRight className="w-5 h-5 text-green-400" />
                     </div>
                   </div>
-                  <p className="text-3xl font-bold">
-                    {getGroupedOrders().filter(order => order.status === 'Delivered').length}
-                  </p>
+                        <p className="text-3xl font-bold">{orderStats.delivered}</p>
                   <p className="text-secondary text-sm mt-4">Completed orders</p>
                 </div>
+
+                      <div className="bg-bgdark rounded-xl p-6 border border-border hover:border-red-500 transition-all shadow-md hover:shadow-lg shadow-black/30">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-lg font-medium">Failed</h3>
+                          <div className="p-2 bg-red-500/20 rounded-full">
+                            <AlertTriangle className="w-5 h-5 text-red-400" />
+                          </div>
+                        </div>
+                        <p className="text-3xl font-bold text-red-400">{orderStats.failed}</p>
+                        <p className="text-secondary text-sm mt-4">Payment failed</p>
+                      </div>
 
                 <div className="bg-bgdark rounded-xl p-6 border border-border hover:border-accent transition-all shadow-md hover:shadow-lg shadow-black/30">
                   <div className="flex items-center justify-between mb-3">
@@ -365,7 +433,7 @@ const Orders = () => {
                       <Package className="w-5 h-5 text-purple-400" />
                     </div>
                   </div>
-                  <p className="text-3xl font-bold">{orderData.length}</p>
+                        <p className="text-3xl font-bold">{orderStats.totalItems}</p>
                   <p className="text-secondary text-sm mt-4">Total items purchased</p>
                 </div>
               </div>
@@ -385,8 +453,8 @@ const Orders = () => {
                           <StatusBadge status={order.status} type="order" />
                         </div>
                         <p className="text-sm text-secondary">
-                          {formatDate(order.date).fullDate} at {formatDate(order.date).time}
-                          <span className="ml-2 text-xs">({formatDate(order.date).relative})</span>
+                          {formatDate(order.created_at).fullDate} at {formatDate(order.created_at).time}
+                          <span className="ml-2 text-xs">({formatDate(order.created_at).relative})</span>
                         </p>
                       </div>
                       <div className="flex items-center gap-3 mt-2 sm:mt-0">
@@ -474,6 +542,7 @@ const Orders = () => {
                           >
                             View Details
                           </button>
+
                           <button
                             onClick={handleTrackOrder}
                             className="border border-accent bg-accent text-bgdark px-4 py-2 text-sm font-medium rounded-md hover:bg-transparent hover:text-accent transition-all"
@@ -501,6 +570,12 @@ const Orders = () => {
           canViewInvoice={canViewInvoice(selectedOrder.status)}
           canViewReceipt={canViewReceipt(selectedOrder.status, selectedOrder.payment)}
           downloadDocument={downloadDocument}
+          canRetryPayment={canRetryPayment(selectedOrder)}
+          onRetryPayment={() => {
+            setShowDetailsModal(false);
+            handleRetryPayment(selectedOrder);
+          }}
+          onOrderUpdate={handleOrderUpdate}
         />
       )}
 
