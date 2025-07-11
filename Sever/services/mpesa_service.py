@@ -2,26 +2,35 @@ import requests
 import base64
 from datetime import datetime
 import logging
-from flask import current_app
 import os
 from dotenv import load_dotenv
 
+# It's good practice to load environment variables at the start of your module.
 load_dotenv()
 
+# Set up a logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MpesaService:
     def __init__(self):
+        """
+        Initializes the MpesaService by loading all necessary configurations
+        from environment variables and setting up API endpoints.
+        """
         # Load credentials from environment variables
         self.consumer_key = os.getenv('MPESA_CONSUMER_KEY')
         self.consumer_secret = os.getenv('MPESA_CONSUMER_SECRET')
-        self.business_short_code = os.getenv('MPESA_BUSINESS_SHORTCODE')
-        self.passkey = os.getenv('MPESA_PASSKEY')
-        self.initiator_name = os.getenv('MPESA_INITIATOR_NAME')
-        self.security_credential = os.getenv('MPESA_SECURITY_CREDENTIAL')
-
         
-        # Environment configuration (sandbox or production)
+        # --- CHANGE 1: Load BOTH Head Office and Till Number ---
+        # This is the shortcode associated with your Daraja App and Passkey (e.g., 3538425)
+        self.head_office_shortcode = os.getenv('MPESA_HEAD_OFFICE_SHORTCODE') 
+        # This is the specific Till Number customers pay to (e.g., 5431460)
+        self.till_number = os.getenv('MPESA_TILL_NUMBER')
+        
+        self.passkey = os.getenv('MPESA_PASSKEY')
+        
+        # Environment configuration (defaults to 'sandbox' if not set)
         self.environment = os.getenv('MPESA_ENVIRONMENT', 'sandbox').lower()
         
         # Base URL configuration based on environment
@@ -37,52 +46,33 @@ class MpesaService:
         # Callback URL configuration
         self.backend_url = os.getenv('BACKEND_URL', 'https://api.phonehome.co.ke')
         self.callback_url = f"{self.backend_url}/ganji/inaflow"
-        print(self.callback_url)
         
         # Validate required environment variables
         self._validate_config()
     
     def _validate_config(self):
-        """Validate that all required environment variables are set"""
+        """Validate that all required environment variables for STK Push are set."""
         required_vars = [
             ('MPESA_CONSUMER_KEY', self.consumer_key),
             ('MPESA_CONSUMER_SECRET', self.consumer_secret),
-            ('MPESA_BUSINESS_SHORTCODE', self.business_short_code),
+            ('MPESA_HEAD_OFFICE_SHORTCODE', self.head_office_shortcode),
+            ('MPESA_TILL_NUMBER', self.till_number),
             ('MPESA_PASSKEY', self.passkey),
-            ('MPESA_INITIATOR_NAME', self.initiator_name),
-            ('MPESA_SECURITY_CREDENTIAL', self.security_credential)
         ]
             
-        missing_vars = []
-        for var_name, var_value in required_vars:
-            if not var_value:
-                missing_vars.append(var_name)
+        missing_vars = [var_name for var_name, var_value in required_vars if not var_value]
         
         if missing_vars:
             raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
     
-    def get_config_summary(self):
-        """Return a summary of the current configuration (for debugging)"""
-        return {
-            'environment': self.environment,
-            'base_url': self.base_url,
-            'business_short_code': self.business_short_code,
-            'callback_url': self.callback_url,
-            'consumer_key': self.consumer_key[:10] + '...' if self.consumer_key else None  # Masked for security
-        }
-    
-
     def get_access_token(self):
-        """Get OAuth access token from Safaricom"""
+        """Get OAuth access token from Safaricom."""
         try:
             credentials = base64.b64encode(
                 f"{self.consumer_key}:{self.consumer_secret}".encode()
             ).decode()
             
-            headers = {
-                "Authorization": f"Basic {credentials}",
-                "Content-Type": "application/json"
-            }
+            headers = {"Authorization": f"Basic {credentials}"}
             
             response = requests.get(self.auth_url, headers=headers, timeout=30)
             response.raise_for_status()
@@ -90,18 +80,19 @@ class MpesaService:
             return response.json().get("access_token")
             
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to get M-Pesa access token: {str(e)}")
+            logger.error(f"Failed to get M-Pesa access token: {e}")
             return None
     
     def generate_password(self):
-        """Generate password for STK push"""
+        """Generate the base64 encoded password for STK push."""
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        password_string = f"{self.business_short_code}{self.passkey}{timestamp}"
+        # --- CHANGE 2: Use the HEAD OFFICE shortcode for password generation ---
+        password_string = f"{self.head_office_shortcode}{self.passkey}{timestamp}"
         password = base64.b64encode(password_string.encode()).decode()
         return password, timestamp
     
     def initiate_stk_push(self, phone_number, amount, order_reference, account_reference="Order Payment"):
-        """Initiate STK Push payment"""
+        """Initiate STK Push payment."""
         try:
             access_token = self.get_access_token()
             if not access_token:
@@ -109,34 +100,34 @@ class MpesaService:
             
             password, timestamp = self.generate_password()
             
-            # Format phone number (ensure it starts with 254)
             if phone_number.startswith("0"):
                 phone_number = "254" + phone_number[1:]
-            elif phone_number.startswith("+254"):
+            elif phone_number.startswith("+"):
                 phone_number = phone_number[1:]
-            elif not phone_number.startswith("254"):
-                phone_number = "254" + phone_number
             
             headers = {
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json"
             }
             
+            # --- CHANGE 3: Use the TILL NUMBER for the payload ---
             payload = {
-                "BusinessShortCode": self.business_short_code,
+                "BusinessShortCode": self.till_number,
                 "Password": password,
                 "Timestamp": timestamp,
-                "TransactionType": "CustomerPayBillOnline",
-                "Amount": int(amount),  # Must be integer
+                "TransactionType": "CustomerBuyGoodsOnline",
+                "Amount": int(amount),
                 "PartyA": phone_number,
-                "PartyB": self.business_short_code,
+                "PartyB": self.till_number,
                 "PhoneNumber": phone_number,
                 "CallBackURL": self.callback_url,
                 "AccountReference": account_reference,
                 "TransactionDesc": f"Payment for order {order_reference}"
             }
             
-            logger.info(f"Initiating STK push for {phone_number}, amount: {amount}")
+            logger.info(f"Initiating STK push to {self.stk_push_url} for {phone_number}, amount: {amount}")
+            logger.info(f"Payload: {payload}")
+            
             response = requests.post(self.stk_push_url, json=payload, headers=headers, timeout=30)
             response.raise_for_status()
             
@@ -151,18 +142,15 @@ class MpesaService:
                     "response_description": result.get("ResponseDescription")
                 }
             else:
-                return {
-                    "success": False,
-                    "error": result.get("ResponseDescription", "STK Push failed")
-                }
+                error_message = result.get("errorMessage", "STK Push failed")
+                return {"success": False, "error": error_message}
                 
         except requests.exceptions.RequestException as e:
-            logger.error(f"STK Push request failed: {str(e)}")
-            return {"success": False, "error": f"Network error: {str(e)}"}
+            logger.error(f"STK Push request failed: {e}")
+            return {"success": False, "error": f"{str(e)}"}
         except Exception as e:
-            logger.error(f"STK Push failed: {str(e)}")
+            logger.error(f"An unexpected error occurred during STK Push: {e}")
             return {"success": False, "error": f"Payment initiation failed: {str(e)}"}
-
 
 # Create global instance
 mpesa_service = MpesaService()
