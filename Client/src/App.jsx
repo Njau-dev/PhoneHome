@@ -46,7 +46,9 @@ const App = () => {
     <div className='px-4 sm:px-[5vw] md:px-[7vw] 1g:px-[9vw] relative' id='App'>
 
       <AuthErrorBoundary />
-      <ToastContainer />
+      <ToastContainer
+        theme='dark'
+      />
       <Navbar />
       <SearchBar />
 

@@ -145,7 +145,13 @@ const MpesaPaymentModal = ({ isOpen, onClose, orderData, onSuccess, onModalClose
         setPhoneNumber(cleanValue);
     };
 
-    const handleClose = () => {
+    // Simple modal close - only closes modal without redirecting
+    const handleSimpleClose = () => {
+        onClose();
+    };
+
+    // Close with redirect to orders page (for failed/timeout/success scenarios)
+    const handleCloseWithRedirect = () => {
         if (onModalClose) {
             onModalClose();
         } else {
@@ -153,8 +159,12 @@ const MpesaPaymentModal = ({ isOpen, onClose, orderData, onSuccess, onModalClose
         }
     };
 
+    // Handle success close with delay to show message
     const handleSuccessClose = () => {
-        onClose();
+        // Show success message for 3 seconds, then redirect
+        setTimeout(() => {
+            handleCloseWithRedirect();
+        }, 5000);
     };
 
     if (!isOpen) return null;
@@ -162,10 +172,20 @@ const MpesaPaymentModal = ({ isOpen, onClose, orderData, onSuccess, onModalClose
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-bgdark border border-border rounded-lg max-w-md w-full p-6 relative">
-                {/* Close Button - Only show when not processing or show appropriate close */}
-                {(paymentStatus === '' || paymentStatus === 'success' || paymentStatus === 'failed' || paymentStatus === 'timeout') && (
+                {/* Close Button */}
+                {(paymentStatus === '' || paymentStatus === 'failed' || paymentStatus === 'timeout') && (
                     <button
-                        onClick={paymentStatus === 'success' ? handleSuccessClose : handleClose}
+                        onClick={handleSimpleClose}
+                        className="absolute top-4 right-4 text-secondary hover:text-primary transition-colors"
+                    >
+                        <X size={24} />
+                    </button>
+                )}
+
+                {/* Success close button - auto-close after showing message */}
+                {paymentStatus === 'success' && (
+                    <button
+                        onClick={handleCloseWithRedirect}
                         className="absolute top-4 right-4 text-secondary hover:text-primary transition-colors"
                     >
                         <X size={24} />
@@ -202,6 +222,9 @@ const MpesaPaymentModal = ({ isOpen, onClose, orderData, onSuccess, onModalClose
                                 Transaction ID: {transactionId}
                             </p>
                         )}
+                        <p className="text-green-200 text-xs mt-2">
+                            Redirecting to orders page in a moment...
+                        </p>
                     </div>
                 )}
 
@@ -277,7 +300,7 @@ const MpesaPaymentModal = ({ isOpen, onClose, orderData, onSuccess, onModalClose
                     {paymentStatus === '' && (
                         <>
                             <button
-                                onClick={onClose}
+                                onClick={handleSimpleClose}
                                 disabled={isProcessing}
                                 className="flex-1 px-4 py-2 text-secondary border border-border rounded hover:bg-border transition-colors disabled:opacity-50"
                             >
@@ -305,16 +328,16 @@ const MpesaPaymentModal = ({ isOpen, onClose, orderData, onSuccess, onModalClose
                             onClick={handleSuccessClose}
                             className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                         >
-                            {isRetry ? 'Close' : 'Close & Continue'}
+                            {isRetry ? 'Continue to Orders' : 'Continue to Orders'}
                         </button>
                     )}
 
                     {(paymentStatus === 'failed' || paymentStatus === 'timeout') && (
                         <button
-                            onClick={handleClose}
+                            onClick={handleCloseWithRedirect}
                             className="w-full px-4 py-2 bg-accent text-bgdark rounded hover:bg-accent/90 transition-colors"
                         >
-                            {isRetry ? 'Close' : 'Close & Go to Orders'}
+                            Go to Orders
                         </button>
                     )}
                 </div>
