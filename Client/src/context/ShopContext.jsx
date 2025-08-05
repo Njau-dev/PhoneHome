@@ -25,7 +25,7 @@ const ShopContextProvider = (props) => {
 
     const currency = 'Kshs';
     const delivery_fee = 0;
-    const backendUrl = "http://api.phonehome.co.ke";
+    const backendUrl = "https://api.phonehome.co.ke";
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(true);
     const [cartItems, setCartItems] = useState({});

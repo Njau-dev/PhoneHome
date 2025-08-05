@@ -321,12 +321,7 @@ const PlaceOrder = () => {
             address: formData,
             payment_method: "MPESA",
           }}
-          onSuccess={() => {
-            setShowMpesaModal(false);
-            navigate("/orders");
-            setCartItems({});
-          }}
-          // Remove onSTKPushSent callback completely
+
           onModalClose={() => {
             setShowMpesaModal(false);
             navigate("/orders");

@@ -3,7 +3,7 @@ import { X, Phone, Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react
 import { ShopContext } from '../context/ShopContext';
 import { toast } from 'react-toastify';
 
-const MpesaPaymentModal = ({ isOpen, onClose, orderData, onSuccess, onModalClose }) => {
+const MpesaPaymentModal = ({ isOpen, onClose, orderData, onModalClose }) => {
     const { backendUrl, token } = useContext(ShopContext);
     const [phoneNumber, setPhoneNumber] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -118,9 +118,6 @@ const MpesaPaymentModal = ({ isOpen, onClose, orderData, onSuccess, onModalClose
                     setTransactionId(data.transaction_id || data.mpesa_receipt || '');
                     clearInterval(pollInterval);
                     toast.success('Payment successful!');
-                    if (onSuccess) {
-                        onSuccess();
-                    }
                 } else if (data.payment_status === 'Failed') {
                     setPaymentStatus('failed');
                     setFailureReason(data.failure_reason || 'Payment failed');
@@ -159,12 +156,8 @@ const MpesaPaymentModal = ({ isOpen, onClose, orderData, onSuccess, onModalClose
         }
     };
 
-    // Handle success close with delay to show message
     const handleSuccessClose = () => {
-        // Show success message for 3 seconds, then redirect
-        setTimeout(() => {
-            handleCloseWithRedirect();
-        }, 5000);
+        handleCloseWithRedirect();
     };
 
     if (!isOpen) return null;
@@ -223,7 +216,7 @@ const MpesaPaymentModal = ({ isOpen, onClose, orderData, onSuccess, onModalClose
                             </p>
                         )}
                         <p className="text-green-200 text-xs mt-2">
-                            Redirecting to orders page in a moment...
+                            Press Continue to proceed...
                         </p>
                     </div>
                 )}
