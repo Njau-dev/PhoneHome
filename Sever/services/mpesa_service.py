@@ -5,7 +5,6 @@ import logging
 import os
 from dotenv import load_dotenv
 
-# It's good practice to load environment variables at the start of your module.
 load_dotenv()
 
 # Set up a logger
@@ -21,12 +20,9 @@ class MpesaService:
         # Load credentials from environment variables
         self.consumer_key = os.getenv('MPESA_CONSUMER_KEY')
         self.consumer_secret = os.getenv('MPESA_CONSUMER_SECRET')
-        
-        # --- CHANGE 1: Load BOTH Head Office and Till Number ---
-        # This is the shortcode associated with your Daraja App and Passkey (e.g., 3538425)
-        self.head_office_shortcode = os.getenv('MPESA_HEAD_OFFICE_SHORTCODE') 
+
         # This is the specific Till Number customers pay to (e.g., 5431460)
-        self.till_number = os.getenv('MPESA_TILL_NUMBER')
+        self.till_number = os.getenv('MPESA_BUSINESS_SHORTCODE')
         
         self.passkey = os.getenv('MPESA_PASSKEY')
         
@@ -55,8 +51,7 @@ class MpesaService:
         required_vars = [
             ('MPESA_CONSUMER_KEY', self.consumer_key),
             ('MPESA_CONSUMER_SECRET', self.consumer_secret),
-            ('MPESA_HEAD_OFFICE_SHORTCODE', self.head_office_shortcode),
-            ('MPESA_TILL_NUMBER', self.till_number),
+            ('MPESA_BUSINESS_SHORTCODE', self.till_number),
             ('MPESA_PASSKEY', self.passkey),
         ]
             
@@ -86,8 +81,7 @@ class MpesaService:
     def generate_password(self):
         """Generate the base64 encoded password for STK push."""
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        # --- CHANGE 2: Use the HEAD OFFICE shortcode for password generation ---
-        password_string = f"{self.head_office_shortcode}{self.passkey}{timestamp}"
+        password_string = f"{self.till_number}{self.passkey}{timestamp}"
         password = base64.b64encode(password_string.encode()).decode()
         return password, timestamp
     

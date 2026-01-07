@@ -6,13 +6,23 @@ from flask_migrate import Migrate
 from flask_cors import CORS
 from datetime import timedelta, datetime, timezone
 from functools import wraps
-from models import db, User, Admin, Category, Brand, Phone, Tablet, Audio, Laptop, Cart, CartItem, Order, OrderItem, Review, WishList, Notification, AuditLog, Address, Payment, Product, ProductVariation, Compare, CompareItem
+from app.models import (
+    User, Admin, BlacklistToken,
+    Category, Brand,
+    Product, Phone, Laptop, Tablet, Audio, ProductVariation,
+    Cart, CartItem,
+    WishList, Compare, CompareItem,
+    Order, OrderItem, Address,
+    Payment,
+    Review,
+    Notification, AuditLog
+)
 import cloudinary
 from io import BytesIO
 from xhtml2pdf import pisa
 import cloudinary.uploader
 from services.email_service import (
-    serializer, send_password_reset_email, 
+    serializer, send_password_reset_email,
     send_order_confirmation, send_payment_notification,
     send_shipment_update, send_review_request, send_email
 )
@@ -29,6 +39,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from collections import defaultdict
 from redis import Redis
 from rq import Queue
+from app.extensions import db
 
 load_dotenv(override=True)
 
@@ -37,7 +48,8 @@ app = Flask(__name__)
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
@@ -47,7 +59,7 @@ gunicorn_logger = logging.getLogger('gunicorn.error')
 app.logger.handlers = gunicorn_logger.handlers
 app.logger.setLevel(logging.INFO)
 
-#Validate environment variables
+# Validate environment variables
 required_env_vars = [
     'SQLALCHEMY_DATABASE_URI',
     'SECRET_KEY',
@@ -60,14 +72,15 @@ required_env_vars = [
 
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
-    raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+    raise ValueError(
+        f"Missing required environment variables: {', '.join(missing_vars)}")
 
 cloudinary.config(
-    cloud_name = os.getenv ("CLOUDINARY_CLOUD_NAME"),
-    api_key = os.getenv ("CLOUDINARY_API_KEY"),
-    api_secret = os.getenv ("CLOUDINARY_API_SECRET"),
-    debug = True,
-    secure = True
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    debug=True,
+    secure=True
 )
 
 # Configure Flask app
@@ -79,17 +92,18 @@ app.config.update(
     FRONTEND_URL=os.getenv('FRONTEND_URL', 'https://phonehome.co.ke')
 )
 
+
 def sync_admin_users():
     """Sync users with admin role to the admins table"""
     try:
         # Get all users with admin role
         admin_users = User.query.filter_by(role="admin").all()
         logger.info(f"Found {len(admin_users)} admin users to sync")
-        
+
         for user in admin_users:
             # Check if admin already exists in admins table
             existing_admin = Admin.query.filter_by(email=user.email).first()
-            
+
             if not existing_admin:
                 # Create new admin entry
                 new_admin = Admin(
@@ -97,19 +111,19 @@ def sync_admin_users():
                     email=user.email,
                     password_hash=user.password_hash
                 )
-                
+
                 try:
                     # First add and flush to get the admin ID
                     db.session.add(new_admin)
                     db.session.flush()
-                    
+
                     # Now create audit log with the new admin's ID
                     audit_log = AuditLog(
                         admin_id=new_admin.id,  # Now we have the ID
                         action=f"Admin account auto-created for user {user.username} (ID: {user.id})"
                     )
                     db.session.add(audit_log)
-                    
+
                     # Create notification for the user
                     notification = Notification(
                         user_id=user.id,
@@ -117,18 +131,22 @@ def sync_admin_users():
                         is_read=False
                     )
                     db.session.add(notification)
-                    
+
                     # Finally commit everything
                     db.session.commit()
-                    logger.info(f"Created admin account for user {user.username}")
-                    
+                    logger.info(
+                        f"Created admin account for user {user.username}")
+
                 except SQLAlchemyError as e:
                     db.session.rollback()
-                    logger.error(f"Database error creating admin for user {user.id}: {str(e)}")
+                    logger.error(
+                        f"Database error creating admin for user {user.id}: {str(e)}")
                     continue
-                    
+
     except Exception as e:
-        logger.error(f"Error in sync_admin_users: {str(e)}\n{traceback.format_exc()}")
+        logger.error(
+            f"Error in sync_admin_users: {str(e)}\n{traceback.format_exc()}")
+
 
 # Initialize Extensions
 db.init_app(app)
@@ -152,15 +170,18 @@ class BlacklistToken(db.Model):
     token = db.Column(db.String(500), nullable=False, unique=True)
 
 # Function to check if token is blacklisted
+
+
 def is_token_blacklisted(jwt_payload):
     jti = jwt_payload['jti']
     return BlacklistToken.query.filter_by(token=jti).first() is not None
 
 # Load JWT into blacklist checker
+
+
 @jwt.token_in_blocklist_loader
 def check_if_token_in_blacklist(jwt_header, jwt_payload):
     return is_token_blacklisted(jwt_payload)
-
 
 
 # Define the admin_required decorator
@@ -175,16 +196,18 @@ def admin_required(f):
     return decorator
 
 
-
 # Allowed extensions for file uploads
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'avif'}
+
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
 # Rate limiting setup
 redis_conn = Redis()
 q = Queue(connection=redis_conn)
+
 
 def rate_limit(key_prefix, limit, period):
     def decorator(f):
@@ -192,28 +215,29 @@ def rate_limit(key_prefix, limit, period):
         def wrapped(*args, **kwargs):
             key = f"{key_prefix}:{request.remote_addr}"
             current = redis_conn.get(key)
-            
+
             if current and int(current) >= limit:
                 return jsonify({
                     "error": "Too many requests",
                     "message": f"Please wait {period} seconds before trying again"
                 }), 429
-                
+
             pipe = redis_conn.pipeline()
             pipe.incr(key)
             pipe.expire(key, period)
             pipe.execute()
-            
+
             return f(*args, **kwargs)
         return wrapped
     return decorator
+
 
 class ForgotPasswordResource(Resource):
     @rate_limit("pwd_reset", int(os.getenv("RESET_EMAIL_LIMIT", 3)), 3600)
     def post(self):
         try:
             email = request.json.get('email')
-            
+
             if not email:
                 return {"error": "Email is required"}, 400
 
@@ -222,33 +246,34 @@ class ForgotPasswordResource(Resource):
                 return {"error": "Invalid email format"}, 400
 
             user = User.query.filter_by(email=email).first()
-            
+
             if not user:
                 return {"message": "If that email exists, we've sent a reset link"}, 200
-            
+
             try:
                 token = serializer.dumps(email, salt='password-reset')
                 reset_url = f"{app.config['FRONTEND_URL']}/reset-password/{token}"
-                
+
                 user.reset_token = token
                 user.reset_token_expiration = datetime.now(timezone.utc) + timedelta(
                     seconds=int(os.getenv("PASSWORD_RESET_TIMEOUT", 3600))
                 )
                 db.session.commit()
-                
+
                 email_sent = send_password_reset_email(email, reset_url)
-                
+
                 if not email_sent:
-                    logger.error(f"Failed to send password reset email to {email}")
+                    logger.error(
+                        f"Failed to send password reset email to {email}")
                     return {"error": "Failed to send reset email"}, 500
 
                 return {"message": "Password reset email sent"}, 200
-                
+
             except Exception as e:
                 db.session.rollback()
                 logger.error(f"Error in password reset process: {str(e)}")
                 return {"error": "An error occurred processing your request"}, 500
-                
+
         except Exception as e:
             logger.error(f"Unexpected error in forgot password: {str(e)}")
             return {"error": "An unexpected error occurred"}, 500
@@ -292,9 +317,9 @@ class ResetPasswordResource(Resource):
                 )
                 db.session.add(notification)
                 db.session.commit()
-                
+
                 return {"message": "Password reset successful"}, 200
-                
+
             except Exception as e:
                 db.session.rollback()
                 logger.error(f"Database error during password reset: {str(e)}")
@@ -303,7 +328,7 @@ class ResetPasswordResource(Resource):
         except Exception as e:
             logger.error(f"Unexpected error in password reset: {str(e)}")
             return {"error": "An unexpected error occurred"}, 500
-        
+
 
 # Sign Up
 class SignUp(Resource):
@@ -328,10 +353,10 @@ class SignUp(Resource):
                 phone_number=phone_number,
                 password_hash=hashed_password
             )
-            
+
             db.session.add(new_user)
             db.session.commit()
-            
+
             notification = Notification(
                 user_id=new_user.id,
                 message="Your account has been created successfully.",
@@ -342,7 +367,7 @@ class SignUp(Resource):
 
             # Generate token for the new user
             token = create_access_token(
-                identity=str(new_user.id), 
+                identity=str(new_user.id),
                 expires_delta=timedelta(days=1)
             )
 
@@ -361,6 +386,8 @@ class SignUp(Resource):
             return {"Error": "Internal Server Error"}, 500
 
 # Login
+
+
 class Login(Resource):
     def post(self):
         data = request.get_json()
@@ -371,7 +398,7 @@ class Login(Resource):
 
         if user and check_password_hash(user.password_hash, password):
             token = create_access_token(
-                identity=str(user.id), 
+                identity=str(user.id),
                 expires_delta=timedelta(days=1)
             )
             return {
@@ -388,6 +415,8 @@ class Login(Resource):
             return {"error": "Invalid Email or Password!"}, 400
 
 # Profile View and Update
+
+
 class ProfileView(MethodView):
     @jwt_required()
     def get(self):
@@ -442,34 +471,37 @@ class ProfileStatsView(MethodView):
 
         try:
             # Get order count
-            order_count = Order.query.filter_by(user_id=current_user_id).count()
-            
+            order_count = Order.query.filter_by(
+                user_id=current_user_id).count()
+
             # Get total payment amount (only for successful payments)
             total_payment = db.session.query(func.sum(Order.total_amount)).\
                 join(Payment, Order.order_reference == Payment.order_reference).\
                 filter(Order.user_id == current_user_id, Payment.status == 'Success').\
                 scalar() or 0
-            
+
             # Get wishlist count - modified to count items in wishlist_products
-            wishlist = WishList.query.filter_by(user_id=current_user_id).first()
+            wishlist = WishList.query.filter_by(
+                user_id=current_user_id).first()
             wishlist_count = len(wishlist.products) if wishlist else 0
-                      
+
             # Get review count
-            review_count = Review.query.filter_by(user_id=current_user_id).count()
-            
+            review_count = Review.query.filter_by(
+                user_id=current_user_id).count()
+
             stats = {
                 "order_count": order_count,
                 "total_payment": round(float(total_payment), 2),
                 "wishlist_count": wishlist_count,
                 "review_count": review_count
             }
-            
+
             return jsonify(stats), 200
-            
+
         except Exception as e:
             logger.error(f"Error fetching profile stats: {e}")
             return jsonify({"error": "An error occurred while fetching profile stats."}), 500
-        
+
 
 # Profile Orders
 class ProfileOrdersView(MethodView):
@@ -484,10 +516,10 @@ class ProfileOrdersView(MethodView):
 
             # Get recent orders with all necessary relationships
             orders = (Order.query
-                     .filter_by(user_id=current_user_id)
-                     .order_by(Order.created_at.desc())
-                     .limit(5)
-                     .all())
+                      .filter_by(user_id=current_user_id)
+                      .order_by(Order.created_at.desc())
+                      .limit(5)
+                      .all())
 
             recent_orders = []
             for order in orders:
@@ -509,7 +541,8 @@ class ProfileOrdersView(MethodView):
                 order_data = {
                     "id": order.id,
                     "order_reference": order.order_reference,
-                    "total_amount": float(order.total_amount),  # Ensure it's a float
+                    # Ensure it's a float
+                    "total_amount": float(order.total_amount),
                     "status": order.status,
                     "date": order.created_at.isoformat(),
                     "showOrderDetails": True,  # Add this flag for frontend
@@ -518,24 +551,27 @@ class ProfileOrdersView(MethodView):
                     "payment_method": order.payment.payment_method if order.payment else "N/A"
                 }
                 recent_orders.append(order_data)
-            
+
             return jsonify(recent_orders), 200
-            
+
         except Exception as e:
             logger.error(f"Error fetching profile orders: {str(e)}")
             logger.error(f"Stack trace: {traceback.format_exc()}")
             return jsonify({"error": "An error occurred while fetching profile orders"}), 500
 
 # Profile Wishlist
+
+
 class ProfileWishlistView(MethodView):
     @jwt_required()
     def get(self):
         try:
             current_user_id = get_jwt_identity()
-            wishlist = WishList.query.filter_by(user_id=current_user_id).first()
+            wishlist = WishList.query.filter_by(
+                user_id=current_user_id).first()
 
             if not wishlist:
-                    return jsonify({"message": "Wishlist is empty!"}), 200
+                return jsonify({"message": "Wishlist is empty!"}), 200
 
             wishlist_items = []
             for product in wishlist.products:
@@ -547,14 +583,17 @@ class ProfileWishlistView(MethodView):
                     "price": product.price
                 }
                 wishlist_items.append(item_data)
-            
+
             return jsonify({"wishlist": wishlist_items}), 200
-            
+
         except Exception as e:
-            logger.error(f"Error fetching profile wishlist: {str(e)}\n{traceback.format_exc()}")
+            logger.error(
+                f"Error fetching profile wishlist: {str(e)}\n{traceback.format_exc()}")
             return jsonify({"error": "An error occurred while fetching profile wishlist."}), 500
 
 # Logout
+
+
 class Logout(Resource):
     @jwt_required()
     def delete(self):
@@ -563,7 +602,7 @@ class Logout(Resource):
         db.session.add(blacklisted_token)
         db.session.commit()
         return {"Message": "Logout Successful!"}, 200
-    
+
 
 # Product (Phones, Laptops, Tablets, Audio) Management
 class ProductResource(Resource):
@@ -578,16 +617,17 @@ class ProductResource(Resource):
             }
 
             all_products = []
-            
+
             def serialize_product(product, product_type):
                 # Calculate average rating
                 reviews = Review.query.filter_by(product_id=product.id).all()
                 avg_rating = 0
                 if reviews:
-                    avg_rating = sum(review.rating for review in reviews) / len(reviews)
+                    avg_rating = sum(
+                        review.rating for review in reviews) / len(reviews)
                     # Round to 1 decimal place
                     avg_rating = round(avg_rating, 1)
-                
+
                 base_data = {
                     'id': product.id,
                     'name': product.name,
@@ -602,7 +642,7 @@ class ProductResource(Resource):
                     'rating': avg_rating,  # Added average rating
                     'review_count': len(reviews)  # Added count of reviews
                 }
-                
+
                 if product_type == 'phone':
                     additional_data = {
                         'ram': product.ram,
@@ -660,12 +700,13 @@ class ProductResource(Resource):
                 base_data['variations'] = variations
 
                 return {**base_data, **additional_data}
-            
+
             # Iterate over all product types and serialize them
             for product_type, products in product_types.items():
                 for product in products:
-                    all_products.append(serialize_product(product, product_type))
-            
+                    all_products.append(
+                        serialize_product(product, product_type))
+
             return {'products': all_products}, 200
 
         except Exception as e:
@@ -685,9 +726,10 @@ class ProductResource(Resource):
             product_type = request.form.get('type')
             image_files = request.files.getlist('image_urls')
 
-            hasVariation = request.form.get('hasVariation', 'false').lower() == 'true'  # Boolean flag for variations
-            isBestSeller = request.form.get('isBestSeller', 'false').lower() == 'true'  # Boolean flag for bestseller
-
+            hasVariation = request.form.get('hasVariation', 'false').lower(
+            ) == 'true'  # Boolean flag for variations
+            isBestSeller = request.form.get('isBestSeller', 'false').lower(
+            ) == 'true'  # Boolean flag for bestseller
 
             # Ensure required fields are provided
             if not all([name, price, description, category_id, brand_id, product_type, image_files]):
@@ -698,12 +740,15 @@ class ProductResource(Resource):
             for image_file in image_files:
                 if image_file and allowed_file(image_file.filename):
                     try:
-                        logger.info(f"Uploading {image_file.filename} to Cloudinary...")
+                        logger.info(
+                            f"Uploading {image_file.filename} to Cloudinary...")
                         result = cloudinary.uploader.upload(image_file)
-                        uploaded_urls.append(result['secure_url'])  # Store secure URL from Cloudinary
+                        # Store secure URL from Cloudinary
+                        uploaded_urls.append(result['secure_url'])
                         logger.info(f"Uploaded to: {result['secure_url']}")
                     except cloudinary.exceptions.Error as e:
-                        logger.error(f"Cloudinary upload failed for {image_file.filename}: {e}")
+                        logger.error(
+                            f"Cloudinary upload failed for {image_file.filename}: {e}")
                         return {"Error": f"Image upload failed for {image_file.filename}: {str(e)}"}, 500
                 else:
                     return {"Error": f"Invalid file type for {image_file.filename}."}, 400
@@ -736,7 +781,7 @@ class ProductResource(Resource):
                     category=category,
                     brand=brand,
                     hasVariation=hasVariation,
-                    isBestSeller=isBestSeller 
+                    isBestSeller=isBestSeller
                 )
             elif product_type == 'laptop':
                 product = Laptop(
@@ -797,7 +842,7 @@ class ProductResource(Resource):
 
             # **New Variation Handling Logic**:
             if hasVariation:
-            # Expecting a JSON array of variations in the form data
+                # Expecting a JSON array of variations in the form data
                 variations = request.form.get('variations')
                 if variations:
                     variations_list = json.loads(variations)
@@ -837,18 +882,22 @@ class ProductUpdateResource(Resource):
                 Laptop.query.get(product_id) or
                 Audio.query.get(product_id)
             )
-            
+
             if not product:
                 return {"Error": "Product not found"}, 404
 
             # Basic product details update
             product.name = request.form.get('name', product.name)
             product.price = request.form.get('price', product.price)
-            product.description = request.form.get('description', product.description)
-            product.category_id = request.form.get('category_id', product.category_id)
+            product.description = request.form.get(
+                'description', product.description)
+            product.category_id = request.form.get(
+                'category_id', product.category_id)
             product.brand_id = request.form.get('brand_id', product.brand_id)
-            product.isBestSeller = request.form.get('isBestSeller', str(product.isBestSeller)).lower() == 'true'
-            product.hasVariation = request.form.get('hasVariation', str(product.hasVariation)).lower() == 'true'
+            product.isBestSeller = request.form.get(
+                'isBestSeller', str(product.isBestSeller)).lower() == 'true'
+            product.hasVariation = request.form.get(
+                'hasVariation', str(product.hasVariation)).lower() == 'true'
 
             # Append new images to the existing list
             new_images = request.files.getlist('image_urls')
@@ -866,10 +915,14 @@ class ProductUpdateResource(Resource):
                 product.storage = request.form.get('storage', product.storage)
                 product.battery = request.form.get('battery', product.battery)
                 product.display = request.form.get('display', product.display)
-                product.processor = request.form.get('processor', product.processor)
-                product.main_camera = request.form.get('main_camera', product.main_camera)
-                product.front_camera = request.form.get('front_camera', product.front_camera)
-                product.connectivity = request.form.get('connectivity', product.connectivity)
+                product.processor = request.form.get(
+                    'processor', product.processor)
+                product.main_camera = request.form.get(
+                    'main_camera', product.main_camera)
+                product.front_camera = request.form.get(
+                    'front_camera', product.front_camera)
+                product.connectivity = request.form.get(
+                    'connectivity', product.connectivity)
                 product.colors = request.form.get('colors', product.colors)
                 product.os = request.form.get('os', product.os)
             elif isinstance(product, Laptop):
@@ -877,7 +930,8 @@ class ProductUpdateResource(Resource):
                 product.storage = request.form.get('storage', product.storage)
                 product.battery = request.form.get('battery', product.battery)
                 product.display = request.form.get('display', product.display)
-                product.processor = request.form.get('processor', product.processor)
+                product.processor = request.form.get(
+                    'processor', product.processor)
                 product.os = request.form.get('os', product.os)
             elif isinstance(product, Audio):
                 product.battery = request.form.get('battery', product.battery)
@@ -892,10 +946,11 @@ class ProductUpdateResource(Resource):
                         ram = variation.get('ram')
                         storage = variation.get('storage')
                         price = variation.get('price', 0)
-                        
+
                         # Check if a variation with same RAM and storage exists
                         existing_variation = next(
-                            (v for v in product.variations if v.ram == ram and v.storage == storage), None
+                            (v for v in product.variations if v.ram ==
+                             ram and v.storage == storage), None
                         )
 
                         if existing_variation:
@@ -918,17 +973,17 @@ class ProductUpdateResource(Resource):
         except Exception as e:
             db.session.rollback()
             return {"Error": f"An error occurred: {str(e)}"}, 500
-        
+
 
 class ProductVariationResource(Resource):
     def post(self, product_id):
         try:
             # Find the product by ID
             product = Product.query.get_or_404(product_id)
-            
+
             # Assume you get the variation details as JSON in the request body
             variation_data = request.json
-            
+
             # Loop through each variation provided in the request
             for var in variation_data.get('variations', []):
                 variation = ProductVariation(
@@ -941,7 +996,7 @@ class ProductVariationResource(Resource):
 
             # Commit the changes
             db.session.commit()
-            
+
             return {"message": "Variations added successfully!"}, 201
         except Exception as e:
             db.session.rollback()
@@ -980,6 +1035,8 @@ class GetProductsByType(Resource):
             return {"Error": "An error occurred while retrieving the products"}, 500
 
 # Get Products by Category
+
+
 class GetProductsByCategory(Resource):
     def get(self, category_id):
         try:
@@ -1003,29 +1060,32 @@ class GetProductsByCategory(Resource):
             return {"Error": "An error occurred while retrieving the products"}, 500
 
 # Get Product by ID
+
+
 class GetProductById(Resource):
     def get(self, product_id):
         try:
             product = Product.query.get_or_404(product_id)
-            category = product.category.name  
+            category = product.category.name
 
             # Get reviews for this product
             reviews = Review.query.filter_by(product_id=product.id).all()
-            
+
             # Calculate average rating
             avg_rating = 0
             if reviews:
-                avg_rating = sum(review.rating for review in reviews) / len(reviews)
+                avg_rating = sum(
+                    review.rating for review in reviews) / len(reviews)
                 # Round to 1 decimal place
                 avg_rating = round(avg_rating, 1)
-            
+
             # Serialize reviews
             serialized_reviews = []
             for review in reviews:
                 # Get the user who wrote the review
                 user = User.query.get(review.user_id)
                 user_name = user.username if user else "Anonymous"
-                
+
                 serialized_reviews.append({
                     "id": review.id,
                     "user_id": review.user_id,
@@ -1034,7 +1094,7 @@ class GetProductById(Resource):
                     "comment": review.comment,
                     "created_at": review.created_at.strftime("%Y-%m-%d %H:%M:%S")
                 })
-            
+
             # Base product data that all products share
             product_data = {
                 "id": product.id,
@@ -1047,7 +1107,7 @@ class GetProductById(Resource):
                 "type": product.type,
                 "hasVariation": product.hasVariation,
                 "isBestSeller": product.isBestSeller,
-                "rating": avg_rating,  
+                "rating": avg_rating,
                 "review_count": len(reviews),
                 "reviews": serialized_reviews
             }
@@ -1098,35 +1158,37 @@ class GetProductById(Resource):
         except Exception as e:
             logger.error(f"Error fetching product by ID: {e}")
             return {"Error": "An error occurred while fetching the product"}, 500
-        
-                
+
+
 # Delete Product by ID
 class DeleteProductById(Resource):
     def delete(self, product_id):
         try:
             # Fetch the product by ID or return 404 if not found
             product = Product.query.get_or_404(product_id)
-            logger.info(f"Attempting to delete product with ID {product_id}: {product.name}")
+            logger.info(
+                f"Attempting to delete product with ID {product_id}: {product.name}")
 
             try:
                 # Delete related cart items first
                 CartItem.query.filter_by(product_id=product_id).delete()
-                
+
                 # Delete related order items (if you want to preserve order history, consider soft deletes)
                 OrderItem.query.filter_by(product_id=product_id).delete()
-                
+
                 # Remove from wishlists
                 wishlists = WishList.query.all()
                 for wishlist in wishlists:
                     if product in wishlist.products:
                         wishlist.products.remove(product)
-                
+
                 # Remove from compare lists
                 CompareItem.query.filter_by(product_id=product_id).delete()
-                
+
                 # Delete product variations
-                ProductVariation.query.filter_by(product_id=product_id).delete()
-                
+                ProductVariation.query.filter_by(
+                    product_id=product_id).delete()
+
                 # Delete reviews
                 Review.query.filter_by(product_id=product_id).delete()
 
@@ -1134,16 +1196,19 @@ class DeleteProductById(Resource):
                 db.session.delete(product)
                 db.session.commit()
 
-                logger.info(f"Product with ID {product_id} deleted successfully")
+                logger.info(
+                    f"Product with ID {product_id} deleted successfully")
                 return {"Message": f"{product.name} deleted successfully"}, 200
 
             except SQLAlchemyError as e:
                 db.session.rollback()
-                logger.error(f"Database error deleting product {product_id}: {str(e)}")
+                logger.error(
+                    f"Database error deleting product {product_id}: {str(e)}")
                 return {"Error": "Database error occurred while deleting product"}, 500
 
         except Exception as e:
-            logger.error(f"Error deleting product with ID {product_id}: {str(e)}")
+            logger.error(
+                f"Error deleting product with ID {product_id}: {str(e)}")
             return {"Error": "An error occurred while deleting the product"}, 500
 
 
@@ -1181,7 +1246,6 @@ class CartResource(Resource):
             print(f"Unexpected error: {e}")
             return {"Error": "Unexpected error."}, 500
 
-
     @jwt_required()
     def post(self):
         current_user_id = str(get_jwt_identity())
@@ -1195,7 +1259,8 @@ class CartResource(Resource):
                 return {"Error": "Invalid request. 'productId' and 'quantity' are required."}, 400
 
             try:
-                product_id = int(data['productId'])  # Convert productId to integer
+                # Convert productId to integer
+                product_id = int(data['productId'])
             except ValueError:
                 return {"Error": "Invalid 'productId'. Must be an integer."}, 400
 
@@ -1262,7 +1327,7 @@ class CartResource(Resource):
             return {"Error": f"Invalid value: {str(e)}"}, 400
         except Exception as e:
             return {"Error": f"Unexpected error: {str(e)}"}, 500
-        
+
     @jwt_required()
     def put(self):
         current_user_id = get_jwt_identity()
@@ -1276,7 +1341,8 @@ class CartResource(Resource):
                 return {"Error": "Invalid request. 'productId' and 'quantity' are required."}, 400
 
             try:
-                product_id = int(data['productId'])  # Convert productId to integer
+                # Convert productId to integer
+                product_id = int(data['productId'])
             except ValueError:
                 return {"Error": "Invalid 'productId'. Must be an integer."}, 400
 
@@ -1292,7 +1358,8 @@ class CartResource(Resource):
             variation_name = None
             if data.get('selectedVariation'):
                 variation_name = data['selectedVariation']
-                variation_name = None if variation_name in ['null', None, ''] else variation_name
+                variation_name = None if variation_name in [
+                    'null', None, ''] else variation_name
 
             cart_item = CartItem.query.filter_by(
                 cart_id=cart.id,
@@ -1314,8 +1381,7 @@ class CartResource(Resource):
             return {"Error": f"Database error: {str(e)}"}, 500
         except Exception as e:
             return {"Error": f"Unexpected error: {str(e)}"}, 500
-        
-    
+
     @jwt_required()
     def delete(self):
         current_user_id = get_jwt_identity()
@@ -1329,7 +1395,8 @@ class CartResource(Resource):
                 return {"Error": "Invalid request. 'productId' is required."}, 400
 
             try:
-                product_id = int(data['productId'])  # Convert productId to integer
+                # Convert productId to integer
+                product_id = int(data['productId'])
             except ValueError:
                 return {"Error": "Invalid 'productId'. Must be an integer."}, 400
 
@@ -1342,7 +1409,8 @@ class CartResource(Resource):
             variation_name = None
             if data.get('selectedVariation'):
                 variation_name = data['selectedVariation']
-                variation_name = None if variation_name in ['null', None, ''] else variation_name
+                variation_name = None if variation_name in [
+                    'null', None, ''] else variation_name
 
             cart_item = CartItem.query.filter_by(
                 cart_id=cart.id,
@@ -1378,15 +1446,16 @@ class WishlistResource(Resource):
     def get(self):
         try:
             current_user_id = get_jwt_identity()
-            wishlist = WishList.query.filter_by(user_id=current_user_id).first()
-            
+            wishlist = WishList.query.filter_by(
+                user_id=current_user_id).first()
+
             if not wishlist:
                 # Create a new wishlist if none exists
                 wishlist = WishList(user_id=current_user_id)
                 db.session.add(wishlist)
                 db.session.commit()
                 return {"message": "Wishlist is empty!"}, 200
-            
+
             # Use the relationship to get products
             wishlist_items = [{
                 "id": product.id,
@@ -1396,21 +1465,20 @@ class WishlistResource(Resource):
                 "brand": product.brand.name if product.brand else "N/A",
                 "category": product.category.name if product.category else "N/A"
             } for product in wishlist.products]
-            
+
             return {"wishlist": wishlist_items}, 200
-            
+
         except Exception as e:
-            logger.error(f"Error fetching wishlist: {str(e)}\n{traceback.format_exc()}")
+            logger.error(
+                f"Error fetching wishlist: {str(e)}\n{traceback.format_exc()}")
             return {"Error": "An error occurred while fetching wishlist"}, 500
-
-
 
     @jwt_required()
     def post(self):
         try:
             current_user_id = get_jwt_identity()
             data = request.get_json()
-            
+
             if not data or 'product_id' not in data:
                 return {"Error": "Product ID is required"}, 400
 
@@ -1426,7 +1494,8 @@ class WishlistResource(Resource):
                 return {"Error": "Product not found"}, 404
 
             # Get or create wishlist
-            wishlist = WishList.query.filter_by(user_id=current_user_id).first()
+            wishlist = WishList.query.filter_by(
+                user_id=current_user_id).first()
             if not wishlist:
                 wishlist = WishList(user_id=current_user_id)
                 try:
@@ -1450,16 +1519,17 @@ class WishlistResource(Resource):
                 return {"Error": "Failed to add product to wishlist"}, 500
 
         except Exception as e:
-            logger.error(f"Unexpected error in wishlist post: {str(e)}\n{traceback.format_exc()}")
+            logger.error(
+                f"Unexpected error in wishlist post: {str(e)}\n{traceback.format_exc()}")
             return {"Error": "An unexpected error occurred"}, 500
-        
 
     @jwt_required()
     def delete(self, product_id):
         try:
             current_user_id = get_jwt_identity()
-            wishlist = WishList.query.filter_by(user_id=current_user_id).first()
-            
+            wishlist = WishList.query.filter_by(
+                user_id=current_user_id).first()
+
             if not wishlist:
                 return {"Error": "Wishlist not found"}, 404
 
@@ -1475,7 +1545,8 @@ class WishlistResource(Resource):
                 db.session.commit()
                 return {"Message": "Product removed from wishlist!"}, 200
             except SQLAlchemyError as e:
-                logger.error(f"Database error while removing from wishlist: {e}")
+                logger.error(
+                    f"Database error while removing from wishlist: {e}")
                 db.session.rollback()
                 return {"Error": "Failed to remove product from wishlist"}, 500
 
@@ -1489,27 +1560,29 @@ class CompareResource(Resource):
     def get(self):
         try:
             current_user_id = get_jwt_identity()
-            
+
             # Get or create compare list
             compare = Compare.query.filter_by(user_id=current_user_id).first()
             if not compare:
                 return {"message": "Compare list is empty"}, 200
-                
+
             # Delete items older than 24 hours
-            twenty_four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+            twenty_four_hours_ago = datetime.now(
+                timezone.utc) - timedelta(hours=24)
             old_items = CompareItem.query.filter(
                 CompareItem.compare_id == compare.id,
                 CompareItem.created_at <= twenty_four_hours_ago
             ).all()
-            
+
             for item in old_items:
                 db.session.delete(item)
-            
+
             db.session.commit()
-            
+
             # Get remaining valid items
-            compare_items = CompareItem.query.filter_by(compare_id=compare.id).all()
-            
+            compare_items = CompareItem.query.filter_by(
+                compare_id=compare.id).all()
+
             # Prepare response with product details
             items = []
             for item in compare_items:
@@ -1518,9 +1591,9 @@ class CompareResource(Resource):
                     "id": product.id,
                 }
                 items.append(product_data)
-            
+
             return {"product_ids": items}, 200
-            
+
         except Exception as e:
             logger.error(f"Error fetching compare list: {str(e)}")
             return {"error": "An error occurred while fetching compare list"}, 500
@@ -1530,47 +1603,48 @@ class CompareResource(Resource):
         try:
             current_user_id = get_jwt_identity()
             data = request.get_json()
-            
+
             if not data or 'product_id' not in data:
                 return {"error": "Product ID is required"}, 400
-                
+
             # Get or create compare
             compare = Compare.query.filter_by(user_id=current_user_id).first()
             if not compare:
                 compare = Compare(user_id=current_user_id)
                 db.session.add(compare)
                 db.session.commit()
-            
+
             # Check if product exists
             product = db.session.get(Product, data['product_id'])
             if not product:
                 return {"error": "Product not found"}, 404
-                
+
             # Check if product is already in compare list
             existing_item = CompareItem.query.filter_by(
                 compare_id=compare.id,
                 product_id=data['product_id']
             ).first()
-            
+
             if existing_item:
                 return {"message": "Product already in compare list"}, 200
-                
+
             # Check if compare list has reached limit of 3 items
-            current_items_count = CompareItem.query.filter_by(compare_id=compare.id).count()
+            current_items_count = CompareItem.query.filter_by(
+                compare_id=compare.id).count()
             if current_items_count >= 3:
                 return {"error": "Compare list is full (max 3 items)"}, 400
-                
+
             # Add new item to compare list
             compare_item = CompareItem(
                 compare_id=compare.id,
                 product_id=data['product_id']
             )
-            
+
             db.session.add(compare_item)
             db.session.commit()
-            
+
             return {"message": "Product added to compare list"}, 201
-            
+
         except Exception as e:
             logger.error(f"Error adding to compare list: {str(e)}")
             db.session.rollback()
@@ -1581,24 +1655,24 @@ class CompareResource(Resource):
         try:
             current_user_id = get_jwt_identity()
             compare = Compare.query.filter_by(user_id=current_user_id).first()
-            
+
             if not compare:
                 return {"error": "Compare list not found"}, 404
-                
+
             # Find and delete the compare item
             compare_item = CompareItem.query.filter_by(
                 compare_id=compare.id,
                 product_id=product_id
             ).first()
-            
+
             if not compare_item:
                 return {"error": "Product not found in compare list"}, 404
-                
+
             db.session.delete(compare_item)
             db.session.commit()
-            
+
             return {"message": "Product removed from compare list"}, 200
-            
+
         except Exception as e:
             logger.error(f"Error removing from compare list: {str(e)}")
             db.session.rollback()
@@ -1611,7 +1685,7 @@ class OrderResource(Resource):
     def get(self):
         try:
             current_user_id = get_jwt_identity()
-            
+
             user = db.session.get(User, current_user_id)
             if not user:
                 logger.error(f"User {current_user_id} not found")
@@ -1641,7 +1715,8 @@ class OrderResource(Resource):
                                     "additional_info": address.additional_info
                                 }
                             else:
-                                logger.error(f"Address {order.address_id} not found for order {order.id}")
+                                logger.error(
+                                    f"Address {order.address_id} not found for order {order.id}")
 
                         # Get items for this specific order
                         items = []
@@ -1650,10 +1725,10 @@ class OrderResource(Resource):
                             if product:
                                 # Get review for this product by this user
                                 review = Review.query.filter_by(
-                                    user_id=current_user_id, 
+                                    user_id=current_user_id,
                                     product_id=item.product_id
                                 ).first()
-                                
+
                                 review_data = None
                                 if review:
                                     review_data = {
@@ -1661,15 +1736,15 @@ class OrderResource(Resource):
                                         "comment": review.comment,
                                         "created_at": review.created_at.isoformat()
                                     }
-                                    
+
                                 item_data = {
                                     "product_id": item.product_id,
                                     "name": product.name,
                                     "image_url": product.image_urls[0] if product.image_urls and len(product.image_urls) > 0 else None,
                                     "quantity": item.quantity,
                                     "variation_name": item.variation_name,
-                                    "price": float(item.variation_price) if item.variation_price is not None 
-                                            else float(product.price),
+                                    "price": float(item.variation_price) if item.variation_price is not None
+                                    else float(product.price),
                                     "review": review_data
                                 }
                                 items.append(item_data)
@@ -1690,7 +1765,8 @@ class OrderResource(Resource):
                         }
                         order_list.append(order_data)
                     except Exception as e:
-                        logger.error(f"Error processing order {order.id}: {str(e)}")
+                        logger.error(
+                            f"Error processing order {order.id}: {str(e)}")
                         continue
 
                 return {"orders": order_list}, 200
@@ -1700,7 +1776,8 @@ class OrderResource(Resource):
                 return {"error": "Error processing orders data"}, 500
 
         except Exception as e:
-            logger.error(f"Error fetching orders: {str(e)}\n{traceback.format_exc()}")
+            logger.error(
+                f"Error fetching orders: {str(e)}\n{traceback.format_exc()}")
             return {"error": "An error occurred while fetching orders"}, 500
 
     @jwt_required()
@@ -1793,17 +1870,20 @@ class OrderResource(Resource):
                     db.session.delete(cart)
 
                     db.session.commit()
-                    logger.info(f"Order {order_reference} created successfully")
+                    logger.info(
+                        f"Order {order_reference} created successfully")
 
                     try:
                         # Send order confirmation email
                         email_sent = send_order_confirmation(order)
                         if not email_sent:
-                            logger.warning(f"Failed to send confirmation email for order {order_reference}")
+                            logger.warning(
+                                f"Failed to send confirmation email for order {order_reference}")
                     except Exception as e:
-                        logger.error(f"Email error for order {order_reference}: {str(e)}")
+                        logger.error(
+                            f"Email error for order {order_reference}: {str(e)}")
                         # Don't return error here, just log it
-                    
+
                     return {
                         "message": "Order placed successfully",
                         "order_reference": order.order_reference
@@ -1819,9 +1899,11 @@ class OrderResource(Resource):
 
         except Exception as e:
             db.session.rollback()
-            logger.error(f"Order creation failed: {str(e)}\n{traceback.format_exc()}")
-            return {"error": "Failed to create order"}, 500          
-                 
+            logger.error(
+                f"Order creation failed: {str(e)}\n{traceback.format_exc()}")
+            return {"error": "Failed to create order"}, 500
+
+
 class AdminOrderResource(Resource):
     @jwt_required()
     @admin_required
@@ -1877,7 +1959,8 @@ class AdminOrderResource(Resource):
                     order_list.append(order_data)
 
                 except Exception as e:
-                    logger.error(f"Error processing order {order.id}: {str(e)}")
+                    logger.error(
+                        f"Error processing order {order.id}: {str(e)}")
                     continue
 
             return {"orders": order_list}, 200
@@ -1886,6 +1969,7 @@ class AdminOrderResource(Resource):
             logger.error(f"Error fetching admin orders: {str(e)}")
             logger.error(f"Stack trace: {traceback.format_exc()}")
             return {"error": "An error occurred while fetching orders"}, 500
+
 
 class AdminOrderDetailResource(Resource):
     @jwt_required()
@@ -1908,19 +1992,19 @@ class AdminOrderDetailResource(Resource):
                     "created_at": order.created_at.isoformat(),
                     "updated_at": order.updated_at.isoformat(),
 
-                    
+
                     # User info
                     "user_id": order.user_id,
                     "username": order.user.username,
                     "email": order.user.email,
                     "phone_number": order.user.phone_number,
-                    
+
                     # Payment info
                     "payment_id": order.payment.id if order.payment else None,
                     "payment_status": order.payment.status if order.payment else "Pending",
                     "payment_method": order.payment.payment_method if order.payment else None,
                     "transaction_id": order.payment.transaction_id if order.payment else None,
-                    "payment_date": order.payment.created_at.isoformat() if order.payment else None,      
+                    "payment_date": order.payment.created_at.isoformat() if order.payment else None,
 
 
                     # Separate address object
@@ -1933,12 +2017,12 @@ class AdminOrderDetailResource(Resource):
                         "street": order.address.street,
                         "additional_info": order.address.additional_info
                     } if order.address else None,
-                    
+
                     # Separate items array
-                    "items": []           
+                    "items": []
                 },
-                
-                
+
+
             }
 
             # Process order items
@@ -1971,8 +2055,10 @@ class AdminOrderDetailResource(Resource):
             return order_details, 200
 
         except Exception as e:
-            logger.error(f"Error fetching admin order details: {str(e)}\n{traceback.format_exc()}")
+            logger.error(
+                f"Error fetching admin order details: {str(e)}\n{traceback.format_exc()}")
             return {"error": "An error occurred while fetching order details"}, 500
+
 
 class OrderStatusResource(Resource):
     @jwt_required()
@@ -1982,7 +2068,8 @@ class OrderStatusResource(Resource):
             data = request.get_json()
             new_status = data.get('status')
 
-            ORDER_STATUSES = ["Order Placed", "Packing", "Shipped", "Out for Delivery", "Delivered"]
+            ORDER_STATUSES = ["Order Placed", "Packing",
+                              "Shipped", "Out for Delivery", "Delivered"]
 
             if new_status not in ORDER_STATUSES:
                 return {"error": "Invalid order status"}, 400
@@ -2023,7 +2110,7 @@ class OrderStatusResource(Resource):
                             is_read=False
                         )
                         db.session.add(notification)
-                    
+
             db.session.commit()
 
             # Send status update email
@@ -2036,6 +2123,7 @@ class OrderStatusResource(Resource):
             logger.error(f"Error updating order status: {str(e)}")
             return {"error": "Failed to update order status"}, 500
 
+
 class PaymentResource(Resource):
     @jwt_required()
     def get(self, order_id, doc_type):
@@ -2043,26 +2131,28 @@ class PaymentResource(Resource):
             # Validate document type
             if doc_type not in ['invoice', 'receipt']:
                 return {"error": "Invalid document type"}, 400
-                
+
             current_user_id = get_jwt_identity()
             order = Order.query.filter_by(order_reference=order_id).first()
-            
+
             if not order:
                 return {"error": "Order not found"}, 404
-                
+
             # Check if the order belongs to the current user
             if str(order.user_id) != current_user_id:
-                print(f"DEBUG - JWT User ID: {current_user_id}, Type: {type(current_user_id)}")
-                print(f"DEBUG - Order User ID: {order.user_id}, Type: {type(order.user_id)}")
+                print(
+                    f"DEBUG - JWT User ID: {current_user_id}, Type: {type(current_user_id)}")
+                print(
+                    f"DEBUG - Order User ID: {order.user_id}, Type: {type(order.user_id)}")
                 return {"error": "Unauthorized access to this order"}, 403
-                
+
             # Check if trying to access receipt for non-delivered order
             if doc_type == 'receipt' and order.status != 'Delivered':
                 return {"error": "Receipt is only available for delivered orders"}, 400
-            
+
             # Hard-coded company info since we don't have AppSettings
             company_name = "Phone Home Kenya"
-            
+
             # Select template based on document type
             if doc_type == 'invoice':
                 template = """
@@ -2416,28 +2506,29 @@ class PaymentResource(Resource):
                 </body>
                 </html>
                 """
-            
+
             # Get current date for copyright year
             now = datetime.now()
-            
+
             # Render the template with context
             doc_content = render_template_string(
-                template, 
-                order=order, 
+                template,
+                order=order,
                 company_name=company_name,
                 now=now
             )
-            
+
             # Generate PDF
             pdf = BytesIO()
-            pisa_status = pisa.CreatePDF(BytesIO(doc_content.encode("utf-8")), pdf)
-            
+            pisa_status = pisa.CreatePDF(
+                BytesIO(doc_content.encode("utf-8")), pdf)
+
             if pisa_status.err:
                 logger.error(f"PDF generation error: {pisa_status.err}")
                 return {"error": "Failed to generate PDF document"}, 500
-                
+
             pdf.seek(0)
-            
+
             # Send the PDF file
             return send_file(
                 pdf,
@@ -2447,8 +2538,10 @@ class PaymentResource(Resource):
             )
 
         except Exception as e:
-            logger.error(f"Error generating {doc_type}: {str(e)}\n{traceback.format_exc()}")
+            logger.error(
+                f"Error generating {doc_type}: {str(e)}\n{traceback.format_exc()}")
             return {"error": f"Failed to generate {doc_type}: {str(e)}"}, 500
+
 
 class MpesaPaymentResource(Resource):
     @jwt_required()
@@ -2457,7 +2550,7 @@ class MpesaPaymentResource(Resource):
         try:
             current_user_id = get_jwt_identity()
             data = request.get_json()
-            
+
             # Log incoming data
             logger.info(f"Creating M-Pesa payment for user {current_user_id}")
             logger.debug(f"Payment data: {data}")
@@ -2476,7 +2569,7 @@ class MpesaPaymentResource(Resource):
 
             phone_number = data['phone_number']
             amount = float(data['total_amount'])
-            
+
             # Validate amount
             if amount <= 0:
                 return {"error": "Amount must be greater than 0"}, 400
@@ -2566,7 +2659,8 @@ class MpesaPaymentResource(Resource):
                 db.session.delete(cart)
 
                 db.session.commit()
-                logger.info(f"Order {order_reference} created successfully with pending payment")
+                logger.info(
+                    f"Order {order_reference} created successfully with pending payment")
 
                 return {
                     "success": True,
@@ -2577,12 +2671,14 @@ class MpesaPaymentResource(Resource):
 
             except Exception as e:
                 db.session.rollback()
-                logger.error(f"Error creating order after successful STK push: {str(e)}")
+                logger.error(
+                    f"Error creating order after successful STK push: {str(e)}")
                 return {"error": "STK push successful but order creation failed. Please contact support."}, 500
 
         except Exception as e:
             logger.error(f"M-Pesa payment initiation failed: {str(e)}")
             return {"error": "Payment initiation failed"}, 500
+
 
 class MpesaCallbackResource(Resource):
     def post(self):
@@ -2590,53 +2686,58 @@ class MpesaCallbackResource(Resource):
         try:
             callback_data = request.get_json()
             logger.info(f"M-Pesa Callback received: {callback_data}")
-            
+
             # Extract callback data
             stk_callback = callback_data.get("Body", {}).get("stkCallback", {})
-            
+
             merchant_request_id = stk_callback.get("MerchantRequestID")
             checkout_request_id = stk_callback.get("CheckoutRequestID")
             result_code = stk_callback.get("ResultCode")
             result_desc = stk_callback.get("ResultDesc")
-            
+
             if not checkout_request_id:
                 logger.error("No CheckoutRequestID in callback")
                 return {"ResultCode": 1, "ResultDesc": "Invalid callback data"}
-            
+
             # Find payment record
-            payment = Payment.query.filter_by(checkout_request_id=checkout_request_id).first()
+            payment = Payment.query.filter_by(
+                checkout_request_id=checkout_request_id).first()
             if not payment:
-                logger.error(f"Payment not found for CheckoutRequestID: {checkout_request_id}")
+                logger.error(
+                    f"Payment not found for CheckoutRequestID: {checkout_request_id}")
                 return {"ResultCode": 1, "ResultDesc": "Payment record not found"}
-            
+
             # Find associated order
-            order = Order.query.filter_by(order_reference=payment.order_reference).first()
+            order = Order.query.filter_by(
+                order_reference=payment.order_reference).first()
             if not order:
-                logger.error(f"Order not found for reference: {payment.order_reference}")
+                logger.error(
+                    f"Order not found for reference: {payment.order_reference}")
                 return {"ResultCode": 1, "ResultDesc": "Order not found"}
-            
+
             # Update payment record
             payment.result_code = str(result_code)
             payment.result_desc = result_desc
-            
+
             if result_code == 0:  # Success
                 # Extract transaction details from callback metadata
-                callback_metadata = stk_callback.get("CallbackMetadata", {}).get("Item", [])
-                
+                callback_metadata = stk_callback.get(
+                    "CallbackMetadata", {}).get("Item", [])
+
                 transaction_id = None
                 mpesa_receipt = None
                 phone_number = None
-                
+
                 for item in callback_metadata:
                     name = item.get("Name")
                     value = item.get("Value")
-                    
+
                     if name == "MpesaReceiptNumber":
                         mpesa_receipt = value
                         transaction_id = value  # Use receipt as transaction ID
                     elif name == "PhoneNumber":
                         phone_number = str(value)
-                
+
                 # Update payment with success details
                 payment.status = "Success"
                 payment.transaction_id = transaction_id
@@ -2644,10 +2745,10 @@ class MpesaCallbackResource(Resource):
                 if phone_number:
                     payment.phone_number = phone_number
                 payment.failure_reason = None  # Clear any previous failure reason
-                
+
                 # Update order status to paid and confirmed
                 order.status = "Order Placed"
-                
+
                 # Create success notification
                 notification = Notification(
                     user_id=order.user_id,
@@ -2655,25 +2756,28 @@ class MpesaCallbackResource(Resource):
                     is_read=False
                 )
                 db.session.add(notification)
-                
-                logger.info(f"Payment successful for order {payment.order_reference}")
-                
+
+                logger.info(
+                    f"Payment successful for order {payment.order_reference}")
+
                 try:
                     # Send order confirmation email after successful payment
                     email_sent = send_order_confirmation(order)
                     if not email_sent:
-                        logger.warning(f"Failed to send confirmation email for order {order.order_reference}")
+                        logger.warning(
+                            f"Failed to send confirmation email for order {order.order_reference}")
                 except Exception as e:
-                    logger.error(f"Email error for order {order.order_reference}: {str(e)}")
+                    logger.error(
+                        f"Email error for order {order.order_reference}: {str(e)}")
                     # Don't fail the callback for email issues
-                
+
             else:  # Payment Failed
                 payment.status = "Failed"
                 payment.failure_reason = result_desc
-                
+
                 # Update order status to payment failed
                 order.status = "Payment Failed"
-                
+
                 # Create failure notification
                 notification = Notification(
                     user_id=order.user_id,
@@ -2681,19 +2785,21 @@ class MpesaCallbackResource(Resource):
                     is_read=False
                 )
                 db.session.add(notification)
-                
-                logger.warning(f"Payment failed for order {payment.order_reference}: {result_desc}")
-            
+
+                logger.warning(
+                    f"Payment failed for order {payment.order_reference}: {result_desc}")
+
             db.session.commit()
-            
+
             # Return success response to Safaricom
             return {"ResultCode": 0, "ResultDesc": "Callback processed successfully"}
-            
+
         except Exception as e:
             logger.error(f"M-Pesa callback processing failed: {str(e)}")
             db.session.rollback()  # Rollback any partial changes
             return {"ResultCode": 1, "ResultDesc": "Callback processing failed"}
-        
+
+
 class MpesaPaymentRetryResource(Resource):
     @jwt_required()
     def post(self):
@@ -2701,7 +2807,7 @@ class MpesaPaymentRetryResource(Resource):
         try:
             current_user_id = get_jwt_identity()
             data = request.get_json()
-            
+
             # Log incoming data
             logger.info(f"Retrying M-Pesa payment for user {current_user_id}")
             logger.debug(f"Retry payment data: {data}")
@@ -2714,30 +2820,34 @@ class MpesaPaymentRetryResource(Resource):
 
             order_reference = data['order_reference']
             phone_number = data['phone_number']
-            
+
             # Find existing order and verify ownership
-            order = Order.query.filter_by(order_reference=order_reference).first()
+            order = Order.query.filter_by(
+                order_reference=order_reference).first()
             if not order:
                 logger.warning(f"Order {order_reference} not found for retry")
                 return {"error": "Order not found"}, 404
-            
+
             if str(order.user_id) != current_user_id:
-                logger.warning(f"Unauthorized retry attempt for order {order_reference} by user {current_user_id}")
+                logger.warning(
+                    f"Unauthorized retry attempt for order {order_reference} by user {current_user_id}")
                 return {"error": "Unauthorized access to order"}, 403
-            
+
             # Check if order can be retried (should be in failed payment state)
             if order.status not in ['Pending Payment', 'Payment Failed']:
-                logger.warning(f"Cannot retry payment for order {order_reference} with status {order.status}")
+                logger.warning(
+                    f"Cannot retry payment for order {order_reference} with status {order.status}")
                 return {"error": "Order payment cannot be retried"}, 400
-            
+
             # Get existing payment record
             payment = order.payment
             if not payment:
-                logger.error(f"No payment record found for order {order_reference}")
+                logger.error(
+                    f"No payment record found for order {order_reference}")
                 return {"error": "No payment record found"}, 404
-            
+
             amount = payment.amount
-            
+
             # Validate amount
             if amount <= 0:
                 return {"error": "Invalid payment amount"}, 400
@@ -2760,7 +2870,7 @@ class MpesaPaymentRetryResource(Resource):
                 payment.checkout_request_id = result["checkout_request_id"]
                 payment.merchant_request_id = result["merchant_request_id"]
                 payment.updated_at = datetime.now(timezone.utc)
-                
+
                 # Update order status back to pending payment
                 order.status = 'Pending Payment'
                 order.updated_at = datetime.now(timezone.utc)
@@ -2774,7 +2884,8 @@ class MpesaPaymentRetryResource(Resource):
                 db.session.add(notification)
 
                 db.session.commit()
-                logger.info(f"Payment retry initiated successfully for order {order_reference}")
+                logger.info(
+                    f"Payment retry initiated successfully for order {order_reference}")
 
                 return {
                     "success": True,
@@ -2785,12 +2896,14 @@ class MpesaPaymentRetryResource(Resource):
 
             except Exception as e:
                 db.session.rollback()
-                logger.error(f"Error updating payment record for retry: {str(e)}")
+                logger.error(
+                    f"Error updating payment record for retry: {str(e)}")
                 return {"error": "STK push successful but payment update failed. Please contact support."}, 500
 
         except Exception as e:
             logger.error(f"M-Pesa payment retry failed: {str(e)}")
             return {"error": "Payment retry failed"}, 500
+
 
 class PaymentStatusResource(Resource):
     @jwt_required()
@@ -2798,19 +2911,20 @@ class PaymentStatusResource(Resource):
         """Check payment status for an order"""
         try:
             current_user_id = get_jwt_identity()
-            
+
             # Find order and verify ownership
-            order = Order.query.filter_by(order_reference=order_reference).first()
+            order = Order.query.filter_by(
+                order_reference=order_reference).first()
             if not order:
                 return {"error": "Order not found"}, 404
-            
+
             if str(order.user_id) != current_user_id:
                 return {"error": "Unauthorized access"}, 403
-            
+
             payment = order.payment
             if not payment:
                 return {"error": "No payment record found"}, 404
-            
+
             return {
                 "order_reference": order_reference,
                 "payment_method": payment.payment_method,
@@ -2823,12 +2937,14 @@ class PaymentStatusResource(Resource):
                 "created_at": payment.created_at.isoformat(),
                 "updated_at": payment.updated_at.isoformat()
             }, 200
-            
+
         except Exception as e:
             logger.error(f"Error fetching payment status: {str(e)}")
             return {"error": "Failed to fetch payment status"}, 500
-   
+
 # Review Management
+
+
 class ReviewResource(Resource):
     @jwt_required()
     def get(self, product_id):
@@ -2856,7 +2972,8 @@ class ReviewResource(Resource):
             product = Product.query.get_or_404(product_id)
 
             # Check if user already reviewed the product
-            existing_review = Review.query.filter_by(user_id=current_user_id, product_id=product.id).first()
+            existing_review = Review.query.filter_by(
+                user_id=current_user_id, product_id=product.id).first()
             if existing_review:
                 return {"Error": "You have already reviewed this product."}, 400
 
@@ -2888,18 +3005,22 @@ class ReviewResource(Resource):
     @jwt_required()
     def delete(self, product_id):
         current_user_id = get_jwt_identity()
-        review = Review.query.filter_by(user_id=current_user_id, product_id=product_id).first_or_404()
+        review = Review.query.filter_by(
+            user_id=current_user_id, product_id=product_id).first_or_404()
 
         db.session.delete(review)
         db.session.commit()
         return {"Message": "Review deleted!"}, 200
 
 # Notifications
+
+
 class NotificationResource(Resource):
     @jwt_required()
     def get(self):
         current_user_id = get_jwt_identity()
-        notifications = Notification.query.filter_by(user_id=current_user_id).all()
+        notifications = Notification.query.filter_by(
+            user_id=current_user_id).all()
 
         if not notifications:
             return {"Message": "No notifications found!"}, 404
@@ -2916,7 +3037,8 @@ class NotificationResource(Resource):
     @jwt_required()
     def put(self, notification_id):
         current_user_id = get_jwt_identity()
-        notification = Notification.query.filter_by(id=notification_id, user_id=current_user_id).first_or_404()
+        notification = Notification.query.filter_by(
+            id=notification_id, user_id=current_user_id).first_or_404()
 
         notification.is_read = True
         db.session.commit()
@@ -2924,6 +3046,8 @@ class NotificationResource(Resource):
         return {"Message": "Notification marked as read."}, 200
 
 # Admin Notifications Management
+
+
 class AdminNotificationResource(Resource):
     @jwt_required()
     @admin_required  # Only admins can send notifications
@@ -2944,6 +3068,8 @@ class AdminNotificationResource(Resource):
         return {"Message": "Notification sent to user!"}, 201
 
 # Admin Management Resource for managing Users
+
+
 class AdminUserManagement(Resource):
     @jwt_required()
     @admin_required
@@ -2969,7 +3095,7 @@ class AdminUserManagement(Resource):
             # Get the user
             user = User.query.get_or_404(user_id)
             data = request.get_json()
-            
+
             # Check if is_admin is in the request data
             if 'is_admin' not in data:
                 return {"error": "is_admin field is required"}, 400
@@ -2997,7 +3123,7 @@ class AdminUserManagement(Resource):
 
             db.session.commit()
 
-            #sync with admins table
+            # sync with admins table
             if new_role == "admin":
                 sync_admin_users()
 
@@ -3022,14 +3148,14 @@ class AdminUserManagement(Resource):
         try:
             # Start a transaction
             user = User.query.get_or_404(user_id)
-            
+
             # Store user info for logging
             user_info = {
                 "id": user.id,
                 "username": user.username,
                 "email": user.email
             }
-            
+
             try:
                 # Create audit log
                 current_admin_id = get_jwt_identity()
@@ -3038,45 +3164,50 @@ class AdminUserManagement(Resource):
                     action=f"Deleted user {user.username} (ID: {user.id})"
                 )
                 db.session.add(audit_log)
-                
+
                 # Delete related records in the correct order (respecting foreign key constraints)
-                
+
                 # 1. First delete cart items
                 cart = Cart.query.filter_by(user_id=user.id).first()
                 if cart:
                     CartItem.query.filter_by(cart_id=cart.id).delete()
                     db.session.delete(cart)
-                
+
                 # 2. Delete other related records
                 WishList.query.filter_by(user_id=user.id).delete()
                 Compare.query.filter_by(user_id=user.id).delete()
                 Notification.query.filter_by(user_id=user.id).delete()
                 Review.query.filter_by(user_id=user.id).delete()
                 Address.query.filter_by(user_id=user.id).delete()
-                
+
                 # 3. Update orders instead of deleting them
-                Order.query.filter_by(user_id=user.id).update({Order.user_id: None})
-                
+                Order.query.filter_by(user_id=user.id).update(
+                    {Order.user_id: None})
+
                 # 4. Finally delete the user
                 db.session.delete(user)
                 db.session.commit()
-                
+
                 # Log successful deletion
                 logger.info(f"User successfully deleted: {user_info}")
                 return {"message": "User deleted successfully!", "user": user_info}, 200
-                
+
             except SQLAlchemyError as e:
                 db.session.rollback()
-                logger.error(f"Database error while deleting user {user_id}: {str(e)}\n{traceback.format_exc()}")
+                logger.error(
+                    f"Database error while deleting user {user_id}: {str(e)}\n{traceback.format_exc()}")
                 return {"error": "Database error occurred while deleting user"}, 500
-                
+
         except SQLAlchemyError as e:
-            logger.error(f"Database error while fetching user {user_id}: {str(e)}\n{traceback.format_exc()}")
+            logger.error(
+                f"Database error while fetching user {user_id}: {str(e)}\n{traceback.format_exc()}")
             return {"error": "User not found or database error"}, 404
-            
+
         except Exception as e:
-            logger.error(f"Unexpected error while deleting user {user_id}: {str(e)}\n{traceback.format_exc()}")
+            logger.error(
+                f"Unexpected error while deleting user {user_id}: {str(e)}\n{traceback.format_exc()}")
             return {"error": "An unexpected error occurred while deleting user"}, 500
+
 
 class AdminLogin(Resource):
     def post(self):
@@ -3105,12 +3236,15 @@ class AdminLogin(Resource):
                 }, 200
             else:
                 return {"error": "Invalid credentials!"}, 401
-                
+
         except Exception as e:
-            logger.error(f"Admin login error: {str(e)}\n{traceback.format_exc()}")
+            logger.error(
+                f"Admin login error: {str(e)}\n{traceback.format_exc()}")
             return {"error": "An error occurred during login"}, 500
 
 # Audit Logs Resource (Admin-only)
+
+
 class AuditLogResource(Resource):
     @jwt_required()
     @admin_required
@@ -3141,16 +3275,17 @@ class AuditLogResource(Resource):
 
         return {"Message": "Audit log added!"}, 201
 
- 
+
 class CategoryResource(Resource):
     def get(self):
         # Fetch all categories
         categories = Category.query.all()
-        category_list = [{"id": category.id, "name": category.name} for category in categories]
+        category_list = [{"id": category.id, "name": category.name}
+                         for category in categories]
         return {"categories": category_list}, 200
 
     def post(self):
-        
+
         # Create a new category
         data = request.get_json()
         name = data.get('name')
@@ -3212,12 +3347,13 @@ class CategoryResource(Resource):
         except Exception as e:
             logger.error(f"Error fetching categories: {e}")
             return {"Error": "An error occurred while fetching categories"}, 500
-    
+
+
 class BrandResource(Resource):
     def get(self):
         # Get category_id from query parameters
         category_id = request.args.get('category')
-        
+
         try:
             if category_id:
                 # If category_id is provided, filter brands by category
@@ -3226,12 +3362,12 @@ class BrandResource(Resource):
             else:
                 # If no category_id, return all brands
                 brands = Brand.query.all()
-            
+
             # Format response to include all categories for each brand
             brand_list = []
             for brand in brands:
                 brand_data = {
-                    "id": brand.id, 
+                    "id": brand.id,
                     "name": brand.name,
                     "categories": [
                         {
@@ -3241,9 +3377,9 @@ class BrandResource(Resource):
                     ]
                 }
                 brand_list.append(brand_data)
-            
+
             return brand_list, 200
-            
+
         except Exception as e:
             logger.error(f"Error fetching brands: {e}")
             return {"Error": "An error occurred while fetching brands"}, 500
@@ -3251,35 +3387,36 @@ class BrandResource(Resource):
     def post(self):
         try:
             data = request.get_json()
-            
+
             if not data.get('name'):
                 return {"Error": "Brand name is required"}, 400
-            
+
             if not data.get('category_ids') or not isinstance(data.get('category_ids'), list):
                 return {"Error": "At least one category_id is required as a list"}, 400
-                
+
             # Check if brand already exists
             existing_brand = Brand.query.filter_by(name=data['name']).first()
             if existing_brand:
                 return {"Error": "Brand with this name already exists"}, 400
-            
+
             # Verify all categories exist
             category_ids = data['category_ids']
-            categories = Category.query.filter(Category.id.in_(category_ids)).all()
-            
+            categories = Category.query.filter(
+                Category.id.in_(category_ids)).all()
+
             if len(categories) != len(category_ids):
                 return {"Error": "One or more category IDs are invalid"}, 400
-            
+
             # Create new brand
             new_brand = Brand(name=data['name'])
-            
+
             # Add categories to the brand
             for category in categories:
                 new_brand.categories.append(category)
-            
+
             db.session.add(new_brand)
             db.session.commit()
-            
+
             return {
                 "Message": "Brand Created Successfully!",
                 "brand": {
@@ -3293,11 +3430,12 @@ class BrandResource(Resource):
                     ]
                 }
             }, 201
-            
+
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error creating brand: {e}")
             return {"Error": "An error occurred while creating the brand"}, 500
+
 
 class BrandDetailResource(Resource):
     def get(self, brand_id):
@@ -3321,37 +3459,38 @@ class BrandDetailResource(Resource):
         try:
             brand = Brand.query.get_or_404(brand_id)
             data = request.get_json()
-            
+
             # Update brand name if provided
             if data.get('name'):
                 # Check if another brand has this name
                 existing_brand = Brand.query.filter(
-                    Brand.name == data['name'], 
+                    Brand.name == data['name'],
                     Brand.id != brand_id
                 ).first()
                 if existing_brand:
                     return {"Error": "Brand with this name already exists"}, 400
                 brand.name = data['name']
-            
+
             # Update categories if provided
             if data.get('category_ids') is not None:
                 if not isinstance(data.get('category_ids'), list):
                     return {"Error": "category_ids must be a list"}, 400
-                
+
                 # Clear existing categories
                 brand.categories.clear()
-                
+
                 # Add new categories
                 if data['category_ids']:  # Only if list is not empty
-                    categories = Category.query.filter(Category.id.in_(data['category_ids'])).all()
+                    categories = Category.query.filter(
+                        Category.id.in_(data['category_ids'])).all()
                     if len(categories) != len(data['category_ids']):
                         return {"Error": "One or more category IDs are invalid"}, 400
-                    
+
                     for category in categories:
                         brand.categories.append(category)
-            
+
             db.session.commit()
-            
+
             return {
                 "Message": "Brand updated successfully!",
                 "brand": {
@@ -3365,7 +3504,7 @@ class BrandDetailResource(Resource):
                     ]
                 }
             }, 200
-            
+
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error updating brand {brand_id}: {e}")
@@ -3374,14 +3513,14 @@ class BrandDetailResource(Resource):
     def delete(self, brand_id):
         try:
             brand = Brand.query.get_or_404(brand_id)
-            
+
             # Check if brand has associated products
             products_count = Product.query.filter_by(brand_id=brand_id).count()
             if products_count > 0:
                 return {
                     "Error": f"Cannot delete brand '{brand.name}' because it has {products_count} associated products"
                 }, 400
-            
+
             # Clear category associations using the association table directly
             brand_category_table = Brand.categories.property.secondary
             db.session.execute(
@@ -3389,27 +3528,29 @@ class BrandDetailResource(Resource):
                     brand_category_table.c.brand_id == brand_id
                 )
             )
-            
+
             # Delete the brand
             db.session.delete(brand)
             db.session.commit()
-            
+
             return {"Message": f"Brand '{brand.name}' deleted successfully!"}, 200
-            
+
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error deleting brand {brand_id}: {str(e)}")
             return {"Error": "An error occurred while deleting the brand"}, 500
-        
+
 
 # Error Handling
 @app.errorhandler(404)
 def resource_not_found(e):
     return {"Error": "Resource not found!"}, 404
 
+
 @app.errorhandler(500)
 def internal_server_error(e):
     return {"Error": "An internal server error occurred!"}, 500
+
 
 @app.errorhandler(Exception)
 def handle_exception(e):
@@ -3425,10 +3566,14 @@ api.add_resource(ResetPasswordResource, '/reset-password/<token>')
 
 # Profile routes
 profile_view = ProfileView.as_view('profile_view')
-app.add_url_rule('/api/profile', view_func=profile_view, methods=['GET', 'PUT'])
-app.add_url_rule('/api/profile/stats', view_func=ProfileStatsView.as_view('profile_stats'))
-app.add_url_rule('/api/profile/orders', view_func=ProfileOrdersView.as_view('profile_orders'))
-app.add_url_rule('/api/profile/wishlist', view_func=ProfileWishlistView.as_view('profile_wishlist'))
+app.add_url_rule('/api/profile', view_func=profile_view,
+                 methods=['GET', 'PUT'])
+app.add_url_rule('/api/profile/stats',
+                 view_func=ProfileStatsView.as_view('profile_stats'))
+app.add_url_rule('/api/profile/orders',
+                 view_func=ProfileOrdersView.as_view('profile_orders'))
+app.add_url_rule('/api/profile/wishlist',
+                 view_func=ProfileWishlistView.as_view('profile_wishlist'))
 
 # Product routes
 api.add_resource(ProductResource, '/products')
@@ -3436,15 +3581,17 @@ api.add_resource(GetProductsByType, '/products/<string:product_type>')
 api.add_resource(GetProductsByCategory, '/products/category/<int:category_id>')
 api.add_resource(GetProductById, '/product/<int:product_id>')
 api.add_resource(DeleteProductById, '/product/<int:product_id>')
-api.add_resource(ProductVariationResource, '/products/<int:product_id>/variations')
+api.add_resource(ProductVariationResource,
+                 '/products/<int:product_id>/variations')
 api.add_resource(ProductUpdateResource, '/products/<int:product_id>')
 
-#brand routes
+# brand routes
 api.add_resource(BrandResource, '/brands')
 api.add_resource(BrandDetailResource, '/brands/<int:brand_id>')
 
-#category route
-api.add_resource(CategoryResource, '/categories', '/categories/<int:category_id>')
+# category route
+api.add_resource(CategoryResource, '/categories',
+                 '/categories/<int:category_id>')
 
 # Cart routes
 api.add_resource(CartResource, '/cart')
@@ -3462,13 +3609,15 @@ api.add_resource(AdminOrderDetailResource, '/orders/admin/<int:order_id>')
 api.add_resource(OrderStatusResource, '/orders/status/<int:order_id>')
 
 # payment docs invoice and receipt routes
-api.add_resource(PaymentResource, '/payment/<string:order_id>/<string:doc_type>')
+api.add_resource(
+    PaymentResource, '/payment/<string:order_id>/<string:doc_type>')
 
 # payment resource
 api.add_resource(MpesaPaymentResource, '/mpesa/initiate')
 api.add_resource(MpesaPaymentRetryResource, '/mpesa/retry')
 api.add_resource(MpesaCallbackResource, '/ganji/inaflow')
-api.add_resource(PaymentStatusResource, '/payment/status/<string:order_reference>')
+api.add_resource(PaymentStatusResource,
+                 '/payment/status/<string:order_reference>')
 
 # Review routes
 api.add_resource(ReviewResource, '/reviews/<int:product_id>')
@@ -3478,11 +3627,11 @@ api.add_resource(NotificationResource, '/notifications')
 api.add_resource(AdminNotificationResource, '/admin/notifications')
 
 # Admin and User Management routes
-api.add_resource(AdminUserManagement, 
-    '/admin/users', 
-    '/admin/user/<int:user_id>',
-    '/user/<int:user_id>/admin'
-)
+api.add_resource(AdminUserManagement,
+                 '/admin/users',
+                 '/admin/user/<int:user_id>',
+                 '/user/<int:user_id>/admin'
+                 )
 
 # admin login
 api.add_resource(AdminLogin, '/admin/login')
