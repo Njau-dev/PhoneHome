@@ -78,7 +78,7 @@ class Admin(db.Model):
 
 class BlacklistToken(db.Model):
     """Token blacklist for logout functionality"""
-    __tablename__ = 'blacklist_tokens'
+    __tablename__ = 'blacklist_token'
 
     id = db.Column(db.Integer, primary_key=True)
     token = db.Column(db.String(500), nullable=False, unique=True)

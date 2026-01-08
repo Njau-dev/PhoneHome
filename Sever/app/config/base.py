@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 def load_environment():
     """Load environment variables based on current environment"""
-    env = os.getenv('ENVIRONMENT', 'development')
+    env = os.getenv('FLASK_ENV', 'development')
 
     # Load base .env file first
     if os.path.exists('.env'):
@@ -33,7 +33,7 @@ class BaseConfig:
     """Base configuration class"""
 
     # Environment
-    ENVIRONMENT = ENVIRONMENT
+    FLASK_ENV = ENVIRONMENT
 
     # Secret Keys
     SECRET_KEY = os.getenv('SECRET_KEY')
