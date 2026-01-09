@@ -26,7 +26,6 @@ def load_environment():
 
 # Load environment variables
 ENVIRONMENT = load_environment()
-print(f"Loaded Environment: {ENVIRONMENT}")
 
 
 class BaseConfig:

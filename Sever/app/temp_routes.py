@@ -72,7 +72,7 @@ def register_old_routes(app):
         return decorator
 
     def allowed_file(filename):
-        ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'avif'}
+        ALLOWED_EXTENSIONS = app.config.get('ALLOWED_EXTENSIONS')
         return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
     # Sync admin users function

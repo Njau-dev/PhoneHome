@@ -4,29 +4,35 @@ Handles: signup, login, logout, password reset
 """
 import logging
 from datetime import timedelta, datetime, timezone
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Flask
 from flask_jwt_extended import (
     create_access_token,
     jwt_required,
     get_jwt
 )
 from werkzeug.security import generate_password_hash, check_password_hash
-
+from itsdangerous import URLSafeTimedSerializer
 from app.extensions import db
 from app.models import User, Admin, BlacklistToken, Notification
-from services.email_service import serializer, send_password_reset_email
+from app.services.email_service import EmailService
 import os
 import re
 
 logger = logging.getLogger(__name__)
+app = Flask(__name__)
 
 # Create blueprint
 auth_bp = Blueprint('auth', __name__)
+
+with app.app_context():
+    serializer = URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
 
 
 # ============================================================================
 # SIGNUP
 # ============================================================================
+
+
 @auth_bp.route('/signup', methods=['POST'])
 def signup():
     """
@@ -242,6 +248,8 @@ def forgot_password():
             # Generate reset token
             token = serializer.dumps(email, salt='password-reset')
             reset_url = f"{os.getenv('FRONTEND_URL')}/reset-password/{token}"
+            logger.info(f"Password reset link: {reset_url}")
+            logger.info(f"Email: {email}")
 
             # Save token to user
             user.reset_token = token
@@ -251,7 +259,8 @@ def forgot_password():
             db.session.commit()
 
             # Send reset email
-            email_sent = send_password_reset_email(email, reset_url)
+            email_sent = EmailService.send_password_reset(
+                EmailService, email, reset_url)
 
             if not email_sent:
                 logger.error(f"Failed to send password reset email to {email}")

@@ -5,7 +5,6 @@ Creates and configures the Flask application
 import os
 import logging
 from flask import Flask
-from flask_cors import CORS
 
 from app.config import get_config
 from app.extensions import db, migrate, jwt, api, cors
@@ -39,7 +38,7 @@ def create_app(config_name=None):
     initialize_extensions(app)
 
     # Setup JWT
-    setup_jwt_callbacks(app)
+    setup_jwt_callbacks(jwt)
 
     # Register error handlers
     register_error_handlers(app)
@@ -71,9 +70,13 @@ def register_routes(app):
 def register_blueprints(app):
     """Register all blueprints"""
     from app.api.auth.routes import auth_bp
+    from app.api.products.routes import products_bp
+    from app.api.cart.routes import cart_bp
 
     # Register auth blueprint
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(products_bp, url_prefix='/api/products')
+    app.register_blueprint(cart_bp, url_prefix='/api/cart')
 
     app.logger.info("Blueprints registered")
 
@@ -85,6 +88,11 @@ def initialize_extensions(app):
     jwt.init_app(app)
     api.init_app(app)
     cors.init_app(app)
+
+    # Configure Cloudinary
+    with app.app_context():
+        from app.services.cloudinary_service import CloudinaryService
+        CloudinaryService.configure()
 
     app.logger.info("Extensions initialized")
 

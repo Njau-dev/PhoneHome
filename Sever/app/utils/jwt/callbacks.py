@@ -7,7 +7,7 @@ from app.models import BlacklistToken
 def is_token_blacklisted(jwt_payload):
     """Check if token JTI is in blacklist"""
     jti = jwt_payload['jti']
-    return BlacklistToken.query.filter_by(jti=jti).first() is not None
+    return BlacklistToken.query.filter_by(token=jti).first() is not None
 
 
 def setup_jwt_callbacks(jwt):
