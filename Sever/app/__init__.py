@@ -21,7 +21,6 @@ def create_app(config_name=None):
     Returns:
         Configured Flask application
     """
-    # Create Flask app
     app = Flask(__name__)
 
     # Determine config
@@ -31,52 +30,51 @@ def create_app(config_name=None):
     # Load configuration
     app.config.from_object(get_config(config_name))
 
-    # Setup logging
+    # Register logger and error handlers
     setup_logging(app)
+    register_error_handlers(app)
 
-    # Initialize extensions
     initialize_extensions(app)
 
-    # Setup JWT
-    setup_jwt_callbacks(jwt)
+    register_blueprints(app)
 
-    # Register error handlers
-    register_error_handlers(app)
+    setup_jwt_callbacks(jwt)
 
     # Import and register models (so migrations can see them)
     with app.app_context():
-        from app import models  # noqa: F401
-
-    # Register routes (temporary - will be replaced with blueprints)
-    register_routes(app)
+        from app import models
 
     app.logger.info(f"App created with config: {config_name}")
 
     return app
 
 
-def register_routes(app):
-    """Register all routes"""
-    # Register blueprints
-    register_blueprints(app)
-
-    # Temporary: Register old routes (will remove after full migration)
-    from app.temp_routes import register_old_routes
-    register_old_routes(app)
-
-    app.logger.info("Routes registered")
-
-
 def register_blueprints(app):
     """Register all blueprints"""
     from app.api.auth.routes import auth_bp
     from app.api.products.routes import products_bp
+    from app.api.categories.routes import categories_bp
+    from app.api.brands.routes import brands_bp
     from app.api.cart.routes import cart_bp
+    from app.api.orders.routes import orders_bp
+    from app.api.payments.routes import payments_bp
+    from app.api.reviews.routes import reviews_bp
+    from app.api.profile.routes import profile_bp
+    from app.api.compare.routes import compare_bp
+    from app.api.wishlist.routes import wishlist_bp
 
     # Register auth blueprint
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(products_bp, url_prefix='/api/products')
+    app.register_blueprint(categories_bp, url_prefix='/api/categories')
+    app.register_blueprint(brands_bp, url_prefix='/api/brands')
     app.register_blueprint(cart_bp, url_prefix='/api/cart')
+    app.register_blueprint(orders_bp, url_prefix='/api/orders')
+    app.register_blueprint(payments_bp, url_prefix='/api/payments')
+    app.register_blueprint(reviews_bp, url_prefix='/api/reviews')
+    app.register_blueprint(profile_bp, url_prefix='/api/profile')
+    app.register_blueprint(compare_bp, url_prefix='/api/compare')
+    app.register_blueprint(wishlist_bp, url_prefix='/api/wishlist')
 
     app.logger.info("Blueprints registered")
 
@@ -92,6 +90,7 @@ def initialize_extensions(app):
     # Configure Cloudinary
     with app.app_context():
         from app.services.cloudinary_service import CloudinaryService
+
         CloudinaryService.configure()
 
     app.logger.info("Extensions initialized")
