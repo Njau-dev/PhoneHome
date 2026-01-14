@@ -58,7 +58,7 @@ class MpesaService:
             ('MPESA_CONSUMER_KEY', self.consumer_key),
             ('MPESA_CONSUMER_SECRET', self.consumer_secret),
             ('MPESA_BUSINESS_SHORTCODE', self.till_number),
-            ('MPESA_PASSKEY', self.passkey)
+            ('MPESA_PASSKEY', self.passkey),
         ]
 
         missing = [name for name, value in required_configs if not value]
@@ -151,7 +151,7 @@ class MpesaService:
 
         return phone
 
-    def initiate_payment(self, phone_number, amount, order_reference, callback_path="/api/payments/callback"):
+    def initiate_payment(self, phone_number, amount, order_reference, callback_path="/api/payments/ganji/inaflow"):
         """
         Initiate STK Push payment
 

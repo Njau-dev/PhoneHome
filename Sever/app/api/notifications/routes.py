@@ -15,11 +15,10 @@ logger = logging.getLogger(__name__)
 # Create blueprint
 notifications_bp = Blueprint('notifications', __name__)
 
+
 # ============================================================================
 # GET USER NOTIFICATIONS
 # ============================================================================
-
-
 @notifications_bp.route('/user', methods=['GET'])
 @jwt_required()
 def get_user_notifications():
@@ -50,7 +49,6 @@ def get_user_notifications():
 # ============================================================================
 # MARK NOTIFICATION AS READ
 # ============================================================================
-
 @notifications_bp.route('/user/<int:notification_id>/read', methods=['PUT'])
 @jwt_required()
 def mark_notification_as_read(notification_id):

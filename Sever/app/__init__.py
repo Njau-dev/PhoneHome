@@ -62,6 +62,8 @@ def register_blueprints(app):
     from app.api.profile.routes import profile_bp
     from app.api.compare.routes import compare_bp
     from app.api.wishlist.routes import wishlist_bp
+    from app.api.notifications.routes import notifications_bp
+    from app.api.admin.routes import admin_bp
 
     # Register auth blueprint
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -75,6 +77,8 @@ def register_blueprints(app):
     app.register_blueprint(profile_bp, url_prefix='/api/profile')
     app.register_blueprint(compare_bp, url_prefix='/api/compare')
     app.register_blueprint(wishlist_bp, url_prefix='/api/wishlist')
+    app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
     app.logger.info("Blueprints registered")
 

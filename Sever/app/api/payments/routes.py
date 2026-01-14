@@ -134,7 +134,7 @@ def initiate_mpesa_payment():
 # ============================================================================
 # M-PESA CALLBACK
 # ============================================================================
-@payments_bp.route('/mpesa/callback', methods=['POST'])
+@payments_bp.route('/ganji/inaflow', methods=['POST'])
 def mpesa_callback():
     """
     Handle M-Pesa STK Push callback
