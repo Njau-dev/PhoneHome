@@ -29,3 +29,10 @@ instance/
 
 # Logs
 *.log
+
+# testing
+.coverage
+htmlcov/
+.tox/
+.coveragerc
+pytest.ini
