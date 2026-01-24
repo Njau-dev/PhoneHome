@@ -15,6 +15,7 @@ from itsdangerous import URLSafeTimedSerializer
 from app.extensions import db
 from app.models import User, Admin, BlacklistToken, Notification
 from app.services.email_service import EmailService
+from app.utils.response_formatter import format_response
 import os
 import re
 
@@ -62,11 +63,11 @@ def signup():
         password = data.get('password')
 
         if not all([email, phone_number, password, username]):
-            return jsonify({"error": "Missing required fields"}), 400
+            return jsonify(format_response(False, None, "Missing required fields")), 400
 
         # Check if user already exists
         if User.query.filter_by(email=email).first():
-            return jsonify({"error": "Email already exists"}), 409
+            return jsonify(format_response(False, None, "Email already exists")), 409
 
         # Create new user
         hashed_password = generate_password_hash(password)
@@ -97,20 +98,23 @@ def signup():
 
         logger.info(f"New user registered: {email}")
 
-        return jsonify({
-            "message": "Sign-Up Successful!",
-            "token": token,
-            "user": {
-                "id": new_user.id,
-                "username": new_user.username,
-                "email": new_user.email
-            }
-        }), 201
+        return jsonify(format_response(
+            True,
+            {
+                "token": token,
+                "user": {
+                    "id": new_user.id,
+                    "username": new_user.username,
+                    "email": new_user.email
+                }
+            },
+            "Sign-Up Successful!"
+        )), 201
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error during signup: {str(e)}")
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify(format_response(False, None, "Internal Server Error")), 500
 
 
 # ============================================================================
@@ -138,7 +142,7 @@ def login():
         password = data.get('password')
 
         if not email or not password:
-            return jsonify({"error": "Email and password are required"}), 400
+            return jsonify(format_response(False, None, "Email and password are required")), 400
 
         # Find user
         user = User.query.filter_by(email=email).first()
@@ -152,22 +156,25 @@ def login():
 
             logger.info(f"User logged in: {email}")
 
-            return jsonify({
-                "message": "Login successful",
-                "token": token,
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "role": user.role or "user"
-                }
-            }), 200
+            return jsonify(format_response(
+                True,
+                {
+                    "token": token,
+                    "user": {
+                        "id": user.id,
+                        "username": user.username,
+                        "email": user.email,
+                        "role": user.role or "user"
+                    }
+                },
+                "Login successful"
+            )), 200
         else:
-            return jsonify({"error": "Invalid Email or Password!"}), 400
+            return jsonify(format_response(False, None, "Invalid Email or Password!")), 400
 
     except Exception as e:
         logger.error(f"Error during login: {str(e)}")
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify(format_response(False, None, "Internal Server Error")), 500
 
 
 # ============================================================================
@@ -191,7 +198,7 @@ def logout():
 
         # Check if the token already exists in the blacklist
         if BlacklistToken.query.filter_by(token=jti).first():
-            return jsonify({"error": "Token already blacklisted"}), 400
+            return jsonify(format_response(False, None, "Token already blacklisted")), 400
 
         # Add token to blacklist
         blacklisted_token = BlacklistToken(token=jti)
@@ -200,12 +207,12 @@ def logout():
 
         logger.info("User logged out successfully")
 
-        return jsonify({"message": "Logout Successful!"}), 200
+        return jsonify(format_response(True, None, "Logout Successful!")), 200
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error during logout: {str(e)}")
-        return jsonify({"error": "Internal Server Error"}), 500
+        return jsonify(format_response(False, None, "Internal Server Error")), 500
 
 
 # ============================================================================
@@ -230,19 +237,17 @@ def forgot_password():
         email = request.json.get('email')
 
         if not email:
-            return jsonify({"error": "Email is required"}), 400
+            return jsonify(format_response(False, None, "Email is required")), 400
 
         # Validate email format
         if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-            return jsonify({"error": "Invalid email format"}), 400
+            return jsonify(format_response(False, None, "Invalid email format")), 400
 
         user = User.query.filter_by(email=email).first()
 
         # Always return success to prevent email enumeration
         if not user:
-            return jsonify({
-                "message": "If that email exists, we've sent a reset link"
-            }), 200
+            return jsonify(format_response(True, None, "If that email exists, we've sent a reset link")), 200
 
         try:
             # Generate reset token
@@ -264,20 +269,20 @@ def forgot_password():
 
             if not email_sent:
                 logger.error(f"Failed to send password reset email to {email}")
-                return jsonify({"error": "Failed to send reset email"}), 500
+                return jsonify(format_response(False, None, "Failed to send reset email")), 500
 
             logger.info(f"Password reset email sent to: {email}")
 
-            return jsonify({"message": "Password reset email sent"}), 200
+            return jsonify(format_response(True, None, "Password reset email sent")), 200
 
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error in password reset process: {str(e)}")
-            return jsonify({"error": "An error occurred processing your request"}), 500
+            return jsonify(format_response(False, None, "An error occurred processing your request")), 500
 
     except Exception as e:
         logger.error(f"Unexpected error in forgot password: {str(e)}")
-        return jsonify({"error": "An unexpected error occurred"}), 500
+        return jsonify(format_response(False, None, "An unexpected error occurred")), 500
 
 
 # ============================================================================
@@ -300,13 +305,13 @@ def reset_password(token):
     """
     try:
         if not request.json or 'password' not in request.json:
-            return jsonify({"error": "New password is required"}), 400
+            return jsonify(format_response(False, None, "New password is required")), 400
 
         new_password = request.json.get('password')
 
         # Validate password length
         if len(new_password) < 8:
-            return jsonify({"error": "Password must be at least 8 characters long"}), 400
+            return jsonify(format_response(False, None, "Password must be at least 8 characters long")), 400
 
         try:
             # Verify token
@@ -316,16 +321,16 @@ def reset_password(token):
                 max_age=int(os.getenv("PASSWORD_RESET_TIMEOUT", 3600))
             )
         except Exception:
-            return jsonify({"error": "Invalid or expired token"}), 400
+            return jsonify(format_response(False, None, "Invalid or expired token")), 400
 
         # Find user with matching token
         user = User.query.filter_by(email=email, reset_token=token).first()
         if not user:
-            return jsonify({"error": "Invalid reset request"}), 400
+            return jsonify(format_response(False, None, "Invalid reset request")), 400
 
         # Check token expiration
         if user.reset_token_expiration < datetime.now(timezone.utc):
-            return jsonify({"error": "Reset token has expired"}), 400
+            return jsonify(format_response(False, None, "Reset token has expired")), 400
 
         try:
             # Update password
@@ -344,16 +349,16 @@ def reset_password(token):
 
             logger.info(f"Password reset successful for: {email}")
 
-            return jsonify({"message": "Password reset successful"}), 200
+            return jsonify(format_response(True, None, "Password reset successful")), 200
 
         except Exception as e:
             db.session.rollback()
             logger.error(f"Database error during password reset: {str(e)}")
-            return jsonify({"error": "Error updating password"}), 500
+            return jsonify(format_response(False, None, "Error updating password")), 500
 
     except Exception as e:
         logger.error(f"Unexpected error in password reset: {str(e)}")
-        return jsonify({"error": "An unexpected error occurred"}), 500
+        return jsonify(format_response(False, None, "An unexpected error occurred")), 500
 
 
 # ============================================================================
@@ -382,7 +387,7 @@ def admin_login():
         password = data.get('password')
 
         if not email or not password:
-            return jsonify({"error": "Email and password are required"}), 400
+            return jsonify(format_response(False, None, "Email and password are required")), 400
 
         admin = Admin.query.filter_by(email=email).first()
 
@@ -395,19 +400,22 @@ def admin_login():
 
             logger.info(f"Admin logged in: {email}")
 
-            return jsonify({
-                "message": "Login successful",
-                "access_token": access_token,
-                "user": {
-                    "id": admin.id,
-                    "name": admin.username,
-                    "email": admin.email,
-                    "role": "admin"
-                }
-            }), 200
+            return jsonify(format_response(
+                True,
+                {
+                    "access_token": access_token,
+                    "user": {
+                        "id": admin.id,
+                        "name": admin.username,
+                        "email": admin.email,
+                        "role": "admin"
+                    }
+                },
+                "Login successful"
+            )), 200
         else:
-            return jsonify({"error": "Invalid credentials!"}), 401
+            return jsonify(format_response(False, None, "Invalid credentials!")), 401
 
     except Exception as e:
         logger.error(f"Admin login error: {str(e)}")
-        return jsonify({"error": "An error occurred during login"}), 500
+        return jsonify(format_response(False, None, "An error occurred during login")), 500

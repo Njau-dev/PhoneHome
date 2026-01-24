@@ -8,6 +8,7 @@ from flask_jwt_extended import jwt_required
 
 from app.extensions import db
 from app.utils.decorators import admin_required
+from app.utils.response_formatter import format_response
 from app.models import Category, Product
 
 logger = logging.getLogger(__name__)
@@ -33,11 +34,11 @@ def get_all_categories():
         categories_data = [{"id": cat.id, "name": cat.name}
                            for cat in categories]
 
-        return jsonify({"categories": categories_data}), 200
+        return jsonify(format_response(True, {"categories": categories_data}, "Categories retrieved successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching categories: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching categories"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching categories")), 500
 
 
 # ===========================================================================
@@ -60,14 +61,14 @@ def get_category_by_id(category_id):
         category = Category.query.get_or_404(category_id)
 
         if not category:
-            return jsonify({"error": "Category not found"}), 404
+            return jsonify(format_response(False, None, "Category not found")), 404
 
         category_data = {"id": category.id, "name": category.name}
-        return jsonify({"category": category_data}), 200
+        return jsonify(format_response(True, {"category": category_data}, "Category retrieved successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching category: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching category"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching category")), 500
 
 
 # ============================================================================
@@ -97,18 +98,18 @@ def create_category():
         name = data.get('name')
 
         if not name:
-            return jsonify({"error": "Category name is required"}), 400
+            return jsonify(format_response(False, None, "Category name is required")), 400
 
         new_category = Category(name=name)
         db.session.add(new_category)
         db.session.commit()
 
         category_data = {"id": new_category.id, "name": new_category.name}
-        return jsonify({"message": "Category created successfully", "data": category_data}), 201
+        return jsonify(format_response(True, {"message": "Category created successfully", "data": category_data}, "Category created successfully")), 201
 
     except Exception as e:
         logger.error(f"Error creating category: {str(e)}")
-        return jsonify({"error": "An error occurred while creating category"}), 500
+        return jsonify(format_response(False, None, "An error occurred while creating category")), 500
 
 
 # ===========================================================================
@@ -138,23 +139,23 @@ def update_category(category_id):
         category = db.session.get(Category, category_id)
 
         if not category:
-            return jsonify({"error": "Category not found"}), 404
+            return jsonify(format_response(False, None, "Category not found")), 404
 
         data = request.get_json()
         name = data.get('name')
 
         if not name:
-            return jsonify({"error": "Category name is required"}), 400
+            return jsonify(format_response(False, None, "Category name is required")), 400
 
         category.name = name
         db.session.commit()
 
         category_data = {"id": category.id, "name": category.name}
-        return jsonify({"message": "Category updated successfully", "data": category_data}), 200
+        return jsonify(format_response(True, {"message": "Category updated successfully", "data": category_data}, "Category updated successfully")), 200
 
     except Exception as e:
         logger.error(f"Error updating category: {str(e)}")
-        return jsonify({"error": "An error occurred while updating category"}), 500
+        return jsonify(format_response(False, None, "An error occurred while updating category")), 500
 
 
 # ============================================================================
@@ -178,19 +179,19 @@ def delete_category(category_id):
         category = db.session.get(Category, category_id)
 
         if not category:
-            return jsonify({"error": "Category not found"}), 404
+            return jsonify(format_response(False, None, "Category not found")), 404
 
         # Check if any products are associated with this category
         associated_products = Product.query.filter_by(
             category_id=category_id).first()
         if associated_products:
-            return jsonify({"error": "Cannot delete category with associated products"}), 400
+            return jsonify(format_response(False, None, "Cannot delete category with associated products")), 400
 
         db.session.delete(category)
         db.session.commit()
 
-        return jsonify({"message": "Category deleted successfully"}), 200
+        return jsonify(format_response(True, {"message": "Category deleted successfully"}, "Category deleted successfully")), 200
 
     except Exception as e:
         logger.error(f"Error deleting category: {str(e)}")
-        return jsonify({"error": "An error occurred while deleting category"}), 500
+        return jsonify(format_response(False, None, "An error occurred while deleting category")), 500

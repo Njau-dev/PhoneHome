@@ -9,6 +9,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db
 from app.models import Review, Product
 from app.services.notification_service import create_notification
+from app.utils.response_formatter import format_response
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ def get_product_reviews(product_id):
         # Check if product exists
         product = Product.query.get(product_id)
         if not product:
-            return jsonify({"error": "Product not found"}), 404
+            return jsonify(format_response(False, None, "Product not found")), 404
 
         # Get reviews
         reviews = Review.query.filter_by(product_id=product_id).order_by(
@@ -44,7 +45,7 @@ def get_product_reviews(product_id):
         ).all()
 
         if not reviews:
-            return jsonify({"message": "No reviews found for this product", "reviews": []}), 200
+            return jsonify(format_response(True, {"reviews": []}, "No reviews found for this product")), 200
 
         # Serialize reviews
         review_list = []
@@ -57,11 +58,11 @@ def get_product_reviews(product_id):
                 "timestamp": review.created_at.isoformat()
             })
 
-        return jsonify({"reviews": review_list}), 200
+        return jsonify(format_response(True, {"reviews": review_list}, "Reviews fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching reviews: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching reviews"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching reviews")), 500
 
 
 # ============================================================================
@@ -97,18 +98,18 @@ def add_review(product_id):
         # Validate product exists
         product = Product.query.get(product_id)
         if not product:
-            return jsonify({"error": "Product not found"}), 404
+            return jsonify(format_response(False, None, "Product not found")), 404
 
         # Validate required fields
         if not data or 'rating' not in data:
-            return jsonify({"error": "Rating is required"}), 400
+            return jsonify(format_response(False, None, "Rating is required")), 400
 
         rating = data.get('rating')
         comment = data.get('comment', '')
 
         # Validate rating
         if not isinstance(rating, int) or rating < 1 or rating > 5:
-            return jsonify({"error": "Rating must be between 1 and 5"}), 400
+            return jsonify(format_response(False, None, "Rating must be between 1 and 5")), 400
 
         # Check if user already reviewed this product
         existing_review = Review.query.filter_by(
@@ -117,7 +118,7 @@ def add_review(product_id):
         ).first()
 
         if existing_review:
-            return jsonify({"error": "You have already reviewed this product"}), 400
+            return jsonify(format_response(False, None, "You have already reviewed this product")), 400
 
         # Create review
         new_review = Review(
@@ -138,12 +139,12 @@ def add_review(product_id):
 
         logger.info(f"User {current_user_id} reviewed product {product_id}")
 
-        return jsonify({"message": "Review added successfully!"}), 201
+        return jsonify(format_response(True, None, "Review added successfully!")), 201
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error adding review: {str(e)}")
-        return jsonify({"error": "An error occurred while adding the review"}), 500
+        return jsonify(format_response(False, None, "An error occurred while adding the review")), 500
 
 
 # ============================================================================
@@ -179,21 +180,21 @@ def update_review(review_id):
         # Find review
         review = Review.query.get(review_id)
         if not review:
-            return jsonify({"error": "Review not found"}), 404
+            return jsonify(format_response(False, None, "Review not found")), 404
 
         # Verify ownership
         if str(review.user_id) != current_user_id:
-            return jsonify({"error": "You can only update your own reviews"}), 403
+            return jsonify(format_response(False, None, "You can only update your own reviews")), 403
 
         data = request.get_json()
         if not data:
-            return jsonify({"error": "Request body is required"}), 400
+            return jsonify(format_response(False, None, "Request body is required")), 400
 
         # Update rating if provided
         if 'rating' in data:
             rating = data['rating']
             if not isinstance(rating, int) or rating < 1 or rating > 5:
-                return jsonify({"error": "Rating must be between 1 and 5"}), 400
+                return jsonify(format_response(False, None, "Rating must be between 1 and 5")), 400
             review.rating = rating
 
         # Update comment if provided
@@ -204,12 +205,12 @@ def update_review(review_id):
 
         logger.info(f"User {current_user_id} updated review {review_id}")
 
-        return jsonify({"message": "Review updated successfully!"}), 200
+        return jsonify(format_response(True, None, "Review updated successfully!")), 200
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error updating review: {str(e)}")
-        return jsonify({"error": "An error occurred while updating the review"}), 500
+        return jsonify(format_response(False, None, "An error occurred while updating the review")), 500
 
 
 # ============================================================================
@@ -238,23 +239,23 @@ def delete_review(review_id):
         # Find review
         review = Review.query.get(review_id)
         if not review:
-            return jsonify({"error": "Review not found"}), 404
+            return jsonify(format_response(False, None, "Review not found")), 404
 
         # Verify ownership
         if str(review.user_id) != current_user_id:
-            return jsonify({"error": "You can only delete your own reviews"}), 403
+            return jsonify(format_response(False, None, "You can only delete your own reviews")), 403
 
         db.session.delete(review)
         db.session.commit()
 
         logger.info(f"User {current_user_id} deleted review {review_id}")
 
-        return jsonify({"message": "Review deleted!"}), 200
+        return jsonify(format_response(True, None, "Review deleted!")), 200
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting review: {str(e)}")
-        return jsonify({"error": "An error occurred while deleting the review"}), 500
+        return jsonify(format_response(False, None, "An error occurred while deleting the review")), 500
 
 
 # ============================================================================
@@ -292,8 +293,8 @@ def get_my_reviews():
                 "timestamp": review.created_at.isoformat()
             })
 
-        return jsonify({"reviews": review_list}), 200
+        return jsonify(format_response(True, {"reviews": review_list}, "Reviews fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching user reviews: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching your reviews"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching your reviews")), 500

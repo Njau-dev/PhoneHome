@@ -9,6 +9,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db
 from app.models import User, Notification, AuditLog
 from app.utils.decorators import admin_required
+from app.utils.response_formatter import format_response
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +40,11 @@ def get_all_users():
             "is_admin": user.is_admin
         } for user in users]
 
-        return jsonify({"users": users_data}), 200
+        return jsonify(format_response(True, {"users": users_data}, "Users fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching users: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching users"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching users")), 500
 
 
 # ===========================================================================
@@ -67,7 +68,7 @@ def promote_user_to_admin(user_id):
     try:
         user = User.query.get(user_id)
         if not user:
-            return jsonify({"error": "User not found"}), 404
+            return jsonify(format_response(False, None, "User not found")), 404
 
         user.is_admin = True
         db.session.commit()
@@ -76,11 +77,11 @@ def promote_user_to_admin(user_id):
         current_admin_id = get_jwt_identity()
         log_admin_action(current_admin_id, f"Promoted user {user_id} to admin")
 
-        return jsonify({"message": f"User {user_id} promoted to admin"}), 200
+        return jsonify(format_response(True, None, f"User {user_id} promoted to admin")), 200
 
     except Exception as e:
         logger.error(f"Error promoting user to admin: {str(e)}")
-        return jsonify({"error": "An error occurred while promoting user"}), 500
+        return jsonify(format_response(False, None, "An error occurred while promoting user")), 500
 
 
 # ===========================================================================
@@ -104,7 +105,7 @@ def delete_user(user_id):
     try:
         user = User.query.get(user_id)
         if not user:
-            return jsonify({"error": "User not found"}), 404
+            return jsonify(format_response(False, None, "User not found")), 404
 
         db.session.delete(user)
         db.session.commit()
@@ -113,11 +114,11 @@ def delete_user(user_id):
         current_admin_id = get_jwt_identity()
         log_admin_action(current_admin_id, f"Deleted user {user_id}")
 
-        return jsonify({"message": f"User {user_id} deleted"}), 200
+        return jsonify(format_response(True, None, f"User {user_id} deleted")), 200
 
     except Exception as e:
         logger.error(f"Error deleting user: {str(e)}")
-        return jsonify({"error": "An error occurred while deleting user"}), 500
+        return jsonify(format_response(False, None, "An error occurred while deleting user")), 500
 
 
 # ============================================================================
@@ -145,17 +146,17 @@ def send_notification():
         message = data.get('message')
 
         if not user_id or not message:
-            return jsonify({"error": "user_id and message are required"}), 400
+            return jsonify(format_response(False, None, "user_id and message are required")), 400
 
         notification = Notification(user_id=user_id, message=message)
         db.session.add(notification)
         db.session.commit()
 
-        return jsonify({"message": "Notification sent"}), 201
+        return jsonify(format_response(True, None, "Notification sent")), 201
 
     except Exception as e:
         logger.error(f"Error sending notification: {str(e)}")
-        return jsonify({"error": "An error occurred while sending notification"}), 500
+        return jsonify(format_response(False, None, "An error occurred while sending notification")), 500
 
 
 # ============================================================================
@@ -181,11 +182,11 @@ def get_audit_logs():
             "timestamp": log.created_at.isoformat()
         } for log in logs]
 
-        return jsonify({"audit_logs": logs_data}), 200
+        return jsonify(format_response(True, {"audit_logs": logs_data}, "Audit logs fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching audit logs: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching audit logs"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching audit logs")), 500
 
 
 # ============================================================================

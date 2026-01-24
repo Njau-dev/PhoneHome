@@ -10,6 +10,7 @@ from sqlalchemy import func
 from app.extensions import db
 from app.models import User, Order, Payment, WishList, Review
 from app.services import OrderService
+from app.utils.response_formatter import format_response
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ def get_profile():
         user = db.session.get(User, current_user_id)
 
         if not user:
-            return jsonify({"error": "User not found"}), 404
+            return jsonify(format_response(False, None, "User not found")), 404
 
         user_data = {
             "username": user.username,
@@ -48,11 +49,11 @@ def get_profile():
             "created_at": user.created_at.isoformat()
         }
 
-        return jsonify(user_data), 200
+        return jsonify(format_response(True, {"profile": user_data}, "Profile fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching profile: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching profile"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching profile")), 500
 
 
 # ============================================================================
@@ -84,7 +85,7 @@ def update_profile():
         user = db.session.get(User, current_user_id)
 
         if not user:
-            return jsonify({"error": "User not found"}), 404
+            return jsonify(format_response(False, None, "User not found")), 404
 
         data = request.get_json()
 
@@ -95,12 +96,12 @@ def update_profile():
 
         db.session.commit()
 
-        return jsonify({"message": "Profile updated successfully"}), 200
+        return jsonify(format_response(True, None, "Profile updated successfully")), 200
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error updating profile: {str(e)}")
-        return jsonify({"error": "An error occurred while updating profile"}), 500
+        return jsonify(format_response(False, None, "An error occurred while updating profile")), 500
 
 
 # ============================================================================
@@ -150,16 +151,17 @@ def get_profile_stats():
             "review_count": review_count
         }
 
-        return jsonify(stats), 200
+        return jsonify(format_response(True, {"stats": stats}, "Profile stats fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching profile stats: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching stats"}), 500
-
+        return jsonify(format_response(False, None, "An error occurred while fetching stats")), 500
 
 # ============================================================================
 # GET PROFILE ORDERS
 # ============================================================================
+
+
 @profile_bp.route('/orders', methods=['GET'])
 @jwt_required()
 def get_profile_orders():
@@ -179,16 +181,17 @@ def get_profile_orders():
 
         recent_orders = orders[:5]
 
-        return jsonify(recent_orders), 200
+        return jsonify(format_response(True, {"orders": recent_orders}, "Profile orders fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching profile orders: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching orders"}), 500
-
+        return jsonify(format_response(False, None, "An error occurred while fetching orders")), 500
 
 # ============================================================================
 # GET PROFILE WISHLIST
 # ============================================================================
+
+
 @profile_bp.route('/wishlist', methods=['GET'])
 @jwt_required()
 def get_profile_wishlist():
@@ -207,7 +210,7 @@ def get_profile_wishlist():
         wishlist = WishList.query.filter_by(user_id=current_user_id).first()
 
         if not wishlist:
-            return jsonify({"message": "Wishlist is empty!", "wishlist": []}), 200
+            return jsonify(format_response(True, {"wishlist": []}, "Wishlist is empty!")), 200
 
         wishlist_items = []
 
@@ -221,8 +224,8 @@ def get_profile_wishlist():
             }
             wishlist_items.append(item_data)
 
-        return jsonify({"wishlist": wishlist_items}), 200
+        return jsonify(format_response(True, {"wishlist": wishlist_items}, "Profile wishlist fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching profile wishlist: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching wishlist"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching wishlist")), 500

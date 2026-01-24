@@ -9,6 +9,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.extensions import db
 from app.models import Notification
+from app.utils.response_formatter import format_response
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +40,11 @@ def get_user_notifications():
             "created_at": notif.created_at.isoformat()
         } for notif in notifications]
 
-        return jsonify({"notifications": notifications_data}), 200
+        return jsonify(format_response(True, {"notifications": notifications_data}, "Notifications fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching notifications: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching notifications"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching notifications")), 500
 
 
 # ============================================================================
@@ -66,13 +67,13 @@ def mark_notification_as_read(notification_id):
             id=notification_id, user_id=user_id).first()
 
         if not notification:
-            return jsonify({"error": "Notification not found"}), 404
+            return jsonify(format_response(False, None, "Notification not found")), 404
 
         notification.is_read = True
         db.session.commit()
 
-        return jsonify({"message": "Notification marked as read"}), 200
+        return jsonify(format_response(True, {"message": "Notification marked as read"}, "Notification marked as read")), 200
 
     except Exception as e:
         logger.error(f"Error marking notification as read: {str(e)}")
-        return jsonify({"error": "An error occurred while marking notification as read"}), 500
+        return jsonify(format_response(False, None, "An error occurred while marking notification as read")), 500

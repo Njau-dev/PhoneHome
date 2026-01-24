@@ -11,6 +11,7 @@ from app.services.notification_service import create_notification
 from app.models import Payment, Order
 from app.extensions import db
 from app.models import Cart
+from app.utils.response_formatter import format_response
 
 logger = logging.getLogger(__name__)
 
@@ -59,19 +60,19 @@ def initiate_mpesa_payment():
         required_fields = ['phone_number', 'total_amount', 'address']
         for field in required_fields:
             if field not in data:
-                return jsonify({"error": f"{field} is required"}), 400
+                return jsonify(format_response(False, None, f"{field} is required")), 400
 
         cart = Cart.query.filter_by(user_id=current_user_id).first()
         if not cart or not cart.items:
             logger.warning(f"Empty cart for user {current_user_id}")
-            return jsonify({"error": "Cart is empty"}), 400
+            return jsonify(format_response(False, None, "Cart is empty")), 400
 
         phone_number = data['phone_number']
         amount = float(data['total_amount'])
 
         # Validate amount
         if amount <= 0:
-            return jsonify({"error": "Amount must be greater than 0"}), 400
+            return jsonify(format_response(False, None, "Amount must be greater than 0")), 400
 
         # Prepare order data
         order_data = {
@@ -84,7 +85,7 @@ def initiate_mpesa_payment():
         order, error = OrderService.create_order(current_user_id, order_data)
 
         if error:
-            return jsonify({"error": error}), 400
+            return jsonify(format_response(False, None, error)), 400
 
         order_reference = order.order_reference
         logger.info(f"Order created: {order_reference}")
@@ -102,7 +103,7 @@ def initiate_mpesa_payment():
             # Update order status to failed
             order.status = 'Payment Failed'
             db.session.commit()
-            return jsonify({"error": result["error"]}), 400
+            return jsonify(format_response(False, None, result["error"])), 400
 
         # Update payment record with STK push details
         payment = order.payment
@@ -119,16 +120,14 @@ def initiate_mpesa_payment():
 
         logger.info(f"STK Push initiated for order {order_reference}")
 
-        return jsonify({
-            "success": True,
-            "message": "Order created successfully. Please check your phone for M-Pesa prompt.",
+        return jsonify(format_response(True, {
             "order_reference": order_reference,
             "checkout_request_id": result["checkout_request_id"]
-        }), 201
+        }, "Order created successfully. Please check your phone for M-Pesa prompt.")), 201
 
     except Exception as e:
         logger.error(f"M-Pesa payment initiation failed: {str(e)}")
-        return jsonify({"error": "Payment initiation failed"}), 500
+        return jsonify(format_response(False, None, "Payment initiation failed")), 500
 
 
 # ============================================================================
@@ -159,7 +158,7 @@ def mpesa_callback():
 
         if not checkout_request_id:
             logger.error("No CheckoutRequestID in callback")
-            return jsonify({"ResultCode": 1, "ResultDesc": "Invalid callback data"}), 200
+            return jsonify(format_response(False, {"ResultCode": 1, "ResultDesc": "Invalid callback data"}, "Invalid callback data")), 400
 
         # Find payment record
         payment = Payment.query.filter_by(
@@ -167,7 +166,7 @@ def mpesa_callback():
         if not payment:
             logger.error(
                 f"Payment not found for CheckoutRequestID: {checkout_request_id}")
-            return jsonify({"ResultCode": 1, "ResultDesc": "Payment record not found"}), 200
+            return jsonify(format_response(False, {"ResultCode": 1, "ResultDesc": "Payment record not found"}, "Payment record not found")), 404
 
         # Prepare payment data for service
         payment_data = {
@@ -203,12 +202,12 @@ def mpesa_callback():
         if not success:
             logger.error(f"Failed to update payment: {message}")
 
-        # Return success response to Safaricom
-        return jsonify({"ResultCode": 0, "ResultDesc": "Callback processed successfully"}), 200
+        # Return success response to callback
+        return jsonify(format_response(True, {"message": "Callback processed successfully"}, "Callback processed successfully")), 200
 
     except Exception as e:
         logger.error(f"M-Pesa callback processing failed: {str(e)}")
-        return jsonify({"ResultCode": 1, "ResultDesc": "Callback processing failed"}), 200
+        return jsonify(format_response(False, None, "Callback processing failed")), 500
 
 
 # ============================================================================
@@ -243,7 +242,7 @@ def retry_mpesa_payment():
 
         # Validate required fields
         if not data or 'phone_number' not in data or 'order_reference' not in data:
-            return jsonify({"error": "phone_number and order_reference are required"}), 400
+            return jsonify(format_response(False, None, "phone_number and order_reference are required")), 400
 
         order_reference = data['order_reference']
         phone_number = data['phone_number']
@@ -252,24 +251,24 @@ def retry_mpesa_payment():
         order = Order.query.filter_by(order_reference=order_reference).first()
         if not order:
             logger.warning(f"Order {order_reference} not found for retry")
-            return jsonify({"error": "Order not found"}), 404
+            return jsonify(format_response(False, None, "Order not found")), 404
 
         if str(order.user_id) != current_user_id:
             logger.warning(
                 f"Unauthorized retry attempt for order {order_reference}")
-            return jsonify({"error": "Unauthorized access to order"}), 403
+            return jsonify(format_response(False, None, "Unauthorized access to order")), 403
 
         # Check if order can be retried
         if order.status not in ['Pending Payment', 'Payment Failed']:
             logger.warning(
                 f"Cannot retry payment for order {order_reference} with status {order.status}")
-            return jsonify({"error": "Order payment cannot be retried"}), 400
+            return jsonify(format_response(False, None, "Order payment cannot be retried")), 400
 
         payment = order.payment
         if not payment:
             logger.error(
                 f"No payment record found for order {order_reference}")
-            return jsonify({"error": "No payment record found"}), 404
+            return jsonify(format_response(False, None, "No payment record found")), 404
 
         amount = payment.amount
 
@@ -283,7 +282,7 @@ def retry_mpesa_payment():
 
         if not result["success"]:
             logger.error(f"STK Push retry failed: {result.get('error')}")
-            return jsonify({"error": result["error"]}), 400
+            return jsonify(format_response(False, None, result["error"])), 400
 
         # Update payment record with new STK push details
         payment.phone_number = phone_number
@@ -304,16 +303,14 @@ def retry_mpesa_payment():
 
         logger.info(f"Payment retry initiated for order {order_reference}")
 
-        return jsonify({
-            "success": True,
-            "message": "Payment retry initiated successfully. Please check your phone for M-Pesa prompt.",
+        return jsonify(format_response(True, {
             "order_reference": order_reference,
             "checkout_request_id": result["checkout_request_id"]
-        }), 200
+        }, "Payment retry initiated successfully. Please check your phone for M-Pesa prompt.")), 200
 
     except Exception as e:
         logger.error(f"M-Pesa payment retry failed: {str(e)}")
-        return jsonify({"error": "Payment retry failed"}), 500
+        return jsonify(format_response(False, None, "Payment retry failed")), 500
 
 
 # ============================================================================
@@ -342,16 +339,16 @@ def get_payment_status(order_reference):
         # Find order and verify ownership
         order = Order.query.filter_by(order_reference=order_reference).first()
         if not order:
-            return jsonify({"error": "Order not found"}), 404
+            return jsonify(format_response(False, None, "Order not found")), 404
 
         if str(order.user_id) != current_user_id:
-            return jsonify({"error": "Unauthorized access"}), 403
+            return jsonify(format_response(False, None, "Unauthorized access")), 403
 
         payment = order.payment
         if not payment:
-            return jsonify({"error": "No payment record found"}), 404
+            return jsonify(format_response(False, None, "No payment record found")), 404
 
-        return jsonify({
+        payment_data = {
             "order_reference": order_reference,
             "payment_method": payment.payment_method,
             "payment_status": payment.status,
@@ -362,8 +359,9 @@ def get_payment_status(order_reference):
             "failure_reason": payment.failure_reason,
             "created_at": payment.created_at.isoformat(),
             "updated_at": payment.updated_at.isoformat()
-        }), 200
+        }
+        return jsonify(format_response(True, payment_data, "Payment status fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching payment status: {str(e)}")
-        return jsonify({"error": "Failed to fetch payment status"}), 500
+        return jsonify(format_response(False, None, "Failed to fetch payment status")), 500

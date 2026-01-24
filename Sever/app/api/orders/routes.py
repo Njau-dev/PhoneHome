@@ -12,6 +12,7 @@ from xhtml2pdf import pisa
 from app.utils.decorators import admin_required
 from app.services import OrderService
 from app.models import Order
+from app.utils.response_formatter import format_response
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +41,11 @@ def get_user_orders():
 
         orders = OrderService.get_user_orders(current_user_id)
 
-        return jsonify({"orders": orders}), 200
+        return jsonify(format_response(True, {"orders": orders}, "Orders fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching user orders: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching orders"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching orders")), 500
 
 
 # ============================================================================
@@ -84,38 +85,35 @@ def create_order():
 
         # Validate required fields
         if not data:
-            return jsonify({"error": "Request body is required"}), 400
+            return jsonify(format_response(False, None, "Request body is required")), 400
 
         if 'address' not in data:
-            return jsonify({"error": "Address is required"}), 400
+            return jsonify(format_response(False, None, "Address is required")), 400
 
         if 'payment_method' not in data:
-            return jsonify({"error": "Payment method is required"}), 400
+            return jsonify(format_response(False, None, "Payment method is required")), 400
 
         if 'total_amount' not in data:
-            return jsonify({"error": "Total amount is required"}), 400
+            return jsonify(format_response(False, None, "Total amount is required")), 400
 
         # Validate payment method
         valid_methods = ['COD', 'MPESA']
         if data['payment_method'] not in valid_methods:
-            return jsonify({"error": f"Payment method must be one of: {', '.join(valid_methods)}"}), 400
+            return jsonify(format_response(False, None, f"Payment method must be one of: {', '.join(valid_methods)}")), 400
 
         # Create order using service
         order, error = OrderService.create_order(current_user_id, data)
 
         if error:
-            return jsonify({"error": error}), 400
+            return jsonify(format_response(False, None, error)), 400
 
         logger.info(
             f"Order created: {order.order_reference} for user {current_user_id}")
-        return jsonify({
-            "message": "Order placed successfully",
-            "order_reference": order.order_reference
-        }), 201
+        return jsonify(format_response(True, {"order_reference": order.order_reference}, "Order placed successfully")), 201
 
     except Exception as e:
         logger.error(f"Error creating order: {str(e)}")
-        return jsonify({"error": "Failed to create order"}), 500
+        return jsonify(format_response(False, None, "Failed to create order")), 500
 
 
 # ============================================================================
@@ -145,13 +143,13 @@ def get_order_by_reference(order_reference):
             order_reference, current_user_id)
 
         if not order:
-            return jsonify({"error": "Order not found"}), 404
+            return jsonify(format_response(False, None, "Order not found")), 404
 
-        return jsonify(order), 200
+        return jsonify(format_response(True, order, "Order fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching order {order_reference}: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching order"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching order")), 500
 
 
 # ============================================================================
@@ -174,11 +172,11 @@ def get_all_orders():
     try:
         orders = OrderService.get_all_orders()
 
-        return jsonify({"orders": orders}), 200
+        return jsonify(format_response(True, {"orders": orders}, "Orders fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching all orders: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching orders"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching orders")), 500
 
 
 # ============================================================================
@@ -207,15 +205,15 @@ def get_order_details(order_id):
 
         order = Order.query.get(order_id)
         if not order:
-            return jsonify({"error": "Order not found"}), 404
+            return jsonify(format_response(False, None, "Order not found")), 404
 
         order_data = OrderService.get_order_by_reference(order.order_reference)
 
-        return jsonify({"order": order_data}), 200
+        return jsonify(format_response(True, {"order": order_data}, "Order details fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching order details: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching order details"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching order details")), 500
 
 
 # ============================================================================
@@ -256,7 +254,7 @@ def update_order_status(order_id):
         data = request.get_json()
 
         if not data or 'status' not in data:
-            return jsonify({"error": "Status is required"}), 400
+            return jsonify(format_response(False, None, "Status is required")), 400
 
         new_status = data['status']
 
@@ -266,14 +264,14 @@ def update_order_status(order_id):
 
         if not success:
             status_code = 404 if "not found" in message.lower() else 400
-            return jsonify({"error": message}), status_code
+            return jsonify(format_response(False, None, message)), status_code
 
         logger.info(f"Order {order_id} status updated to {new_status}")
-        return jsonify({"message": message}), 200
+        return jsonify(format_response(True, None, message)), 200
 
     except Exception as e:
         logger.error(f"Error updating order status: {str(e)}")
-        return jsonify({"error": "Failed to update order status"}), 500
+        return jsonify(format_response(False, None, "Failed to update order status")), 500
 
 
 # ============================================================================
@@ -301,7 +299,7 @@ def generate_document(order_reference, doc_type):
     try:
         # Validate document type
         if doc_type not in ['invoice', 'receipt']:
-            return jsonify({"error": "Invalid document type. Must be 'invoice' or 'receipt'"}), 400
+            return jsonify(format_response(False, None, "Invalid document type. Must be 'invoice' or 'receipt'")), 400
 
         current_user_id = get_jwt_identity()
 
@@ -309,20 +307,20 @@ def generate_document(order_reference, doc_type):
         order = Order.query.filter_by(order_reference=order_reference).first()
 
         if not order:
-            return jsonify({"error": "Order not found"}), 404
+            return jsonify(format_response(False, None, "Order not found")), 404
 
         if str(order.user_id) != current_user_id:
-            return jsonify({"error": "Unauthorized access to this order"}), 403
+            return jsonify(format_response(False, None, "Unauthorized access to this order")), 403
 
         # Check if trying to access receipt for non-delivered order
         if doc_type == 'receipt' and order.status != 'Delivered':
-            return jsonify({"error": "Receipt is only available for delivered orders"}), 400
+            return jsonify(format_response(False, None, "Receipt is only available for delivered orders")), 400
 
         # Generate PDF
         pdf_content = _generate_pdf(order, doc_type)
 
         if not pdf_content:
-            return jsonify({"error": "Failed to generate PDF"}), 500
+            return jsonify(format_response(False, None, "Failed to generate PDF")), 500
 
         # Send PDF file
         return send_file(
@@ -334,7 +332,7 @@ def generate_document(order_reference, doc_type):
 
     except Exception as e:
         logger.error(f"Error generating {doc_type}: {str(e)}")
-        return jsonify({"error": f"Failed to generate {doc_type}"}), 500
+        return jsonify(format_response(False, None, f"Failed to generate {doc_type}")), 500
 
 
 def _generate_pdf(order, doc_type):

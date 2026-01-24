@@ -9,6 +9,7 @@ from flask_jwt_extended import jwt_required
 from app.utils.decorators import admin_required
 from app.services import ProductService
 from app.models import Product, Category
+from app.utils.response_formatter import format_response
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +48,11 @@ def get_products():
         if category:
             products = [p for p in products if p['category'] == category]
 
-        return jsonify({"products": products}), 200
+        return jsonify(format_response(True, {"products": products}, "Products fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching products: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching products"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching products")), 500
 
 
 # ============================================================================
@@ -74,13 +75,13 @@ def get_product(product_id):
         product = ProductService.get_product_by_id(product_id)
 
         if not product:
-            return jsonify({"error": "Product not found"}), 404
+            return jsonify(format_response(False, None, "Product not found")), 404
 
-        return jsonify(product), 200
+        return jsonify(format_response(True, {"product": product}, "Product fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching product {product_id}: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching the product"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching the product")), 500
 
 
 # ============================================================================
@@ -118,12 +119,12 @@ def create_product():
                            'category_id', 'brand_id', 'type']
         for field in required_fields:
             if not request.form.get(field):
-                return jsonify({"error": f"Missing required field: {field}"}), 400
+                return jsonify(format_response(False, None, f"Missing required field: {field}")), 400
 
         # Get image files
         image_files = request.files.getlist('image_urls')
         if not image_files:
-            return jsonify({"error": "At least one product image is required"}), 400
+            return jsonify(format_response(False, None, "At least one product image is required")), 400
 
         # Prepare product data
         product_data = {
@@ -170,17 +171,14 @@ def create_product():
             product_data, image_files)
 
         if error:
-            return jsonify({"error": error}), 400
+            return jsonify(format_response(False, None, error)), 400
 
         logger.info(f"Product created: {product.name} (ID: {product.id})")
-        return jsonify({
-            "message": f"{product_type.capitalize()} added successfully!",
-            "product": ProductService.get_product_by_id(product.id)
-        }), 201
+        return jsonify(format_response(True, {"product": ProductService.get_product_by_id(product.id)}, f"{product_type.capitalize()} added successfully!")), 201
 
     except Exception as e:
         logger.error(f"Error creating product: {str(e)}")
-        return jsonify({"error": "An error occurred while creating the product"}), 500
+        return jsonify(format_response(False, None, "An error occurred while creating the product")), 500
 
 
 # ============================================================================
@@ -246,17 +244,14 @@ def update_product(product_id):
         )
 
         if error:
-            return jsonify({"error": error}), 400 if "not found" not in error.lower() else 404
+            return jsonify(format_response(False, None, error)), 400 if "not found" not in error.lower() else 404
 
         logger.info(f"Product updated: {product.name} (ID: {product_id})")
-        return jsonify({
-            "message": "Product updated successfully",
-            "product": ProductService.get_product_by_id(product_id)
-        }), 200
+        return jsonify(format_response(True, {"product": ProductService.get_product_by_id(product_id)}, "Product updated successfully")), 200
 
     except Exception as e:
         logger.error(f"Error updating product {product_id}: {str(e)}")
-        return jsonify({"error": "An error occurred while updating the product"}), 500
+        return jsonify(format_response(False, None, "An error occurred while updating the product")), 500
 
 
 # ============================================================================
@@ -283,14 +278,14 @@ def delete_product(product_id):
 
         if not success:
             status_code = 404 if "not found" in error.lower() else 500
-            return jsonify({"error": error}), status_code
+            return jsonify(format_response(False, None, error)), status_code
 
         logger.info(f"Product deleted: ID {product_id}")
-        return jsonify({"message": "Product deleted successfully"}), 200
+        return jsonify(format_response(True, None, "Product deleted successfully")), 200
 
     except Exception as e:
         logger.error(f"Error deleting product {product_id}: {str(e)}")
-        return jsonify({"error": "An error occurred while deleting the product"}), 500
+        return jsonify(format_response(False, None, "An error occurred while deleting the product")), 500
 
 
 # ============================================================================
@@ -312,16 +307,16 @@ def get_products_by_type(product_type):
     try:
         valid_types = ['phone', 'laptop', 'tablet', 'audio']
         if product_type not in valid_types:
-            return jsonify({"error": f"Invalid product type. Must be one of: {', '.join(valid_types)}"}), 400
+            return jsonify(format_response(False, None, f"Invalid product type. Must be one of: {', '.join(valid_types)}")), 400
 
         products = ProductService.get_all_products()
         filtered_products = [p for p in products if p['type'] == product_type]
 
-        return jsonify({"products": filtered_products}), 200
+        return jsonify(format_response(True, {"products": filtered_products}, "Products fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching products by type: {str(e)}")
-        return jsonify({"error": "An error occurred while retrieving products"}), 500
+        return jsonify(format_response(False, None, "An error occurred while retrieving products")), 500
 
 
 # ============================================================================
@@ -342,17 +337,17 @@ def get_products_by_category(category_id):
     try:
         category = Category.query.get(category_id)
         if not category:
-            return jsonify({"error": "Category not found"}), 404
+            return jsonify(format_response(False, None, "Category not found")), 404
 
         products = ProductService.get_all_products()
         filtered_products = [p for p in products if p.get(
             'category') == category.name]
 
-        return jsonify({"products": filtered_products}), 200
+        return jsonify(format_response(True, {"products": filtered_products}, "Products fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching products by category: {str(e)}")
-        return jsonify({"error": "An error occurred while retrieving products"}), 500
+        return jsonify(format_response(False, None, "An error occurred while retrieving products")), 500
 
 
 # ============================================================================
@@ -386,11 +381,11 @@ def add_product_variations(product_id):
     try:
         product = Product.query.get(product_id)
         if not product:
-            return jsonify({"error": "Product not found"}), 404
+            return jsonify(format_response(False, None, "Product not found")), 404
 
         data = request.get_json()
         if not data or 'variations' not in data:
-            return jsonify({"error": "Variations data is required"}), 400
+            return jsonify(format_response(False, None, "Variations data is required")), 400
 
         # Update the product's variations
         product_data = {
@@ -402,11 +397,11 @@ def add_product_variations(product_id):
             product_id, product_data)
 
         if error:
-            return jsonify({"error": error}), 400
+            return jsonify(format_response(False, None, error)), 400
 
         logger.info(f"Variations added to product {product_id}")
-        return jsonify({"message": "Variations added successfully!"}), 201
+        return jsonify(format_response(True, None, "Variations added successfully!")), 201
 
     except Exception as e:
         logger.error(f"Error adding variations: {str(e)}")
-        return jsonify({"error": "An error occurred while adding variations"}), 500
+        return jsonify(format_response(False, None, "An error occurred while adding variations")), 500

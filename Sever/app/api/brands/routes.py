@@ -9,6 +9,7 @@ from flask_jwt_extended import jwt_required
 from app.extensions import db
 from app.models import Brand
 from app.utils.decorators import admin_required
+from app.utils.response_formatter import format_response
 
 logger = logging.getLogger(__name__)
 
@@ -31,17 +32,15 @@ def get_all_brands():
     try:
         brands = Brand.query.all()
         brand_data = [{
-            "brands": [{
-                "id": brand.id,
-                "name": brand.name
-            } for brand in brands]
-        }]
+            "id": brand.id,
+            "name": brand.name
+        } for brand in brands]
 
-        return jsonify({"brands": brand_data}), 200
+        return jsonify(format_response(True, {"brands": brand_data}, "Brands fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching brands: {e}")
-        return jsonify({"error": "An error occurred while fetching brands"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching brands")), 500
 
 
 # ============================================================================
@@ -63,18 +62,18 @@ def get_brand_by_id(brand_id):
     try:
         brand = db.session.get(Brand, brand_id)
         if not brand:
-            return jsonify({"error": "Brand not found"}), 404
+            return jsonify(format_response(False, None, "Brand not found")), 404
 
         brand_data = {
             "id": brand.id,
             "name": brand.name
         }
 
-        return jsonify({"brand": brand_data}), 200
+        return jsonify(format_response(True, {"brand": brand_data}, "Brand fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching brand by ID: {e}")
-        return jsonify({"error": "An error occurred while fetching the brand"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching the brand")), 500
 
 
 # ============================================================================
@@ -99,12 +98,12 @@ def create_brand():
         brand_name = data.get('name')
 
         if not brand_name:
-            return jsonify({"error": "Brand name is required"}), 400
+            return jsonify(format_response(False, None, "Brand name is required")), 400
 
         # Check if brand already exists
         existing_brand = Brand.query.filter_by(name=brand_name).first()
         if existing_brand:
-            return jsonify({"error": "Brand already exists"}), 400
+            return jsonify(format_response(False, None, "Brand already exists")), 400
 
         new_brand = Brand(name=brand_name)
         db.session.add(new_brand)
@@ -115,11 +114,11 @@ def create_brand():
             "name": new_brand.name
         }
 
-        return jsonify({"brand created successfully": brand_data}), 201
+        return jsonify(format_response(True, {"brand": brand_data}, "Brand created successfully")), 201
 
     except Exception as e:
         logger.error(f"Error creating brand: {e}")
-        return jsonify({"error": "An error occurred while creating the brand"}), 500
+        return jsonify(format_response(False, None, "An error occurred while creating the brand")), 500
 
 
 # ===========================================================================
@@ -146,7 +145,7 @@ def update_brand(brand_id):
     try:
         brand = db.session.get(Brand, brand_id)
         if not brand:
-            return jsonify({"error": "Brand not found"}), 404
+            return jsonify(format_response(False, None, "Brand not found")), 404
 
         data = request.get_json()
         brand.name = data.get('name')
@@ -158,11 +157,11 @@ def update_brand(brand_id):
             "name": brand.name
         }
 
-        return jsonify({"brand updated successfully": brand_data}), 200
+        return jsonify(format_response(True, {"brand": brand_data}, "Brand updated successfully")), 200
 
     except Exception as e:
         logger.error(f"Error updating brand: {e}")
-        return jsonify({"error": "An error occurred while updating the brand"}), 500
+        return jsonify(format_response(False, None, "An error occurred while updating the brand")), 500
 
 
 # ============================================================================
@@ -188,13 +187,13 @@ def delete_brand(brand_id):
     try:
         brand = db.session.get(Brand, brand_id)
         if not brand:
-            return jsonify({"error": "Brand not found"}), 404
+            return jsonify(format_response(False, None, "Brand not found")), 404
 
         db.session.delete(brand)
         db.session.commit()
 
-        return jsonify({"message": "Brand deleted successfully"}), 200
+        return jsonify(format_response(True, None, "Brand deleted successfully")), 200
 
     except Exception as e:
         logger.error(f"Error deleting brand: {e}")
-        return jsonify({"error": "An error occurred while deleting the brand"}), 500
+        return jsonify(format_response(False, None, "An error occurred while deleting the brand")), 500

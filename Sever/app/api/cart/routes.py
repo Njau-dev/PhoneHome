@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.services import CartService
+from app.utils.response_formatter import format_response
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +35,11 @@ def get_cart():
 
         cart_contents = CartService.get_cart_contents(current_user_id)
 
-        return jsonify({"cart": cart_contents}), 200
+        return jsonify(format_response(True, {"cart": cart_contents}, "Cart fetched successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching cart: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching cart"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching cart")), 500
 
 
 # ============================================================================
@@ -74,15 +75,15 @@ def add_to_cart():
 
         # Validate required fields
         if not data or 'productId' not in data or 'quantity' not in data:
-            return jsonify({"error": "productId and quantity are required"}), 400
+            return jsonify(format_response(False, None, "productId and quantity are required")), 400
 
         try:
             product_id = int(data['productId'])
         except (ValueError, TypeError):
-            return jsonify({"error": "Invalid productId. Must be an integer"}), 400
+            return jsonify(format_response(False, None, "Invalid productId. Must be an integer")), 400
 
         if not isinstance(data['quantity'], int) or data['quantity'] <= 0:
-            return jsonify({"error": "Invalid quantity. Must be a positive integer"}), 400
+            return jsonify(format_response(False, None, "Invalid quantity. Must be a positive integer")), 400
 
         # Handle variations if provided
         variation_name = None
@@ -92,16 +93,16 @@ def add_to_cart():
             variation = data['selectedVariation']
 
             if not isinstance(variation, dict):
-                return jsonify({"error": "Invalid selectedVariation. Must be an object"}), 400
+                return jsonify(format_response(False, None, "Invalid selectedVariation. Must be an object")), 400
 
             if 'ram' not in variation or 'storage' not in variation or 'price' not in variation:
-                return jsonify({"error": "Variation must include ram, storage, and price"}), 400
+                return jsonify(format_response(False, None, "Variation must include ram, storage, and price")), 400
 
             variation_name = f"{variation['ram']} - {variation['storage']}"
             variation_price = variation['price']
 
             if not isinstance(variation_price, (int, float)) or variation_price <= 0:
-                return jsonify({"error": "Invalid variation price"}), 400
+                return jsonify(format_response(False, None, "Invalid variation price")), 400
 
         # Add to cart using service
         success, message = CartService.add_to_cart(
@@ -113,15 +114,15 @@ def add_to_cart():
         )
 
         if not success:
-            return jsonify({"error": message}), 400
+            return jsonify(format_response(False, None, message)), 400
 
         logger.info(
             f"User {current_user_id} added product {product_id} to cart")
-        return jsonify({"message": message}), 201
+        return jsonify(format_response(True, None, message)), 201
 
     except Exception as e:
         logger.error(f"Error adding to cart: {str(e)}")
-        return jsonify({"error": "An error occurred while adding to cart"}), 500
+        return jsonify(format_response(False, None, "An error occurred while adding to cart")), 500
 
 
 # ============================================================================
@@ -154,15 +155,15 @@ def update_cart_item():
 
         # Validate required fields
         if not data or 'productId' not in data or 'quantity' not in data:
-            return jsonify({"error": "productId and quantity are required"}), 400
+            return jsonify(format_response(False, None, "productId and quantity are required")), 400
 
         try:
             product_id = int(data['productId'])
         except (ValueError, TypeError):
-            return jsonify({"error": "Invalid productId. Must be an integer"}), 400
+            return jsonify(format_response(False, None, "Invalid productId. Must be an integer")), 400
 
         if not isinstance(data['quantity'], int) or data['quantity'] <= 0:
-            return jsonify({"error": "Invalid quantity. Must be a positive integer"}), 400
+            return jsonify(format_response(False, None, "Invalid quantity. Must be a positive integer")), 400
 
         # Handle variation
         variation_name = data.get('selectedVariation')
@@ -179,14 +180,14 @@ def update_cart_item():
 
         if not success:
             status_code = 404 if "not found" in message.lower() else 400
-            return jsonify({"error": message}), status_code
+            return jsonify(format_response(False, None, message)), status_code
 
         logger.info(f"User {current_user_id} updated cart item {product_id}")
-        return jsonify({"message": message}), 200
+        return jsonify(format_response(True, None, message)), 200
 
     except Exception as e:
         logger.error(f"Error updating cart: {str(e)}")
-        return jsonify({"error": "An error occurred while updating cart"}), 500
+        return jsonify(format_response(False, None, "An error occurred while updating cart")), 500
 
 
 # ============================================================================
@@ -218,12 +219,12 @@ def remove_from_cart():
 
         # Validate required fields
         if not data or 'productId' not in data:
-            return jsonify({"error": "productId is required"}), 400
+            return jsonify(format_response(False, None, "productId is required")), 400
 
         try:
             product_id = int(data['productId'])
         except (ValueError, TypeError):
-            return jsonify({"error": "Invalid productId. Must be an integer"}), 400
+            return jsonify(format_response(False, None, "Invalid productId. Must be an integer")), 400
 
         # Handle variation
         variation_name = data.get('selectedVariation')
@@ -239,15 +240,15 @@ def remove_from_cart():
 
         if not success:
             status_code = 404 if "not found" in message.lower() else 400
-            return jsonify({"error": message}), status_code
+            return jsonify(format_response(False, None, message)), status_code
 
         logger.info(
             f"User {current_user_id} removed product {product_id} from cart")
-        return jsonify({"message": message}), 200
+        return jsonify(format_response(True, None, message)), 200
 
     except Exception as e:
         logger.error(f"Error removing from cart: {str(e)}")
-        return jsonify({"error": "An error occurred while removing from cart"}), 500
+        return jsonify(format_response(False, None, "An error occurred while removing from cart")), 500
 
 
 # ============================================================================
@@ -271,14 +272,14 @@ def clear_cart():
         success, message = CartService.clear_cart(current_user_id)
 
         if not success:
-            return jsonify({"error": message}), 500
+            return jsonify(format_response(False, None, message)), 500
 
         logger.info(f"User {current_user_id} cleared their cart")
-        return jsonify({"message": message}), 200
+        return jsonify(format_response(True, None, message)), 200
 
     except Exception as e:
         logger.error(f"Error clearing cart: {str(e)}")
-        return jsonify({"error": "An error occurred while clearing cart"}), 500
+        return jsonify(format_response(False, None, "An error occurred while clearing cart")), 500
 
 
 # ============================================================================
@@ -301,11 +302,11 @@ def get_cart_total():
 
         total = CartService.get_cart_total(current_user_id)
 
-        return jsonify({
+        return jsonify(format_response(True, {
             "total": total,
             "currency": "KES"
-        }), 200
+        }, "Cart total calculated successfully")), 200
 
     except Exception as e:
         logger.error(f"Error calculating cart total: {str(e)}")
-        return jsonify({"error": "An error occurred while calculating total"}), 500
+        return jsonify(format_response(False, None, "An error occurred while calculating total")), 500

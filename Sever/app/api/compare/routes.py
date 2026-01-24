@@ -8,6 +8,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.extensions import db
+from app.utils.response_formatter import format_response
 from app.models import Compare, CompareItem, Product
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ def get_compare_list():
         # Get or create compare list
         compare = Compare.query.filter_by(user_id=current_user_id).first()
         if not compare:
-            return jsonify({"message": "Compare list is empty", "product_ids": []}), 200
+            return jsonify(format_response(True, {"message": "Compare list is empty", "product_ids": []}, "Compare list retrieved successfully")), 200
 
         # Delete items older than 24 hours
         twenty_four_hours_ago = datetime.now(
@@ -65,11 +66,11 @@ def get_compare_list():
         # Return product IDs
         items = [{"id": item.product_id} for item in compare_items]
 
-        return jsonify({"product_ids": items}), 200
+        return jsonify(format_response(True, {"product_ids": items}, "Compare list retrieved successfully")), 200
 
     except Exception as e:
         logger.error(f"Error fetching compare list: {str(e)}")
-        return jsonify({"error": "An error occurred while fetching compare list"}), 500
+        return jsonify(format_response(False, None, "An error occurred while fetching compare list")), 500
 
 
 # ============================================================================
@@ -103,17 +104,17 @@ def add_to_compare():
 
         # Validate request
         if not data or 'product_id' not in data:
-            return jsonify({"error": "Product ID is required"}), 400
+            return jsonify(format_response(False, None, "Product ID is required")), 400
 
         try:
             product_id = int(data['product_id'])
         except (TypeError, ValueError):
-            return jsonify({"error": "Invalid product ID format"}), 400
+            return jsonify(format_response(False, None, "Invalid product ID format")), 400
 
         # Check if product exists
         product = db.session.get(Product, product_id)
         if not product:
-            return jsonify({"error": "Product not found"}), 404
+            return jsonify(format_response(False, None, "Product not found")), 404
 
         # Get or create compare list
         compare = Compare.query.filter_by(user_id=current_user_id).first()
@@ -129,13 +130,13 @@ def add_to_compare():
         ).first()
 
         if existing_item:
-            return jsonify({"message": "Product already in compare list"}), 200
+            return jsonify(format_response(True, {"message": "Product already in compare list"}, "Product already in compare list")), 200
 
         # Check if compare list has reached limit (3 items)
         current_items_count = CompareItem.query.filter_by(
             compare_id=compare.id).count()
         if current_items_count >= 3:
-            return jsonify({"error": "Compare list is full (max 3 items)"}), 400
+            return jsonify(format_response(False, None, "Compare list is full (max 3 items)")), 400
 
         # Add new item to compare list
         compare_item = CompareItem(
@@ -148,12 +149,12 @@ def add_to_compare():
 
         logger.info(
             f"User {current_user_id} added product {product_id} to compare list")
-        return jsonify({"message": "Product added to compare list"}), 201
+        return jsonify(format_response(True, {"message": "Product added to compare list"}, "Product added to compare list")), 201
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error adding to compare list: {str(e)}")
-        return jsonify({"error": "An error occurred while adding to compare list"}), 500
+        return jsonify(format_response(False, None, "An error occurred while adding to compare list")), 500
 
 
 # ============================================================================
@@ -181,7 +182,7 @@ def remove_from_compare(product_id):
         # Get compare list
         compare = Compare.query.filter_by(user_id=current_user_id).first()
         if not compare:
-            return jsonify({"error": "Compare list not found"}), 404
+            return jsonify(format_response(False, None, "Compare list not found")), 404
 
         # Find and delete the compare item
         compare_item = CompareItem.query.filter_by(
@@ -190,19 +191,19 @@ def remove_from_compare(product_id):
         ).first()
 
         if not compare_item:
-            return jsonify({"error": "Product not found in compare list"}), 404
+            return jsonify(format_response(False, None, "Product not found in compare list")), 404
 
         db.session.delete(compare_item)
         db.session.commit()
 
         logger.info(
             f"User {current_user_id} removed product {product_id} from compare list")
-        return jsonify({"message": "Product removed from compare list"}), 200
+        return jsonify(format_response(True, {"message": "Product removed from compare list"}, "Product removed from compare list")), 200
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error removing from compare list: {str(e)}")
-        return jsonify({"error": "An error occurred while removing from compare list"}), 500
+        return jsonify(format_response(False, None, "An error occurred while removing from compare list")), 500
 
 
 # ============================================================================
@@ -226,7 +227,7 @@ def clear_compare():
         # Get compare list
         compare = Compare.query.filter_by(user_id=current_user_id).first()
         if not compare:
-            return jsonify({"message": "Compare list already empty"}), 200
+            return jsonify(format_response(True, {"message": "Compare list already empty"}, "Compare list cleared")), 200
 
         # Delete all items
         CompareItem.query.filter_by(compare_id=compare.id).delete()
@@ -236,9 +237,9 @@ def clear_compare():
         db.session.commit()
 
         logger.info(f"User {current_user_id} cleared their compare list")
-        return jsonify({"message": "Compare list cleared"}), 200
+        return jsonify(format_response(True, {"message": "Compare list cleared"}, "Compare list cleared")), 200
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error clearing compare list: {str(e)}")
-        return jsonify({"error": "An error occurred while clearing compare list"}), 500
+        return jsonify(format_response(False, None, "An error occurred while clearing compare list")), 500
