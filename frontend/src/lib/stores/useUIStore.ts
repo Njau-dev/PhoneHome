@@ -9,6 +9,7 @@ interface UIState {
   // Actions
   toggleSearch: () => void;
   setSearchQuery: (query: string) => void;
+  setShowSearch: (show: boolean) => void;
   toggleMobileMenu: () => void;
   closeMobileMenu: () => void;
   toggleCartDrawer: () => void;
@@ -22,14 +23,16 @@ export const useUIStore = create<UIState>((set) => ({
   isCartDrawerOpen: false,
 
   toggleSearch: () => set((state) => ({ showSearch: !state.showSearch })),
-  
+
   setSearchQuery: (query: string) => set({ searchQuery: query }),
-  
+
+  setShowSearch: (show: boolean) => set({ showSearch: show }),
+
   toggleMobileMenu: () => set((state) => ({ isMobileMenuOpen: !state.isMobileMenuOpen })),
-  
+
   closeMobileMenu: () => set({ isMobileMenuOpen: false }),
-  
+
   toggleCartDrawer: () => set((state) => ({ isCartDrawerOpen: !state.isCartDrawerOpen })),
-  
+
   closeCartDrawer: () => set({ isCartDrawerOpen: false }),
 }));

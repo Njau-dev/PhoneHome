@@ -1,14 +1,22 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Outfit, Prata } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "./providers/QueryProvider";
 import { ToastProvider } from "./providers/ToastProvider";
 
-const inter = Inter({ subsets: ["latin"] });
+const outfit = Outfit({ subsets: ["latin"] });
+const prata = Prata({ weight: "400", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "TechStore - Your Electronics Hub",
-  description: "Shop the latest phones, laptops, tablets, and audio devices",
+  title: "Phone Home Kenya - Your Electronics Hub",
+  description: "Shop the latest phones, laptops, tablets, and audio devices in Kenya",
+  keywords: ["electronics", "phones", "laptops", "tablets", "audio", "Kenya", "Nairobi", "Price in Kenya", "Price in Nairobi"],
+  authors: [{ name: "Phone Home Kenya" }],
+  openGraph: {
+    title: "Phone Home Kenya",
+    description: "Shop the latest electronics in Kenya",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -18,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={outfit.className}>
         <QueryProvider>
           {children}
           <ToastProvider />

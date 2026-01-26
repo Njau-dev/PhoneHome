@@ -15,6 +15,8 @@ export interface Product {
     category_id: ID
     brand_id: ID
     type: ProductType
+    rating?: number
+    review_count?: number
     hasVariation: boolean
     isBestSeller?: boolean
     created_at?: ISODate
