@@ -5,6 +5,9 @@ import { Product } from "@/lib/types/product";
 import { CURRENCY } from "@/lib/utils/constants";
 import { formatPrice } from "@/lib/utils/format";
 import { Star } from "lucide-react";
+import { useCartStore } from "@/lib/stores/useCartStore";
+import { useWishlistStore } from "@/lib/stores/useWishlistStore";
+import { useCompareStore } from "@/lib/stores/useCompareStore";
 
 interface ProductItemProps {
   product: Product;
@@ -12,6 +15,10 @@ interface ProductItemProps {
 
 const ProductItem = ({ product }: ProductItemProps) => {
   const { id, name, price, image_urls, rating, review_count } = product;
+  const { addItem: addCartItem } = useCartStore();
+  const { addItem: addWishlistItem } = useWishlistStore();
+  const { addItem: addCompareItem } = useCompareStore();
+
 
   return (
     <Link
