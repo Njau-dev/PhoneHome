@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import { Product } from "@/lib/types/product";
+import { Brand, Category, Product } from "@/lib/types/product";
 
 interface ProductResponse {
   success: boolean;
@@ -42,4 +42,14 @@ export const productsAPI = {
     const response: ProductsResponse = await apiClient.get("/products?bestseller=true");
     return response.data.products;
   },
+
+  getCategories: async (): Promise<Category[]> => {
+    const response = await apiClient.get("/categories");
+    return response.data.categories;
+  },
+
+  getBrandsByCategory: async (category: string): Promise<Brand[]> => {
+    const response = await apiClient.get(`/brands?category=${category}`);
+    return response.data.brands;
+  }
 };

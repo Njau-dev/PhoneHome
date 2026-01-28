@@ -38,17 +38,7 @@ const Collection = () => {
     // Fetch categories
     const { data: categories = [] } = useQuery({
         queryKey: ["categories"],
-        queryFn: async () => {
-            const response = await productsAPI.getAll();
-            const uniqueCategories = Array.from(
-                new Set(response.map((p) => p.type))
-            );
-            return uniqueCategories.map((type, index) => ({
-                id: index + 1,
-                name: type.charAt(0).toUpperCase() + type.slice(1),
-                value: type,
-            }));
-        },
+        queryFn: productsAPI.getCategories,
     });
 
     // Fetch brands based on selected category
@@ -56,19 +46,7 @@ const Collection = () => {
         queryKey: ["brands", selectedCategory],
         queryFn: async () => {
             if (!selectedCategory) return [];
-            const categoryProducts = allProducts.filter(
-                (p) => p.type === selectedCategory
-            );
-            const uniqueBrands = Array.from(
-                new Set(categoryProducts.map((p) => p.brand_id))
-            );
-            return uniqueBrands.map((brand_id, index) => {
-                const product = categoryProducts.find((p) => p.brand_id === brand_id);
-                return {
-                    id: index + 1,
-                    name: String(product?.brand_id || ""),
-                };
-            });
+            return productsAPI.getBrandsByCategory(selectedCategory);
         },
         enabled: !!selectedCategory,
     });
@@ -95,10 +73,14 @@ const Collection = () => {
             filtered = filtered.filter((p) => p.type === selectedCategory);
         }
 
+        console.log("selectedCategory:", selectedCategory);
+
         // Brand filter
         if (selectedBrand) {
-            filtered = filtered.filter((p) => p.brand_id === parseInt(selectedBrand));
+            filtered = filtered.filter((p) => p.brand === selectedBrand);
         }
+
+        console.log("selectedBrand:", selectedBrand);
 
         // Price filter
         filtered = filtered.filter(
@@ -268,14 +250,15 @@ const Collection = () => {
                                         className="hidden peer"
                                         onChange={() =>
                                             setSelectedCategory(
-                                                selectedCategory === category.value
+                                                selectedCategory === (category.name.toLowerCase() as ProductType)
                                                     ? null
-                                                    : category.value
+                                                    : category.name.toLowerCase() as ProductType
                                             )
                                         }
-                                        checked={selectedCategory === category.value}
+                                        checked={selectedCategory === (category.name.toLowerCase() as ProductType)}
                                     />
-                                    <div className="w-5 h-5 border-2 border-border peer-checked:bg-accent peer-checked:border-accent transition duration-300 rounded-full"></div>
+                                    <div className="w-5 h-5 border-2 border-border peer-checked:bg-accent peer-checked:border-accent transition duration-300 rounded-full">
+                                    </div>
                                     <span className="ml-2 text-base">{category.name}</span>
                                 </label>
                             ))}

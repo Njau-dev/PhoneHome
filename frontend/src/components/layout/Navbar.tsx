@@ -87,7 +87,7 @@ const Navbar = () => {
                     {/* Dropdown menu */}
                     {isAuthenticated && (
                         <div className="group-hover:block hidden absolute dropdown-menu -right-8 pt-4 z-20">
-                            <div className="flex flex-col gap-2 w-36 py-3 px-5 bg-bgdark text-primary rounded border border-border">
+                            <div className="flex flex-col gap-2 w-36 py-3 px-5 bg-bg text-primary rounded border border-border">
                                 <Link
                                     href="/profile"
                                     className="cursor-pointer hover:text-accent"
@@ -119,7 +119,7 @@ const Navbar = () => {
 
                 <Link href="/cart" className="relative">
                     <ShoppingBagIcon className="w-6 icons hover:text-accent" />
-                    <p className="absolute -right-1.25 -bottom-1.25 w-4 text-center leading-4 bg-accent text-bgdark aspect-square rounded-full text-[10px]">
+                    <p className="absolute -right-1.25 -bottom-1.25 w-4 text-center leading-4 bg-accent text-bg aspect-square rounded-full text-[10px]">
                         {getCount()}
                     </p>
                 </Link>
@@ -133,7 +133,7 @@ const Navbar = () => {
             {/* Mobile Sidebar Menu */}
             <div
                 className={cn(
-                    "absolute z-40 top-0 right-0 bottom-0 left-0 overflow-hidden bg-bgdark transition-all",
+                    "absolute z-40 top-0 right-0 bottom-0 left-0 overflow-hidden bg-bg transition-all",
                     visible ? "w-full" : "w-0"
                 )}
             >

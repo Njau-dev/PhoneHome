@@ -12,8 +12,8 @@ export interface Product {
     description: string
     price: number
     image_urls: string[]
-    category_id: ID
-    brand_id: ID
+    category: string
+    brand: string
     type: ProductType
     rating?: number
     review_count?: number
@@ -84,4 +84,14 @@ export interface AudioSpecs {
 
 export type AudioProduct = Product & {
     specs: AudioSpecs
+}
+
+export interface Category {
+    id: ID
+    name: string
+}
+
+export interface Brand {
+    id: ID
+    name: string
 }
