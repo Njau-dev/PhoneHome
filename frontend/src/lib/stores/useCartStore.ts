@@ -37,17 +37,17 @@ export const useCartStore = create<CartState>()(
         const { items } = get();
         const newItems = { ...items };
         const productIdStr = productId.toString();
-        
+
         // Determine variation key
-        const variationKey = variation 
-          ? `${variation.ram} - ${variation.storage}` 
+        const variationKey = variation
+          ? `${variation.ram} - ${variation.storage}`
           : "null";
-        
+
         // Initialize product if not exists
         if (!newItems[productIdStr]) {
           newItems[productIdStr] = {};
         }
-        
+
         // Initialize variation if not exists
         if (!newItems[productIdStr][variationKey]) {
           newItems[productIdStr][variationKey] = {
@@ -55,17 +55,17 @@ export const useCartStore = create<CartState>()(
             price: variation?.price || 0,
           };
         }
-        
+
         // Update quantity
         newItems[productIdStr][variationKey].quantity += quantity;
-        
+
         // Update local state immediately for optimistic UI
         const newVariations = { ...get().variations };
         if (variation) {
           newVariations[variationKey] = variation;
         }
         set({ items: newItems, variations: newVariations });
-        
+
         // Sync with server if user is logged in
         const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
         if (token) {
@@ -82,7 +82,7 @@ export const useCartStore = create<CartState>()(
             set({ items, variations: get().variations });
           }
         }
-        
+
         toast.success("Added to cart");
       },
 
@@ -90,18 +90,18 @@ export const useCartStore = create<CartState>()(
         const { items } = get();
         const newItems = { ...items };
         const productIdStr = productId.toString();
-        
+
         if (newItems[productIdStr]) {
           delete newItems[productIdStr][variationKey];
-          
+
           // Remove product entry if no variations left
           if (Object.keys(newItems[productIdStr]).length === 0) {
             delete newItems[productIdStr];
           }
         }
-        
+
         set({ items: newItems });
-        
+
         const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
         if (token) {
           try {
@@ -112,25 +112,25 @@ export const useCartStore = create<CartState>()(
             set({ items });
           }
         }
-        
-        toast.success("Removed from cart");
+
+        toast.success("Item removed from cart");
       },
 
       updateQuantity: async (productId, quantity, variationKey = "null") => {
         const { items } = get();
         const productIdStr = productId.toString();
-        
+
         if (quantity <= 0) {
           get().removeItem(productId, variationKey);
           return;
         }
-        
+
         const newItems = { ...items };
-        
+
         if (newItems[productIdStr]?.[variationKey]) {
           newItems[productIdStr][variationKey].quantity = quantity;
           set({ items: newItems });
-          
+
           const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
           if (token) {
             try {
@@ -146,7 +146,7 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => {
         set({ items: {} });
-        
+
         const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
         if (token) {
           cartAPI.clearCart().catch(console.error);
@@ -157,7 +157,7 @@ export const useCartStore = create<CartState>()(
         set({ isSyncing: true });
         try {
           const { items, variations } = get();
-          
+
           // If user has local cart items, sync them to server
           if (Object.keys(items).length > 0) {
             // Send each item to server
@@ -165,7 +165,7 @@ export const useCartStore = create<CartState>()(
               for (const variationKey in items[productId]) {
                 const item = items[productId][variationKey];
                 const variation = variations[variationKey];
-                
+
                 await cartAPI.addItem({
                   productId: parseInt(productId),
                   quantity: item.quantity,
@@ -174,11 +174,11 @@ export const useCartStore = create<CartState>()(
               }
             }
           }
-          
+
           // Then fetch the complete cart from server
           const serverCart = await cartAPI.getCart();
           set({ items: serverCart, isSyncing: false });
-          
+
         } catch (error) {
           console.error("Failed to sync cart:", error);
           set({ isSyncing: false });
@@ -199,27 +199,27 @@ export const useCartStore = create<CartState>()(
       getCount: () => {
         const { items } = get();
         let count = 0;
-        
+
         for (const productId in items) {
           for (const variationKey in items[productId]) {
             count += items[productId][variationKey].quantity;
           }
         }
-        
+
         return count;
       },
 
       getTotal: () => {
         const { items } = get();
         let total = 0;
-        
+
         for (const productId in items) {
           for (const variationKey in items[productId]) {
             const item = items[productId][variationKey];
             total += item.price * item.quantity;
           }
         }
-        
+
         return total;
       },
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Product } from "@/lib/types/product";
 import { CURRENCY } from "@/lib/utils/constants";
 import { formatPrice } from "@/lib/utils/format";
-import { Heart, ShoppingCart, Star, Eye, GitCompareArrows } from "lucide-react";
+import { Heart, ShoppingCart, Star, Eye, SquareStack } from "lucide-react";
 import { useCartStore } from "@/lib/stores/useCartStore";
 import { useWishlistStore } from "@/lib/stores/useWishlistStore";
 import { useCompareStore } from "@/lib/stores/useCompareStore";
@@ -117,7 +117,7 @@ const ProductItem = ({ product }: ProductItemProps) => {
           onClick={handleAddToCompare}
           title="Add to Compare"
         >
-          <GitCompareArrows className="w-4 h-4 text-accent" />
+          <SquareStack className="w-4 h-4 text-accent" />
         </button>
 
         {/* Cart/View Button */}
