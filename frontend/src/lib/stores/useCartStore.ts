@@ -12,7 +12,7 @@ interface CartState {
   variations: { [key: string]: ProductVariation };
 
   // Actions
-  addItem: (productId: number, variation?: ProductVariation, quantity?: number) => Promise<void>;
+  addItem: (productId: number, variation?: ProductVariation, quantity?: number, basePrice?: number) => Promise<void>;
   removeItem: (productId: number, variationKey?: string) => Promise<void>;
   updateQuantity: (productId: number, quantity: number, variationKey?: string) => Promise<void>;
   clearCart: () => void;
@@ -33,7 +33,7 @@ export const useCartStore = create<CartState>()(
       isSyncing: false,
       variations: {},
 
-      addItem: async (productId, variation, quantity = 1) => {
+      addItem: async (productId, variation, quantity = 1, basePrice) => {
         const { items } = get();
         const newItems = { ...items };
         const productIdStr = productId.toString();
@@ -48,11 +48,12 @@ export const useCartStore = create<CartState>()(
           newItems[productIdStr] = {};
         }
 
-        // Initialize variation if not exists
+        const price = variation?.price ?? basePrice ?? 0;
+
         if (!newItems[productIdStr][variationKey]) {
           newItems[productIdStr][variationKey] = {
             quantity: 0,
-            price: variation?.price || 0,
+            price,
           };
         }
 
@@ -151,6 +152,8 @@ export const useCartStore = create<CartState>()(
         if (token) {
           cartAPI.clearCart().catch(console.error);
         }
+
+        toast.success("Cart cleared");
       },
 
       syncWithServer: async (token: string) => {

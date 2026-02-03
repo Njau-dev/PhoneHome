@@ -1,5 +1,6 @@
 """Development-specific configuration"""
 from .base import BaseConfig
+import os
 
 
 class DevelopmentConfig(BaseConfig):
@@ -18,6 +19,6 @@ class DevelopmentConfig(BaseConfig):
     # Disable HTTPS in development
     PREFERRED_URL_SCHEME = 'http'
 
-    # Development-specific settings
-    SERVER_NAME = 'localhost:5000'
-    APPLICATION_ROOT = '/'
+    # Development CORS settings
+    CORS_ORIGINS = os.getenv(
+        'CORS_ORIGINS', 'http://localhost:5173,http://localhost:3000')

@@ -1,5 +1,5 @@
 export const formatPrice = (price: number): string => {
-  return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return price.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
 export const formatCurrency = (price: number, currency: string = "Kshs"): string => {

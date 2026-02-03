@@ -1,8 +1,10 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
-from flask_restful import Api
 from flask_cors import CORS
+
+# Import configuration
+from app.config.base import BaseConfig
 
 # initialize SQLAlchemy
 db = SQLAlchemy()
@@ -13,6 +15,6 @@ jwt = JWTManager()
 # initialize migrations
 migrate = Migrate()
 
-api = Api()
 
-cors = CORS()
+cors = CORS(resources=BaseConfig.CORS_RESOURCES, origins=BaseConfig.CORS_ORIGINS,
+            supports_credentials=BaseConfig.CORS_SUPPORTS_CREDENTIALS)

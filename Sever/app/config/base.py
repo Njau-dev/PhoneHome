@@ -53,15 +53,9 @@ class BaseConfig:
     CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET')
 
     # Email Configuration (Using Brevo/Sendinblue)
-    MAIL_SERVER = 'smtp-relay.brevo.com'
-    MAIL_PORT = 587
-    MAIL_USE_TLS = True
-    MAIL_USERNAME = os.getenv('BREVO_SENDER_EMAIL')
-    MAIL_PASSWORD = os.getenv('BREVO_API_KEY')
-    MAIL_DEFAULT_SENDER = (
-        os.getenv('BREVO_SENDER_NAME', 'Your App'),
-        os.getenv('BREVO_SENDER_EMAIL')
-    )
+    BREVO_API_KEY = os.getenv('BREVO_API_KEY')
+    BREVO_SENDER_EMAIL = os.getenv('BREVO_SENDER_EMAIL')
+    BREVO_SENDER_NAME = os.getenv('BREVO_SENDER_NAME', 'Phone Home')
 
     # M-Pesa
     MPESA_CONSUMER_KEY = os.getenv('MPESA_CONSUMER_KEY')
@@ -73,8 +67,18 @@ class BaseConfig:
     MPESA_SECURITY_CREDENTIAL = os.getenv('MPESA_SECURITY_CREDENTIAL')
 
     # Application URLs
-    FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+    FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
     BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
+
+    # CORS Configuration
+    CORS_ORIGINS = os.getenv('CORS_ORIGINS', FRONTEND_URL)
+    CORS_SUPPORTS_CREDENTIALS = True
+    CORS_RESOURCES = {
+        r"/*": {
+            "origins": CORS_ORIGINS,
+            "supports_credentials": CORS_SUPPORTS_CREDENTIALS
+        }
+    }
 
     # File Upload
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'avif', 'webp'}

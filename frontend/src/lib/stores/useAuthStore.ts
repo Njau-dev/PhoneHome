@@ -10,6 +10,7 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  hasHydrated: boolean;
 
   // Actions
   login: (email: string, password: string) => Promise<void>;
@@ -18,7 +19,19 @@ interface AuthState {
   setAuth: (token: string, user: User) => void;
   clearAuth: () => void;
   updateUser: (userData: Partial<User>) => void;
+  setHasHydrated: (value: boolean) => void;
 }
+
+const setAuthCookie = (token: string) => {
+  if (typeof document === "undefined") return;
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  document.cookie = `${STORAGE_KEYS.TOKEN}=${encodeURIComponent(token)}; Path=/; SameSite=Lax${secure}`;
+};
+
+const clearAuthCookie = () => {
+  if (typeof document === "undefined") return;
+  document.cookie = `${STORAGE_KEYS.TOKEN}=; Path=/; Max-Age=0; SameSite=Lax`;
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -27,6 +40,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       isLoading: false,
+      hasHydrated: false,
 
       login: async (email: string, password: string) => {
         set({ isLoading: true });
@@ -44,6 +58,7 @@ export const useAuthStore = create<AuthState>()(
           // Store in localStorage
           localStorage.setItem(STORAGE_KEYS.TOKEN, token);
           localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+          setAuthCookie(token);
           
           toast.success("Login successful!");
         } catch (error) {
@@ -74,6 +89,7 @@ export const useAuthStore = create<AuthState>()(
 
           localStorage.setItem(STORAGE_KEYS.TOKEN, token);
           localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+          setAuthCookie(token);
           
           toast.success("Account created successfully!");
         } catch (error) {
@@ -99,6 +115,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.removeItem(STORAGE_KEYS.TOKEN);
           localStorage.removeItem(STORAGE_KEYS.USER);
           localStorage.removeItem(STORAGE_KEYS.CART);
+          clearAuthCookie();
           
           toast.success("Logged out successfully");
         }
@@ -112,6 +129,7 @@ export const useAuthStore = create<AuthState>()(
         });
         localStorage.setItem(STORAGE_KEYS.TOKEN, token);
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+        setAuthCookie(token);
       },
 
       clearAuth: () => {
@@ -122,6 +140,7 @@ export const useAuthStore = create<AuthState>()(
         });
         localStorage.removeItem(STORAGE_KEYS.TOKEN);
         localStorage.removeItem(STORAGE_KEYS.USER);
+        clearAuthCookie();
       },
 
       updateUser: (userData: Partial<User>) => {
@@ -132,14 +151,21 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
         }
       },
+
+      setHasHydrated: (value: boolean) => {
+        set({ hasHydrated: value });
+      },
     }),
     {
-      name: STORAGE_KEYS.USER,
+      name: STORAGE_KEYS.AUTH,
       partialize: (state) => ({
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );

@@ -49,7 +49,11 @@ export const authAPI = {
   },
 
   resetPassword: async (data: ResetPasswordData): Promise<{ message: string }> => {
-    return await apiClient.post("/auth/reset-password", data);
+    const { token, ...body } = data;
+    return await apiClient.post(
+      `/auth/reset-password/${encodeURIComponent(token)}`,
+      body
+    );
   },
 
   getProfile: async (): Promise<{ success: boolean; data: { user: User } }> => {

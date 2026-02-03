@@ -7,12 +7,11 @@ import Title from "@/components/common/Title";
 import CartTotal from "@/components/cart/CartTotal";
 import CartItem from "@/components/cart/CartItem";
 import Breadcrumbs from "@/components/common/BreadCrumbs";
-import { toast } from "sonner";
 import { ShoppingBag } from "lucide-react";
 
 export default function CartPage() {
   const router = useRouter();
-  const { items, updateQuantity, removeItem } = useCart();
+  const { items, updateQuantity, removeItem, clearCart } = useCart();
   const { allProducts } = useProducts();
 
   // Transform cart items for display
@@ -56,6 +55,10 @@ export default function CartPage() {
 
   const handleRemoveItem = (productId: number, variationKey: string) => {
     removeItem(productId, variationKey);
+  };
+
+  const handleClearCart = () => {
+    clearCart();
   };
 
   if (cartData.length === 0) {
@@ -129,6 +132,15 @@ export default function CartPage() {
                 })}
               </tbody>
             </table>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={handleClearCart}
+                className="border border-accent text-accent hover:bg-accent hover:text-bg rounded px-4 py-2 text-sm font-medium transition-all"
+              >
+                CLEAR CART
+              </button>
+            </div>
           </div>
 
           {/* Cart Total */}

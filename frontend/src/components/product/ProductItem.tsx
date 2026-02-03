@@ -33,9 +33,14 @@ const ProductItem = ({ product }: ProductItemProps) => {
   const [isHovered, setIsHovered] = useState(false);
 
   const handleAddToCart = (e: React.MouseEvent) => {
+    console.log(product.hasVariation)
     e.preventDefault();
     e.stopPropagation();
-    addCartItem(product.id);
+    if (product.hasVariation) {
+      // if product has variation user has to view it first then add to cart
+    } else {
+      addCartItem(product.id, undefined, 1, product.price);
+    }
   };
 
   const handleAddToWishlist = (e: React.MouseEvent) => {

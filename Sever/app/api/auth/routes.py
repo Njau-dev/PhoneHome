@@ -4,7 +4,7 @@ Handles: signup, login, logout, password reset
 """
 import logging
 from datetime import timedelta, datetime, timezone
-from flask import Blueprint, request, jsonify, Flask
+from flask import Blueprint, request, jsonify, Flask, current_app
 from flask_jwt_extended import (
     create_access_token,
     jwt_required,
@@ -264,11 +264,12 @@ def forgot_password():
             db.session.commit()
 
             # Send reset email
-            email_sent = EmailService.send_password_reset(
-                EmailService, email, reset_url)
+            email_service = EmailService.init_app(current_app)
+            email_result = email_service.send_password_reset(email, reset_url)
 
-            if not email_sent:
-                logger.error(f"Failed to send password reset email to {email}")
+            if not email_result.get("success"):
+                logger.error(
+                    f"Failed to send password reset email to {email}: {email_result.get('error')}")
                 return jsonify(format_response(False, None, "Failed to send reset email")), 500
 
             logger.info(f"Password reset email sent to: {email}")

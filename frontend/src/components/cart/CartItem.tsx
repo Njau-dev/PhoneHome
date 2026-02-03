@@ -27,7 +27,7 @@ const CartItem = ({
   return (
     <tr className="border border-border rounded-lg lg:border-x-0 relative mb-4 lg:mb-0 flex flex-col lg:table-row">
       {/* Product Image */}
-      <td className="pt-8 lg:py-6 flex items-center justify-center">
+      <td className="pt-8 lg:pt-6 lg:pb-6 flex items-center justify-center lg:table-cell">
         <img
           src={product.image_urls[0]}
           alt={product.name}
@@ -36,7 +36,7 @@ const CartItem = ({
       </td>
 
       {/* Product Name & Variation */}
-      <td className="py-4 lg:py-6 flex flex-col items-center lg:items-start">
+      <td className="py-4 lg:py-6 flex flex-col items-center lg:items-start lg:table-cell lg:align-middle">
         <p className="font-medium text-xl">{product.name}</p>
         {variationKey !== "null" && (
           <p className="text-sm text-secondary pt-1">{variationKey}</p>
@@ -44,7 +44,7 @@ const CartItem = ({
       </td>
 
       {/* Price */}
-      <td className="py-4 lg:py-6 flex items-center justify-around w-full lg:w-auto lg:justify-start">
+      <td className="py-4 lg:py-6 flex items-center justify-around w-full lg:w-auto lg:justify-start lg:table-cell lg:align-middle">
         <p className="lg:hidden font-medium">Price:</p>
         <p>
           {CURRENCY} {formatPrice(price)}
@@ -52,7 +52,7 @@ const CartItem = ({
       </td>
 
       {/* Quantity */}
-      <td className="py-4 lg:py-6 flex items-center justify-around w-full lg:w-auto lg:justify-start">
+      <td className="py-4 lg:py-6 flex items-center justify-around w-full lg:w-auto lg:justify-start lg:table-cell lg:align-middle">
         <p className="lg:hidden font-medium">Quantity:</p>
         <div className="flex w-fit bg-bg-light border border-border rounded items-center gap-2">
           <button
@@ -72,7 +72,7 @@ const CartItem = ({
       </td>
 
       {/* Subtotal */}
-      <td className="pb-8 pt-4 lg:py-6 flex items-center justify-around w-full lg:w-auto lg:justify-start">
+      <td className="pb-8 pt-4 lg:py-6 flex items-center justify-around w-full lg:w-auto lg:justify-start lg:table-cell lg:align-middle">
         <p className="lg:hidden font-semibold">Subtotal:</p>
         <p className="text-accent">
           {CURRENCY} {formatPrice(subtotal)}
@@ -80,7 +80,7 @@ const CartItem = ({
       </td>
 
       {/* Remove Button */}
-      <td className="py-4 lg:py-6 flex items-center justify-center lg:justify-start absolute top-2 right-3 lg:relative">
+      <td className="py-4 lg:py-6 flex items-center justify-center lg:justify-start absolute top-2 right-3 lg:static lg:table-cell lg:align-middle">
         <button onClick={onRemove} aria-label="Remove item">
           <X className="text-error size-5 hover:scale-110 transition-transform" />
         </button>

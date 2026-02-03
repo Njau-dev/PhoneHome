@@ -73,14 +73,10 @@ const Collection = () => {
             filtered = filtered.filter((p) => p.type === selectedCategory);
         }
 
-        console.log("selectedCategory:", selectedCategory);
-
         // Brand filter
         if (selectedBrand) {
             filtered = filtered.filter((p) => p.brand === selectedBrand);
         }
-
-        console.log("selectedBrand:", selectedBrand);
 
         // Price filter
         filtered = filtered.filter(

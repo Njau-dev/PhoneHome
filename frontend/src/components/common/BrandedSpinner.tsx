@@ -55,7 +55,7 @@ const BrandedSpinner = ({ message = "Loading..." }: BrandedSpinnerProps) => {
         ))}
       </div>
 
-      <style jsx>{`
+      <style jsx global>{`
         @keyframes morph {
           0%, 100% {
             border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;

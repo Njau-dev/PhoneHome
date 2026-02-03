@@ -15,16 +15,15 @@ export const useAuth = () => {
   const login = async (email: string, password: string) => {
     try {
       await auth.login(email, password);
-      
-      // Sync cart after login (guest cart to user cart)
+
+      // Sync cart, wishlist and compare after login (guest cart to user cart)
       if (auth.token) {
         await cart.syncWithServer(auth.token);
       }
-      
-      // Sync wishlist and compare
+
       await wishlist.syncWithServer();
       await compare.syncWithServer();
-      
+
       router.push("/");
       return true;
     } catch (error) {
@@ -40,12 +39,12 @@ export const useAuth = () => {
   ) => {
     try {
       await auth.signup(username, email, password, phone_number);
-      
+
       // Sync cart after signup
       if (auth.token) {
         await cart.syncWithServer(auth.token);
       }
-      
+
       router.push("/");
       return true;
     } catch (error) {
@@ -56,12 +55,12 @@ export const useAuth = () => {
   const logout = async () => {
     try {
       await auth.logout();
-      
+
       // Clear all stores
       cart.clearCart();
       wishlist.clearWishlist();
       compare.clearCompare();
-      
+
       router.push("/login");
     } catch (error) {
       console.error("Logout error:", error);

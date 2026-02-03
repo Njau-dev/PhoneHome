@@ -25,7 +25,6 @@ class ProductionConfig(BaseConfig):
     CACHE_TYPE = 'redis'
     CACHE_REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 
-    # Additional production settings
-    PROPAGATE_EXCEPTIONS = False
-    JSON_SORT_KEYS = False
-    JSONIFY_PRETTYPRINT_REGULAR = False
+    # Production CORS settings
+    CORS_ORIGINS = os.getenv(
+        'CORS_ORIGINS', 'https://your-frontend.com,https://www.your-frontend.com')

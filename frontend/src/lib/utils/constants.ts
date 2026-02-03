@@ -39,4 +39,5 @@ export const STORAGE_KEYS = {
   USER: "user",
   CART: "guest_cart",
   COMPARE: "compare_items",
+  AUTH: "auth_storage",
 } as const;

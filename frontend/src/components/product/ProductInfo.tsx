@@ -36,7 +36,11 @@ const ProductInfo = ({ product, variations = [] }: ProductInfoProps) => {
       return;
     }
 
-    addItem(product.id, selectedVariation || undefined, quantity);
+    if (hasVariations) {
+      addItem(product.id, selectedVariation || undefined, quantity);
+    } else {
+      addItem(product.id, undefined, quantity, product.price);
+    }
   };
 
   const handleQuantityChange = (action: "increase" | "decrease") => {

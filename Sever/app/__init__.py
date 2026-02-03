@@ -7,7 +7,7 @@ import logging
 from flask import Flask
 
 from app.config import get_config
-from app.extensions import db, migrate, jwt, api, cors
+from app.extensions import db, migrate, jwt, cors
 from app.utils.jwt.callbacks import setup_jwt_callbacks
 
 
@@ -23,6 +23,9 @@ def create_app(config_name=None):
     """
     app = Flask(__name__)
 
+    # Avoid 308 redirects on missing/extra trailing slashes (helps CORS preflight)
+    app.url_map.strict_slashes = False
+
     # Determine config
     if config_name is None:
         config_name = os.getenv('FLASK_ENV', 'development')
@@ -32,6 +35,7 @@ def create_app(config_name=None):
 
     # Register logger and error handlers
     setup_logging(app)
+
     register_error_handlers(app)
 
     initialize_extensions(app)
@@ -88,7 +92,6 @@ def initialize_extensions(app):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    api.init_app(app)
     cors.init_app(app)
 
     # Configure Cloudinary

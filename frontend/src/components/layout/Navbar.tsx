@@ -19,7 +19,7 @@ const Navbar = () => {
     const [visible, setVisible] = useState(false);
     const pathname = usePathname();
     const { user, isAuthenticated, logout } = useAuth();
-    const { getCount } = useCart();
+    const { count, hasHydrated } = useCart();
     const { toggleSearch } = useUIStore();
 
     const navLinks = [
@@ -120,7 +120,7 @@ const Navbar = () => {
                 <Link href="/cart" className="relative">
                     <ShoppingBagIcon className="w-6 icons hover:text-accent" />
                     <p className="absolute -right-1.25 -bottom-1.25 w-4 text-center leading-4 bg-accent text-bg aspect-square rounded-full text-[10px]">
-                        {getCount()}
+                        {hasHydrated ? count : 0}
                     </p>
                 </Link>
 

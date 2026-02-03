@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { STORAGE_KEYS } from "@/lib/utils/constants";
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get("token")?.value;
+  const token = request.cookies.get(STORAGE_KEYS.TOKEN)?.value;
   const pathname = request.nextUrl.pathname;
 
   // Protected routes that require authentication
