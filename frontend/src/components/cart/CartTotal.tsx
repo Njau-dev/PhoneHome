@@ -6,8 +6,7 @@ import { formatPrice } from "@/lib/utils/format";
 import Title from "../common/Title";
 
 const CartTotal = () => {
-    const { getTotal } = useCart();
-    const subtotal = getTotal();
+    const { total: subtotal } = useCart();
     const total = subtotal + DELIVERY_FEE;
 
     return (

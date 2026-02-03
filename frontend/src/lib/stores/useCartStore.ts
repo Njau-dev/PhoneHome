@@ -10,6 +10,7 @@ interface CartState {
   isLoading: boolean;
   isSyncing: boolean;
   variations: { [key: string]: ProductVariation };
+  lastSyncToken: string | null;
 
   // Actions
   addItem: (productId: number, variation?: ProductVariation, quantity?: number, basePrice?: number) => Promise<void>;
@@ -32,6 +33,7 @@ export const useCartStore = create<CartState>()(
       isLoading: false,
       isSyncing: false,
       variations: {},
+      lastSyncToken: null,
 
       addItem: async (productId, variation, quantity = 1, basePrice) => {
         const { items } = get();
@@ -157,6 +159,10 @@ export const useCartStore = create<CartState>()(
       },
 
       syncWithServer: async (token: string) => {
+        const { isSyncing, lastSyncToken } = get();
+        if (isSyncing) return;
+        if (lastSyncToken === token) return;
+
         set({ isSyncing: true });
         try {
           const { items, variations } = get();
@@ -180,7 +186,7 @@ export const useCartStore = create<CartState>()(
 
           // Then fetch the complete cart from server
           const serverCart = await cartAPI.getCart();
-          set({ items: serverCart, isSyncing: false });
+          set({ items: serverCart, isSyncing: false, lastSyncToken: token });
 
         } catch (error) {
           console.error("Failed to sync cart:", error);
@@ -233,7 +239,11 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: STORAGE_KEYS.CART,
-      partialize: (state) => ({ items: state.items, variations: state.variations }),
+      partialize: (state) => ({
+        items: state.items,
+        variations: state.variations,
+        lastSyncToken: state.lastSyncToken,
+      }),
     }
   )
 );

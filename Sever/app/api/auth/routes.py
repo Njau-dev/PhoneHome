@@ -164,7 +164,8 @@ def login():
                         "id": user.id,
                         "username": user.username,
                         "email": user.email,
-                        "role": user.role or "user"
+                        "role": user.role or "user",
+                        "created_at": user.created_at
                     }
                 },
                 "Login successful"
@@ -258,7 +259,8 @@ def forgot_password():
 
             # Save token to user
             user.reset_token = token
-            user.reset_token_expiration = datetime.now(timezone.utc) + timedelta(
+            # Store naive UTC timestamp to match DB DateTime (naive)
+            user.reset_token_expiration = datetime.utcnow() + timedelta(
                 seconds=int(os.getenv("PASSWORD_RESET_TIMEOUT", 3600))
             )
             db.session.commit()
@@ -330,7 +332,8 @@ def reset_password(token):
             return jsonify(format_response(False, None, "Invalid reset request")), 400
 
         # Check token expiration
-        if user.reset_token_expiration < datetime.now(timezone.utc):
+        # Compare using naive UTC to avoid offset-aware/naive mismatch
+        if user.reset_token_expiration < datetime.utcnow():
             return jsonify(format_response(False, None, "Reset token has expired")), 400
 
         try:

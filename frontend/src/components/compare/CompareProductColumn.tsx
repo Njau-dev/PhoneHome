@@ -17,6 +17,10 @@ const CompareProductColumn = ({
   onAddToCart,
 }: CompareProductColumnProps) => {
   const specifications = getCompareSpecifications();
+  const imageUrl =
+    Array.isArray(product.image_urls) && product.image_urls.length > 0
+      ? product.image_urls[0]
+      : (product as { image_url?: string }).image_url ?? "/assets/logo.png";
 
   return (
     <div className="col-span-1">
@@ -32,7 +36,7 @@ const CompareProductColumn = ({
 
         <Link href={`/product/${product.id}`}>
           <img
-            src={product.image_urls[0]}
+            src={imageUrl}
             alt={product.name}
             className="w-full h-48 md:h-64 object-cover rounded-md"
           />

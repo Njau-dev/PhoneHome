@@ -46,15 +46,19 @@ export const cartAPI = {
     quantity: number,
     variationKey?: string
   ): Promise<CartResponse> => {
-    return await apiClient.patch(`/cart/${productId}`, {
+    return await apiClient.put('/cart', {
+      productId,
       quantity,
-      variationKey: variationKey !== "null" ? variationKey : null,
+      selectedVariation: variationKey !== "null" ? variationKey : null,
     });
   },
 
   removeItem: async (productId: number, variationKey?: string): Promise<CartResponse> => {
-    return await apiClient.delete(`/cart/${productId}`, {
-      data: { variationKey: variationKey !== "null" ? variationKey : null },
+    return await apiClient.delete('/cart', {
+      data: {
+        productId,
+        selectedVariation: variationKey !== "null" ? variationKey : null
+      }
     });
   },
 

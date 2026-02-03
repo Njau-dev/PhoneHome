@@ -41,7 +41,7 @@ export const authAPI = {
   },
 
   logout: async (): Promise<{ success: boolean; message: string }> => {
-    return await apiClient.post("/auth/logout");
+    return await apiClient.delete("/auth/logout");
   },
 
   forgotPassword: async (data: ForgotPasswordData): Promise<{ message: string }> => {
@@ -51,7 +51,7 @@ export const authAPI = {
   resetPassword: async (data: ResetPasswordData): Promise<{ message: string }> => {
     const { token, ...body } = data;
     return await apiClient.post(
-      `/auth/reset-password/${encodeURIComponent(token)}`,
+      `/auth/reset-password/${token}`,
       body
     );
   },

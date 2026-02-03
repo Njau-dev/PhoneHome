@@ -172,12 +172,7 @@ const Breadcrumbs = ({ productData }: BreadcrumbsProps) => {
         {PageIcon && (
           <div className="ml-4">
             <PageIcon
-              className="text-accent h-6 w-6 
-            hover:scale-110 
-            hover:rotate-6 
-            transition-transform 
-            duration-300 
-            ease-in-out"
+              className="text-accent h-6 w-6 hover:scale-110 hover:rotate-6 transition-transform duration-300 ease-in-out"
             />
           </div>
         )}

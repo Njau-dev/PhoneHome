@@ -43,6 +43,38 @@ export default function ProfilePage() {
     wishlistItems: [],
   });
 
+  const normalizeStats = (value: any): ProfileData["stats"] => {
+    const stats = value?.stats ?? value?.data?.stats ?? value?.data ?? value ?? {};
+    const toNumber = (input: unknown): number => {
+      const parsed = typeof input === "number" ? input : Number(input);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    return {
+      order_count: toNumber(stats.order_count ?? stats.orderCount),
+      total_payment: toNumber(stats.total_payment ?? stats.totalPayment),
+      wishlist_count: toNumber(stats.wishlist_count ?? stats.wishlistCount),
+      review_count: toNumber(stats.review_count ?? stats.reviewCount),
+    };
+  };
+
+
+  const normalizeOrders = (value: any): any[] => {
+    if (Array.isArray(value)) return value;
+    if (Array.isArray(value?.orders)) return value.orders;
+    if (Array.isArray(value?.data)) return value.data;
+    if (Array.isArray(value?.data?.orders)) return value.data.orders;
+    return [];
+  };
+
+  const normalizeWishlist = (value: any): any[] => {
+    if (Array.isArray(value)) return value;
+    if (Array.isArray(value?.wishlist)) return value.wishlist;
+    if (Array.isArray(value?.data)) return value.data;
+    if (Array.isArray(value?.data?.wishlist)) return value.data.wishlist;
+    return [];
+  };
+
   const fetchProfileData = async () => {
     setIsLoading(true);
     setIsError(false);
@@ -55,9 +87,9 @@ export default function ProfilePage() {
       ]);
 
       setProfileData({
-        stats: statsRes.data || statsRes,
-        recentOrders: ordersRes.data || ordersRes,
-        wishlistItems: wishlistRes.data?.wishlist || wishlistRes.data || [],
+        stats: normalizeStats(statsRes),
+        recentOrders: normalizeOrders(ordersRes),
+        wishlistItems: normalizeWishlist(wishlistRes),
       });
     } catch (error) {
       console.error("Error fetching profile data:", error);
@@ -92,15 +124,17 @@ export default function ProfilePage() {
   };
 
   // Transform orders for display (one item per row, max 5)
-  const transformedOrders = profileData.recentOrders
-    .flatMap((order) =>
-      order.items.map((item: any, index: number) => ({
-        ...order,
-        items: [item],
-        showOrderDetails: index === 0,
-      }))
-    )
-    .slice(0, 5);
+  const transformedOrders = Array.isArray(profileData.recentOrders)
+    ? profileData.recentOrders
+      .flatMap((order) =>
+        order.items.map((item: any, index: number) => ({
+          ...order,
+          items: [item],
+          showOrderDetails: index === 0,
+        }))
+      )
+      .slice(0, 5)
+    : [];
 
   if (!user) {
     return <BrandedSpinner message="Loading profile..." />;

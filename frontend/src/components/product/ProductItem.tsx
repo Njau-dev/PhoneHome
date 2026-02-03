@@ -33,7 +33,6 @@ const ProductItem = ({ product }: ProductItemProps) => {
   const [isHovered, setIsHovered] = useState(false);
 
   const handleAddToCart = (e: React.MouseEvent) => {
-    console.log(product.hasVariation)
     e.preventDefault();
     e.stopPropagation();
     if (product.hasVariation) {
