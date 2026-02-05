@@ -44,17 +44,17 @@ class TestOrderLifecycle:
             }
         )
         assert order_response.status_code == 201
-        order_ref = order_response.json['order_reference']
+        order_ref = order_response.json['data']['order_reference']
 
         # Step 2: Admin views all orders
         admin_orders = client.get(
             '/api/orders/admin/all', headers=admin_headers)
         assert admin_orders.status_code == 200
-        assert len(admin_orders.json['orders']) > 0
+        assert len(admin_orders.json['data']['orders']) > 0
 
         # Find our order
         our_order = next(
-            (o for o in admin_orders.json['orders']
+            (o for o in admin_orders.json['data']['orders']
              if o['order_reference'] == order_ref),
             None
         )
@@ -74,7 +74,7 @@ class TestOrderLifecycle:
         # Verify status updated
         order_detail = client.get(
             f'/api/orders/{order_ref}', headers=auth_headers)
-        assert order_detail.json['status'] == 'Packing'
+        assert order_detail.json['data']['status'] == 'Packing'
 
         # Step 4: Update to Shipped
         shipped_response = client.put(
@@ -103,14 +103,14 @@ class TestOrderLifecycle:
         # Verify final status
         final_order = client.get(
             f'/api/orders/{order_ref}', headers=auth_headers)
-        assert final_order.json['status'] == 'Delivered'
-        assert final_order.json['payment']['status'] == 'Success'
+        assert final_order.json['data']['status'] == 'Delivered'
+        assert final_order.json['data']['payment']['status'] == 'Success'
 
         # Step 7: Customer views order history
         orders_response = client.get('/api/orders/', headers=auth_headers)
         assert orders_response.status_code == 200
         delivered_orders = [
-            o for o in orders_response.json['orders']
+            o for o in orders_response.json['data']['orders']
             if o['order_reference'] == order_ref
         ]
         assert len(delivered_orders) == 1
@@ -128,7 +128,7 @@ class TestOrderLifecycle:
         )
 
         assert invalid_response.status_code == 400
-        assert 'invalid' in invalid_response.json['error'].lower()
+        assert 'invalid' in invalid_response.json['message'].lower()
 
     def test_customer_cannot_update_order_status(self, client, auth_headers, order):
         """
@@ -185,7 +185,7 @@ class TestOrderLifecycle:
                 'email': f'user{i}@example.com',
                 'password': 'password123'
             })
-            token = login_response.json['token']
+            token = login_response.json['data']['token']
             headers = {'Authorization': f'Bearer {token}'}
 
             # Add to cart
@@ -216,7 +216,7 @@ class TestOrderLifecycle:
             )
 
             assert order_response.status_code == 201
-            orders_created.append(order_response.json['order_reference'])
+            orders_created.append(order_response.json['data']['order_reference'])
 
         # Verify all orders are unique
         assert len(set(orders_created)) == 3

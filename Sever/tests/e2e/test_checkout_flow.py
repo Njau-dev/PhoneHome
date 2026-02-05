@@ -27,15 +27,15 @@ class TestCompleteCheckoutFlow:
         })
 
         assert signup_response.status_code == 201
-        assert 'token' in signup_response.json
+        assert 'token' in signup_response.json['data']
 
-        token = signup_response.json['token']
+        token = signup_response.json['data']['token']
         headers = {'Authorization': f'Bearer {token}'}
 
         # Step 2: Browse products
         products_response = client.get('/api/products/')
         assert products_response.status_code == 200
-        assert len(products_response.json['products']) > 0
+        assert len(products_response.json['data']['products']) > 0
 
         # Step 3: Add product to cart
         cart_response = client.post(
@@ -51,7 +51,7 @@ class TestCompleteCheckoutFlow:
         # Step 4: View cart
         view_cart_response = client.get('/api/cart/', headers=headers)
         assert view_cart_response.status_code == 200
-        cart_data = view_cart_response.json['cart']
+        cart_data = view_cart_response.json['data']['cart']
         assert str(product.id) in cart_data
 
         # Step 5: Place order
@@ -74,8 +74,8 @@ class TestCompleteCheckoutFlow:
         )
 
         assert order_response.status_code == 201
-        assert 'order_reference' in order_response.json
-        order_ref = order_response.json['order_reference']
+        assert 'order_reference' in order_response.json['data']
+        order_ref = order_response.json['data']['order_reference']
 
         # Step 6: Verify order was created
         order_detail_response = client.get(
@@ -83,12 +83,12 @@ class TestCompleteCheckoutFlow:
             headers=headers
         )
         assert order_detail_response.status_code == 200
-        assert order_detail_response.json['order_reference'] == order_ref
-        assert order_detail_response.json['status'] == 'Order Placed'
+        assert order_detail_response.json['data']['order_reference'] == order_ref
+        assert order_detail_response.json['data']['status'] == 'Order Placed'
 
         # Step 7: Verify cart is empty
         empty_cart_response = client.get('/api/cart/', headers=headers)
-        assert empty_cart_response.json['cart'] == {}
+        assert empty_cart_response.json['data']['cart'] == {}
 
     def test_returning_user_checkout(self, client, auth_headers, product):
         """
@@ -150,7 +150,7 @@ class TestCompleteCheckoutFlow:
 
         # View cart to calculate total
         cart_response = client.get('/api/cart/', headers=auth_headers)
-        cart = cart_response.json['cart']
+        cart = cart_response.json['data']['cart']
 
         # Calculate total
         total = 0
@@ -180,13 +180,13 @@ class TestCompleteCheckoutFlow:
         assert order_response.status_code == 201
 
         # Verify order has all items
-        order_ref = order_response.json['order_reference']
+        order_ref = order_response.json['data']['order_reference']
         order_detail = client.get(
             f'/api/orders/{order_ref}',
             headers=auth_headers
         )
 
-        items = order_detail.json['items']
+        items = order_detail.json['data']['items']
         assert len(items) == 3
 
     def test_product_with_variation_checkout(self, client, auth_headers, product_with_variation):
@@ -231,13 +231,13 @@ class TestCompleteCheckoutFlow:
         assert order_response.status_code == 201
 
         # Verify variation in order
-        order_ref = order_response.json['order_reference']
+        order_ref = order_response.json['data']['order_reference']
         order_detail = client.get(
             f'/api/orders/{order_ref}',
             headers=auth_headers
         )
 
-        item = order_detail.json['items'][0]
+        item = order_detail.json['data']['items'][0]
         assert item['variation_name'] == '12GB - 512GB'
         assert item['price'] == 120000.00
 
@@ -263,4 +263,4 @@ class TestCompleteCheckoutFlow:
         )
 
         assert order_response.status_code == 400
-        assert 'empty' in order_response.json['error'].lower()
+        assert 'empty' in order_response.json['message'].lower()

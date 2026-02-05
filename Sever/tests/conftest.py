@@ -24,15 +24,6 @@ def app():
 
     app = create_app('testing')
 
-    # Override config for testing
-    app.config.update({
-        'TESTING': True,
-        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',  # In-memory database
-        'WTF_CSRF_ENABLED': False,
-        'SECRET_KEY': 'test-secret-key',
-        'JWT_SECRET_KEY': 'test-jwt-secret-key',
-    })
-
     return app
 
 
@@ -109,7 +100,7 @@ def auth_token(client, user):
         'email': 'test@example.com',
         'password': 'password123'
     })
-    return response.json['token']
+    return response.json['data']['token']
 
 
 @pytest.fixture
@@ -125,7 +116,7 @@ def admin_token(client, admin_user):
         'email': 'admin@example.com',
         'password': 'admin123'
     })
-    return response.json['token']
+    return response.json['data']['token']
 
 
 @pytest.fixture

@@ -3,6 +3,7 @@ import os
 from .base import BaseConfig, ENVIRONMENT
 from .development import DevelopmentConfig
 from .production import ProductionConfig
+from .testing import TestingConfig
 
 
 def get_config(config_name=None):
@@ -13,6 +14,7 @@ def get_config(config_name=None):
     config_map = {
         'development': DevelopmentConfig,
         'production': ProductionConfig,
+        'testing': TestingConfig,
         'default': DevelopmentConfig
     }
 

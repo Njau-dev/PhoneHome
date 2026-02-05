@@ -35,7 +35,7 @@ class TestUserJourney:
         # Step 3: View wishlist
         wishlist_view = client.get('/api/wishlist/', headers=auth_headers)
         assert wishlist_view.status_code == 200
-        assert len(wishlist_view.json['wishlist']) == 1
+        assert len(wishlist_view.json['data']['wishlist']) == 1
 
         # Step 4: Add from wishlist to cart
         cart_add = client.post(
@@ -87,7 +87,7 @@ class TestUserJourney:
         # Step 2: View comparison
         compare_view = client.get('/api/compare/', headers=auth_headers)
         assert compare_view.status_code == 200
-        assert len(compare_view.json['product_ids']) == 3
+        assert len(compare_view.json['data']['product_ids']) == 3
 
         # Step 3: Try to add 4th product (should fail)
         response = client.post(
@@ -96,7 +96,7 @@ class TestUserJourney:
             json={'product_id': multiple_products[3].id}
         )
         assert response.status_code == 400
-        assert 'full' in response.json['error'].lower()
+        assert 'full' in response.json['message'].lower()
 
         # Step 4: Choose and buy product2
         cart_response = client.post(
@@ -147,7 +147,7 @@ class TestUserJourney:
         # Step 3: View reviews
         reviews_response = client.get(f'/api/reviews/product/{product.id}')
         assert reviews_response.status_code == 200
-        reviews = reviews_response.json['reviews']
+        reviews = reviews_response.json['data']['reviews']
         assert len(reviews) == 1
         assert reviews[0]['rating'] == 5
 
@@ -158,7 +158,7 @@ class TestUserJourney:
             json={'rating': 4, 'comment': 'Changed my mind'}
         )
         assert duplicate_review.status_code == 400
-        assert 'already reviewed' in duplicate_review.json['error'].lower()
+        assert 'already reviewed' in duplicate_review.json['message'].lower()
 
     def test_profile_management_flow(self, client, auth_headers, user):
         """
@@ -171,7 +171,7 @@ class TestUserJourney:
         # Step 1: View profile
         profile_response = client.get('/api/profile/', headers=auth_headers)
         assert profile_response.status_code == 200
-        assert profile_response.json['email'] == 'test@example.com'
+        assert profile_response.json['data']['profile']['email'] == 'test@example.com'
 
         # Step 2: Update profile
         update_response = client.put(
@@ -186,13 +186,13 @@ class TestUserJourney:
 
         # Verify update
         profile_response = client.get('/api/profile/', headers=auth_headers)
-        assert profile_response.json['username'] == 'updateduser'
-        assert profile_response.json['address'] == '999 New Address'
+        assert profile_response.json['data']['profile']['username'] == 'updateduser'
+        assert profile_response.json['data']['profile']['address'] == '999 New Address'
 
         # Step 3: View stats
         stats_response = client.get('/api/profile/stats', headers=auth_headers)
         assert stats_response.status_code == 200
-        assert 'order_count' in stats_response.json
+        assert 'order_count' in stats_response.json['data']['stats']
 
         # Step 4: View orders
         orders_response = client.get(
@@ -220,7 +220,7 @@ class TestUserJourney:
         })
         assert signup_response.status_code == 201
 
-        token = signup_response.json['token']
+        token = signup_response.json['data']['token']
         headers = {'Authorization': f'Bearer {token}'}
 
         # Now can add to cart

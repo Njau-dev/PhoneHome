@@ -1,11 +1,15 @@
 interface StatusBadgeProps {
-  status: string;
+  status?: string | null;
   type?: "order" | "payment";
 }
 
 const StatusBadge = ({ status, type = "order" }: StatusBadgeProps) => {
+  const normalizedStatus = (status ?? "").toString().toLowerCase();
+
   const getStatusColor = () => {
-    const normalizedStatus = status.toLowerCase();
+    if (!normalizedStatus) {
+      return "bg-secondary/20 text-secondary";
+    }
     
     if (type === "payment") {
       switch (normalizedStatus) {
@@ -39,7 +43,7 @@ const StatusBadge = ({ status, type = "order" }: StatusBadgeProps) => {
     <span
       className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor()}`}
     >
-      {status}
+      {status ?? "Unknown"}
     </span>
   );
 };
