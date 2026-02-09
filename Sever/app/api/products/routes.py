@@ -24,36 +24,66 @@ products_bp = Blueprint('products', __name__)
 def get_products():
     """
     Get all products with optional filtering
-
     Query Parameters:
         type: Filter by product type (phone, laptop, tablet, audio)
         category: Filter by category ID
         brand: Filter by brand ID
-
+        best_seller: Filter for best sellers (true/false)
+        limit: Limit number of results
+        sort: Sort order (newest, oldest, price_asc, price_desc)
     Returns:
         200: List of products
         500: Server error
     """
     try:
-        # Get all products (we can add filtering later)
+        # Get all products
         products = ProductService.get_all_products()
-
+        
         # Filter by type if specified
         product_type = request.args.get('type')
         if product_type:
             products = [p for p in products if p['type'] == product_type]
-
+        
         # Filter by category if specified
         category = request.args.get('category')
         if category:
             products = [p for p in products if p['category'] == category]
-
+        
+        # Filter by brand if specified
+        brand = request.args.get('brand')
+        if brand:
+            products = [p for p in products if p['brand'] == brand]
+        
+        # Filter by best seller if specified
+        best_seller = request.args.get('best_seller')
+        if best_seller and best_seller.lower() == 'true':
+            products = [p for p in products if p.get('isBestSeller', False)]
+        
+        # Sort products
+        sort = request.args.get('sort', 'newest')
+        if sort == 'newest':
+            products.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        elif sort == 'oldest':
+            products.sort(key=lambda x: x.get('created_at', ''))
+        elif sort == 'price_asc':
+            products.sort(key=lambda x: x.get('price', 0))
+        elif sort == 'price_desc':
+            products.sort(key=lambda x: x.get('price', 0), reverse=True)
+        
+        # Limit results if specified
+        limit = request.args.get('limit')
+        if limit:
+            try:
+                limit = int(limit)
+                products = products[:limit]
+            except ValueError:
+                pass
+        
         return jsonify(format_response(True, {"products": products}, "Products fetched successfully")), 200
-
     except Exception as e:
         logger.error(f"Error fetching products: {str(e)}")
         return jsonify(format_response(False, None, "An error occurred while fetching products")), 500
-
+    
 
 # ============================================================================
 # GET SINGLE PRODUCT

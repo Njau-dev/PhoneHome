@@ -79,9 +79,11 @@ export default function OrderDetailsPage() {
       window.URL.revokeObjectURL(url);
 
       toast.success(`${docType} downloaded successfully!`);
+      toast.dismiss();
     } catch (error) {
       console.error(`Error downloading ${docType}:`, error);
       toast.error(`Could not download ${docType}`);
+      toast.dismiss();
     }
   };
 
