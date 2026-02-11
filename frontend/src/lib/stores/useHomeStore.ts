@@ -1,13 +1,7 @@
 import { create } from 'zustand';
-import { Product, ProductType } from '@/lib/types/product';
-import {
-    FeaturedBanner,
-    BrandWithCount,
-    getTrendingProducts,
-    getBestDeals,
-    getBrands,
-    getProductsByBrand,
-} from '@/lib/api/home';
+import { Product } from '@/lib/types/product';
+import { getHomeData } from '@/lib/api/home';
+import { FeaturedBanner, HomeState } from '../types/home';
 
 // Static hero banner config — swap images / links to match your setup
 const FEATURED_BANNERS: FeaturedBanner[] = [
@@ -34,7 +28,7 @@ const FEATURED_BANNERS: FeaturedBanner[] = [
         cta: 'Shop Now',
         ctaLink: '/collection?type=laptop',
         size: 'small',
-        position: 2,
+        position: 6,
     },
     {
         id: '3',
@@ -46,7 +40,7 @@ const FEATURED_BANNERS: FeaturedBanner[] = [
         cta: 'Shop Now',
         ctaLink: '/collection?type=tablet',
         size: 'small',
-        position: 3,
+        position: 5,
     },
     {
         id: '4',
@@ -70,45 +64,30 @@ const FEATURED_BANNERS: FeaturedBanner[] = [
         cta: 'Explore',
         ctaLink: '/collection',
         size: 'small',
-        position: 5,
+        position: 3,
     },
+    {
+        id: '6',
+        title: 'Deals &',
+        subtitle: 'Offers',
+        image: '/assets/images/apple-2024-2.jpg',
+        backgroundColor: '#374151',
+        textColor: '#ffffff',
+        cta: 'Explore',
+        ctaLink: '/collection',
+        size: 'small',
+        position: 2,
+    }
 ];
 
-interface HomeState {
-    // Hero
-    featuredBanners: FeaturedBanner[];
-
-    // Trending products
-    trendingProducts: Product[];
-    isLoadingProducts: boolean;
-    selectedProductType: ProductType;
-    productTypes: { value: ProductType; label: string }[];
-
-    // Best deals
-    bestDeals: Product[];
-    isLoadingDeals: boolean;
-
-    // Brands
-    brands: BrandWithCount[];
-    isLoadingBrands: boolean;
-    /** brandId → up-to-5 products for that brand */
-    brandProducts: Record<string, Product[]>;
-    isLoadingBrandProducts: boolean;
-
-    // Actions
-    fetchFeaturedBanners: () => void;
-    fetchTrendingProducts: (type?: ProductType) => Promise<void>;
-    setSelectedProductType: (type: ProductType) => void;
-    fetchBestDeals: () => Promise<void>;
-    fetchBrands: () => Promise<void>;
-    fetchAllBrandProducts: () => Promise<void>;
-}
-
 export const useHomeStore = create<HomeState>((set, get) => ({
-    // ── Initial state ────────────────────────────────────────────────────────
     featuredBanners: [],
-    trendingProducts: [],
-    isLoadingProducts: false,
+    trending: [],
+    bestDeals: [],
+    brands: [],
+    brandProducts: {},
+    isLoading: false,
+    hasFetchedHome: false,
     selectedProductType: 'phone',
     productTypes: [
         { value: 'phone', label: 'Phones' },
@@ -116,86 +95,41 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         { value: 'tablet', label: 'Tablets' },
         { value: 'audio', label: 'Audio Products' },
     ],
-    bestDeals: [],
-    isLoadingDeals: false,
-    brands: [],
-    isLoadingBrands: false,
-    brandProducts: {},
-    isLoadingBrandProducts: false,
 
-    // ── Hero ─────────────────────────────────────────────────────────────────
     fetchFeaturedBanners: () => set({ featuredBanners: FEATURED_BANNERS }),
 
-    // ── Trending products ────────────────────────────────────────────────────
+    fetchHome: async () => {
+        const { hasFetchedHome, isLoading } = get();
+        if (hasFetchedHome || isLoading) return;
+
+        set({ isLoading: true });
+        try {
+            const data = await getHomeData();
+            const brandProducts = Object.fromEntries(
+                data.brands.map((brand) => [brand.id, brand.products ?? []]),
+            ) as Record<number, Product[]>;
+
+            set({
+                trending: data.trending,
+                bestDeals: data.bestDeals,
+                brands: data.brands,
+                brandProducts,
+                hasFetchedHome: true,
+            });
+        } catch (err) {
+            console.error('fetchHome:', err);
+            set({
+                trending: [],
+                bestDeals: [],
+                brands: [],
+                brandProducts: {},
+            });
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+
     setSelectedProductType: (type) => {
         set({ selectedProductType: type });
-        get().fetchTrendingProducts(type);
-    },
-
-    fetchTrendingProducts: async (type) => {
-        set({ isLoadingProducts: true });
-        try {
-            const resolvedType = type ?? get().selectedProductType;
-            const products = await getTrendingProducts(resolvedType, 10);
-            set({ trendingProducts: products });
-        } catch (err) {
-            console.error('fetchTrendingProducts:', err);
-            set({ trendingProducts: [] });
-        } finally {
-            set({ isLoadingProducts: false });
-        }
-    },
-
-    // ── Best deals ───────────────────────────────────────────────────────────
-    fetchBestDeals: async () => {
-        set({ isLoadingDeals: true });
-        try {
-            const deals = await getBestDeals('phone', 8);
-            set({ bestDeals: deals });
-        } catch (err) {
-            console.error('fetchBestDeals:', err);
-            set({ bestDeals: [] });
-        } finally {
-            set({ isLoadingDeals: false });
-        }
-    },
-
-    // ── Brands ───────────────────────────────────────────────────────────────
-    fetchBrands: async () => {
-        set({ isLoadingBrands: true });
-        try {
-            const brands = await getBrands();
-            set({ brands });
-        } catch (err) {
-            console.error('fetchBrands:', err);
-            set({ brands: [] });
-        } finally {
-            set({ isLoadingBrands: false });
-        }
-    },
-
-    /**
-     * Fire one getProductsByBrand request per brand in parallel then
-     * store results in the brandProducts map.
-     * Call this after fetchBrands() resolves.
-     */
-    fetchAllBrandProducts: async () => {
-        const { brands } = get();
-        if (brands.length === 0) return;
-
-        set({ isLoadingBrandProducts: true });
-        try {
-            const pairs = await Promise.all(
-                brands.map(async (brand) => {
-                    const products = await getProductsByBrand(String(brand.id), 5);
-                    return [brand.id, products] as const;
-                }),
-            );
-            set({ brandProducts: Object.fromEntries(pairs) });
-        } catch (err) {
-            console.error('fetchAllBrandProducts:', err);
-        } finally {
-            set({ isLoadingBrandProducts: false });
-        }
     },
 }));

@@ -1,24 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useHomeStore } from '@/lib/stores/useHomeStore';
 import BrandedSpinner from '@/components/common/BrandedSpinner';
 import ProductItem from '../product/ProductItem';
 import Title from '../common/Title';
+import { useHome } from '@/lib/hooks/useHome';
+import { BookOpen } from 'lucide-react';
 
 const LatestCollection = () => {
   const {
-    trendingProducts,
-    isLoadingProducts,
+    filteredTrending,
+    isLoading,
     selectedProductType,
     productTypes,
-    setSelectedProductType,
-    fetchTrendingProducts,
-  } = useHomeStore();
-
-  useEffect(() => {
-    fetchTrendingProducts();
-  }, [fetchTrendingProducts]);
+    setProductType
+  } = useHome()
 
   return (
     <section className="w-full py-12">
@@ -33,7 +28,7 @@ const LatestCollection = () => {
           {productTypes.map((type) => (
             <button
               key={type.value}
-              onClick={() => setSelectedProductType(type.value)}
+              onClick={() => setProductType(type.value)}
               className={`
                 relative px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium transition-all duration-200
                 ${selectedProductType === type.value
@@ -51,34 +46,22 @@ const LatestCollection = () => {
         </div>
 
         {/* Products Grid */}
-        {isLoadingProducts ? (
+        {isLoading ? (
           <div className="flex min-h-100 items-center justify-center">
             <BrandedSpinner />
           </div>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {trendingProducts.map((product) => (
+              {filteredTrending.map((product) => (
                 <ProductItem key={product.id} product={product} />
               ))}
             </div>
 
             {/* Empty State */}
-            {trendingProducts.length === 0 && (
+            {filteredTrending.length === 0 && (
               <div className="flex min-h-100 flex-col items-center justify-center text-center">
-                <svg
-                  className="mb-4 h-16 w-16 text-muted"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                  />
-                </svg>
+                <BookOpen />
                 <h3 className="mb-2 text-lg font-semibold text-primary">
                   No products found
                 </h3>

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { BatteryFull, Headphones, TabletSmartphone } from 'lucide-react';
 import { FaApple, FaMicrosoft } from 'react-icons/fa';
@@ -8,10 +7,9 @@ import {
     SiSamsung, SiXiaomi, SiOppo, SiVivo, SiOneplus,
     SiHuawei, SiJbl, SiSony, SiLenovo, SiDell, SiHp,
 } from 'react-icons/si';
-import { useHomeStore } from '@/lib/stores/useHomeStore';
+import { useHome } from '@/lib/hooks/useHome';
 
 // Map brand name → icon element
-// Any brand not listed here falls back to a generic circle
 const BRAND_ICONS: Record<string, React.ReactNode> = {
     Samsung: <SiSamsung className="w-6 h-6 sm:w-8 sm:h-8" />,
     Apple: <FaApple className="w-6 h-6 sm:w-8 sm:h-8" />,
@@ -33,19 +31,13 @@ const BRAND_ICONS: Record<string, React.ReactNode> = {
 
 const BrandMarquee = () => {
     const router = useRouter();
-    const { brands, isLoadingBrands, fetchBrands } = useHomeStore();
+    const { brands, isLoading } = useHome();
 
-    useEffect(() => {
-        if (brands.length === 0) fetchBrands();
-    }, [brands.length, fetchBrands]);
-
-    // Navigate to collection filtered by this brand's id
     const handleBrandClick = (brandId: number) => {
         router.push(`/collection?brand=${brandId}`);
     };
 
-    // While loading, show a simple skeleton row so the layout doesn't jump
-    if (isLoadingBrands) {
+    if (isLoading) {
         return (
             <div className="w-full py-5 sm:py-8 border-y border-border bg-bg-light">
                 <div className="flex items-center justify-center gap-8 opacity-40">

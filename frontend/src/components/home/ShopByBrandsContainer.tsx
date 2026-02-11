@@ -5,26 +5,20 @@ import BrandMarquee from './BrandMarquee';
 import BrandSection from './BrandSection';
 import BrandedSpinner from '@/components/common/BrandedSpinner';
 import Title from '../common/Title';
-import { getProductsByBrand } from '@/lib/api/home';
 
 const ShopByBrandsContainer = () => {
   const {
     brands,
-    isLoadingBrands,
     brandProducts,
-    isLoadingBrandProducts,
+    isLoading,
   } = useHome();
-
-  const isLoading = isLoadingBrands || isLoadingBrandProducts;
 
   return (
     <section className="w-full">
-      {/* ── Brand Marquee ─────────────────────────────────────────────── */}
       <div className='mx-auto max-w-7xl'>
         <BrandMarquee />
       </div>
 
-      {/* ── Brand Sections ────────────────────────────────────────────── */}
       <div className="w-full">
         <div className="mx-auto max-w-7xl">
           {/* Section title */}

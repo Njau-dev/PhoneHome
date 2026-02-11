@@ -1,9 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getBestDeals } from '@/lib/api/home';
 import BrandedSpinner from '@/components/common/BrandedSpinner';
 import { Gift } from 'lucide-react';
 import ProductItem from '../product/ProductItem';
@@ -11,9 +9,9 @@ import Title from '../common/Title';
 import { useHome } from '@/lib/hooks/useHome';
 
 const BestDeals = () => {
-    const { bestDeals, isLoadingDeals } = useHome()
+    const { bestDeals, isLoading } = useHome()
 
-    if (isLoadingDeals) {
+    if (isLoading) {
         return (
             <section className="w-full py-12">
                 <div className="mx-auto max-w-7xl">
@@ -95,7 +93,7 @@ const BestDeals = () => {
                     </div>
                 </div>
                 {/* Empty State */}
-                {!isLoadingDeals && bestDeals.length === 0 && (
+                {!isLoading && bestDeals.length === 0 && (
                     <div className="flex min-h-100 flex-col items-center justify-center text-center">
                         <Gift size={40} />
                         <h3 className="mb-2 text-lg font-semibold text-primary">

@@ -1,6 +1,6 @@
 import Hero from "@/components/home/Hero";
 import LatestCollection from "@/components/home/LatestCollection";
-import OurPolicy from "@/components/common/OurPolicy";
+import OurPolicy from "@/components/home/OurPolicy";
 import NewsLetterBox from "@/components/common/NewsLetterBox";
 import ShoppingProcessSection from "@/components/home/ShoppingProcessSection";
 import ShopByBrandsContainer from "@/components/home/ShopByBrandsContainer";
@@ -11,8 +11,8 @@ export default function Home() {
   return (
     <div>
       <Hero />
-      <LatestCollection />
       <BestDeals />
+      <LatestCollection />
       <PromotionalBanners />
       <ShopByBrandsContainer />
       <ShoppingProcessSection />

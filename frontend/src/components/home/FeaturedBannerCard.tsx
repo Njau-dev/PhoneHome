@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { FeaturedBanner } from '@/lib/api/home';
+import { FeaturedBanner } from '@/lib/types/home';
 
 interface FeaturedBannerCardProps {
     banner: FeaturedBanner;
