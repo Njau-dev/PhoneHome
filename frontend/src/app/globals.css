@@ -218,6 +218,7 @@ a.active .nav-links {
 }
 
 @keyframes morph {
+
   0%,
   100% {
     border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
@@ -239,6 +240,7 @@ a.active .nav-links {
 }
 
 @keyframes bounce {
+
   0%,
   80%,
   100% {

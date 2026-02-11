@@ -5,9 +5,10 @@ Handles: brands CRUD operations
 import logging
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
+from sqlalchemy import func
 
 from app.extensions import db
-from app.models import Brand
+from app.models import Brand, Product
 from app.utils.decorators import admin_required
 from app.utils.response_formatter import format_response
 
@@ -16,31 +17,55 @@ logger = logging.getLogger(__name__)
 # Create blueprint
 brands_bp = Blueprint('brands', __name__)
 
-
 # ============================================================================
 # GET ALL BRANDS
 # ============================================================================
+
+
 @brands_bp.route('/', methods=['GET'])
 def get_all_brands():
     """
-    Get all brands
+    Get all brands with their product count.
 
     Returns:
-        200: List of brands
+        200: List of brands  [ { id, name, product_count } ]
         500: Server error
     """
     try:
-        brands = Brand.query.all()
-        brand_data = [{
-            "id": brand.id,
-            "name": brand.name
-        } for brand in brands]
+        # One query: left-join Product on product.brand == brand.id,
+        # group by brand, count products per brand.
+        rows = (
+            db.session.query(
+                Brand.id,
+                Brand.name,
+                func.count(Product.id).label('product_count')
+            )
+            .outerjoin(Product, Product.brand_id == Brand.id)
+            .group_by(Brand.id, Brand.name)
+            .order_by(Brand.name)
+            .all()
+        )
 
-        return jsonify(format_response(True, {"brands": brand_data}, "Brands fetched successfully")), 200
+        brand_data = [
+            {
+                "id":            row.id,
+                "name":          row.name,
+                "product_count": row.product_count,
+            }
+            for row in rows
+        ]
+
+        return jsonify(
+            format_response(True, {"brands": brand_data},
+                            "Brands fetched successfully")
+        ), 200
 
     except Exception as e:
         logger.error(f"Error fetching brands: {e}")
-        return jsonify(format_response(False, None, "An error occurred while fetching brands")), 500
+        return jsonify(
+            format_response(
+                False, None, "An error occurred while fetching brands")
+        ), 500
 
 
 # ============================================================================

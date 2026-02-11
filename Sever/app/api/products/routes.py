@@ -38,27 +38,32 @@ def get_products():
     try:
         # Get all products
         products = ProductService.get_all_products()
-        
+
         # Filter by type if specified
         product_type = request.args.get('type')
         if product_type:
             products = [p for p in products if p['type'] == product_type]
-        
+
         # Filter by category if specified
         category = request.args.get('category')
         if category:
             products = [p for p in products if p['category'] == category]
-        
+
         # Filter by brand if specified
         brand = request.args.get('brand')
         if brand:
-            products = [p for p in products if p['brand'] == brand]
-        
+            try:
+                brand_id = int(brand)
+                products = [p for p in products if p.get(
+                    'brand_id') == brand_id]
+            except ValueError:
+                pass
+
         # Filter by best seller if specified
         best_seller = request.args.get('best_seller')
         if best_seller and best_seller.lower() == 'true':
             products = [p for p in products if p.get('isBestSeller', False)]
-        
+
         # Sort products
         sort = request.args.get('sort', 'newest')
         if sort == 'newest':
@@ -69,7 +74,7 @@ def get_products():
             products.sort(key=lambda x: x.get('price', 0))
         elif sort == 'price_desc':
             products.sort(key=lambda x: x.get('price', 0), reverse=True)
-        
+
         # Limit results if specified
         limit = request.args.get('limit')
         if limit:
@@ -78,12 +83,12 @@ def get_products():
                 products = products[:limit]
             except ValueError:
                 pass
-        
+
         return jsonify(format_response(True, {"products": products}, "Products fetched successfully")), 200
     except Exception as e:
         logger.error(f"Error fetching products: {str(e)}")
         return jsonify(format_response(False, None, "An error occurred while fetching products")), 500
-    
+
 
 # ============================================================================
 # GET SINGLE PRODUCT

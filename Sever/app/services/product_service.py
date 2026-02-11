@@ -315,6 +315,7 @@ class ProductService:
             'image_urls': product.image_urls,
             'category': product.category.name,
             'brand': product.brand.name,
+            'brand_id': product.brand.id,
             'type': product.type,
             'hasVariation': product.hasVariation,
             'isBestSeller': product.isBestSeller,

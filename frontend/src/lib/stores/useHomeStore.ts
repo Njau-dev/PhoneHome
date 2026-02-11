@@ -1,36 +1,26 @@
 import { create } from 'zustand';
 import { Product, ProductType } from '@/lib/types/product';
-import { getTrendingProducts } from '@/lib/api/home';
+import {
+    FeaturedBanner,
+    BrandWithCount,
+    getTrendingProducts,
+    getBestDeals,
+    getBrands,
+    getProductsByBrand,
+} from '@/lib/api/home';
 
-export interface FeaturedBanner {
-    id: string;
-    title: string;
-    subtitle: string;
-    description?: string;
-    image: string;
-    productId?: string;
-    category?: string;
-    backgroundColor: string;
-    textColor?: string;
-    cta: string;
-    ctaLink: string;
-    size: 'large' | 'small';
-    position: number;
-}
-
-// Static featured banners configuration
-// These are manually configured promotional banners
+// Static hero banner config — swap images / links to match your setup
 const FEATURED_BANNERS: FeaturedBanner[] = [
     {
         id: '1',
         title: 'Latest',
         subtitle: 'Smartphones',
-        description: 'Discover our newest collection of premium smartphones with cutting-edge technology and amazing features.',
-        image: '/images/banners/phones-banner.png',
+        description: 'Discover our newest collection of premium smartphones.',
+        image: '/assets/images/phone-banner.jpg',
         backgroundColor: '#1e3a8a',
         textColor: '#ffffff',
         cta: 'Shop Now',
-        ctaLink: '/collection/phones',
+        ctaLink: '/collection?type=phone',
         size: 'large',
         position: 1,
     },
@@ -38,11 +28,11 @@ const FEATURED_BANNERS: FeaturedBanner[] = [
         id: '2',
         title: 'Premium',
         subtitle: 'Laptops',
-        image: '/images/banners/laptops-banner.png',
+        image: '/assets/images/laptop-category.png',
         backgroundColor: '#7e1d3d',
         textColor: '#ffffff',
         cta: 'Shop Now',
-        ctaLink: '/collection/laptops',
+        ctaLink: '/collection?type=laptop',
         size: 'small',
         position: 2,
     },
@@ -50,11 +40,11 @@ const FEATURED_BANNERS: FeaturedBanner[] = [
         id: '3',
         title: 'Best',
         subtitle: 'Tablets',
-        image: '/images/banners/tablets-banner.png',
+        image: '/assets/images/ipad_pro_home.jpg',
         backgroundColor: '#dc6446',
         textColor: '#ffffff',
         cta: 'Shop Now',
-        ctaLink: '/collection/tablets',
+        ctaLink: '/collection?type=tablet',
         size: 'small',
         position: 3,
     },
@@ -62,11 +52,11 @@ const FEATURED_BANNERS: FeaturedBanner[] = [
         id: '4',
         title: 'Audio',
         subtitle: 'Collection',
-        image: '/images/banners/audio-banner.png',
+        image: '/assets/images/Airpods-Max-e.png',
         backgroundColor: '#16a34a',
         textColor: '#ffffff',
         cta: 'Shop Now',
-        ctaLink: '/collection/audio',
+        ctaLink: '/collection?type=audio',
         size: 'small',
         position: 4,
     },
@@ -74,7 +64,7 @@ const FEATURED_BANNERS: FeaturedBanner[] = [
         id: '5',
         title: 'New',
         subtitle: 'Arrivals',
-        image: '/images/banners/new-arrivals.png',
+        image: '/assets/images/apple-2024-2.jpg',
         backgroundColor: '#374151',
         textColor: '#ffffff',
         cta: 'Explore',
@@ -85,27 +75,39 @@ const FEATURED_BANNERS: FeaturedBanner[] = [
 ];
 
 interface HomeState {
+    // Hero
     featuredBanners: FeaturedBanner[];
+
+    // Trending products
     trendingProducts: Product[];
-    isLoadingBanners: boolean;
     isLoadingProducts: boolean;
     selectedProductType: ProductType;
     productTypes: { value: ProductType; label: string }[];
 
+    // Best deals
+    bestDeals: Product[];
+    isLoadingDeals: boolean;
+
+    // Brands
+    brands: BrandWithCount[];
+    isLoadingBrands: boolean;
+    /** brandId → up-to-5 products for that brand */
+    brandProducts: Record<string, Product[]>;
+    isLoadingBrandProducts: boolean;
+
     // Actions
-    setFeaturedBanners: (banners: FeaturedBanner[]) => void;
-    setTrendingProducts: (products: Product[]) => void;
-    setSelectedProductType: (type: ProductType) => void;
-    setLoadingBanners: (loading: boolean) => void;
-    setLoadingProducts: (loading: boolean) => void;
     fetchFeaturedBanners: () => void;
     fetchTrendingProducts: (type?: ProductType) => Promise<void>;
+    setSelectedProductType: (type: ProductType) => void;
+    fetchBestDeals: () => Promise<void>;
+    fetchBrands: () => Promise<void>;
+    fetchAllBrandProducts: () => Promise<void>;
 }
 
 export const useHomeStore = create<HomeState>((set, get) => ({
+    // ── Initial state ────────────────────────────────────────────────────────
     featuredBanners: [],
     trendingProducts: [],
-    isLoadingBanners: false,
     isLoadingProducts: false,
     selectedProductType: 'phone',
     productTypes: [
@@ -114,39 +116,86 @@ export const useHomeStore = create<HomeState>((set, get) => ({
         { value: 'tablet', label: 'Tablets' },
         { value: 'audio', label: 'Audio Products' },
     ],
+    bestDeals: [],
+    isLoadingDeals: false,
+    brands: [],
+    isLoadingBrands: false,
+    brandProducts: {},
+    isLoadingBrandProducts: false,
 
-    setFeaturedBanners: (banners) => set({ featuredBanners: banners }),
+    // ── Hero ─────────────────────────────────────────────────────────────────
+    fetchFeaturedBanners: () => set({ featuredBanners: FEATURED_BANNERS }),
 
-    setTrendingProducts: (products) => set({ trendingProducts: products }),
-
+    // ── Trending products ────────────────────────────────────────────────────
     setSelectedProductType: (type) => {
         set({ selectedProductType: type });
         get().fetchTrendingProducts(type);
     },
 
-    setLoadingBanners: (loading) => set({ isLoadingBanners: loading }),
-
-    setLoadingProducts: (loading) => set({ isLoadingProducts: loading }),
-
-    fetchFeaturedBanners: () => {
-        // Featured banners are static configuration
-        set({ featuredBanners: FEATURED_BANNERS });
-    },
-
-    fetchTrendingProducts: async (type?: ProductType) => {
+    fetchTrendingProducts: async (type) => {
         set({ isLoadingProducts: true });
         try {
-            const selectedType = type || get().selectedProductType;
-
-            // Fetch most recent products (trending)
-            const products = await getTrendingProducts(selectedType, 10);
-
+            const resolvedType = type ?? get().selectedProductType;
+            const products = await getTrendingProducts(resolvedType, 10);
             set({ trendingProducts: products });
-        } catch (error) {
-            console.error('Error fetching trending products:', error);
+        } catch (err) {
+            console.error('fetchTrendingProducts:', err);
             set({ trendingProducts: [] });
         } finally {
             set({ isLoadingProducts: false });
+        }
+    },
+
+    // ── Best deals ───────────────────────────────────────────────────────────
+    fetchBestDeals: async () => {
+        set({ isLoadingDeals: true });
+        try {
+            const deals = await getBestDeals('phone', 8);
+            set({ bestDeals: deals });
+        } catch (err) {
+            console.error('fetchBestDeals:', err);
+            set({ bestDeals: [] });
+        } finally {
+            set({ isLoadingDeals: false });
+        }
+    },
+
+    // ── Brands ───────────────────────────────────────────────────────────────
+    fetchBrands: async () => {
+        set({ isLoadingBrands: true });
+        try {
+            const brands = await getBrands();
+            set({ brands });
+        } catch (err) {
+            console.error('fetchBrands:', err);
+            set({ brands: [] });
+        } finally {
+            set({ isLoadingBrands: false });
+        }
+    },
+
+    /**
+     * Fire one getProductsByBrand request per brand in parallel then
+     * store results in the brandProducts map.
+     * Call this after fetchBrands() resolves.
+     */
+    fetchAllBrandProducts: async () => {
+        const { brands } = get();
+        if (brands.length === 0) return;
+
+        set({ isLoadingBrandProducts: true });
+        try {
+            const pairs = await Promise.all(
+                brands.map(async (brand) => {
+                    const products = await getProductsByBrand(String(brand.id), 5);
+                    return [brand.id, products] as const;
+                }),
+            );
+            set({ brandProducts: Object.fromEntries(pairs) });
+        } catch (err) {
+            console.error('fetchAllBrandProducts:', err);
+        } finally {
+            set({ isLoadingBrandProducts: false });
         }
     },
 }));

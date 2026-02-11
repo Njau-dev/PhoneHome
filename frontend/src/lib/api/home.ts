@@ -17,11 +17,20 @@ export interface FeaturedBanner {
     position: number;
 }
 
-interface ApiResponse {
+/** Brand type extended with the product count returned by the updated backend */
+export interface BrandWithCount extends Brand {
+    product_count: number;
+}
+
+export interface ApiResponse {
     success: boolean;
-    data: {
-        products: Product[];
-    };
+    data: { products: Product[] };
+    message: string;
+}
+
+export interface BrandsApiResponse {
+    success: boolean;
+    data: { brands: BrandWithCount[] };
     message: string;
 }
 
@@ -34,13 +43,11 @@ export interface GetProductsParams {
     sort?: 'newest' | 'oldest' | 'price_asc' | 'price_desc';
 }
 
-/**
- * Fetch products with optional filters
- */
+// ─── Products ────────────────────────────────────────────────────────────────
+
 export const getProducts = async (params?: GetProductsParams): Promise<Product[]> => {
     try {
         const queryParams = new URLSearchParams();
-
         if (params?.type) queryParams.append('type', params.type);
         if (params?.category) queryParams.append('category', params.category);
         if (params?.brand) queryParams.append('brand', params.brand);
@@ -49,11 +56,7 @@ export const getProducts = async (params?: GetProductsParams): Promise<Product[]
         if (params?.sort) queryParams.append('sort', params.sort);
 
         const response: ApiResponse = await apiClient.get(`/products?${queryParams.toString()}`);
-
-        if (response.success) {
-            return response.data.products as Product[];
-        }
-
+        if (response.success) return response.data.products;
         return [];
     } catch (error) {
         console.error('Error fetching products:', error);
@@ -61,99 +64,47 @@ export const getProducts = async (params?: GetProductsParams): Promise<Product[]
     }
 };
 
-/**
- * Fetch trending products (most recent) by type
- */
+/** Most-recently added products (trending) */
 export const getTrendingProducts = async (
     type?: ProductType,
-    limit: number = 10
-): Promise<Product[]> => {
-    return getProducts({
-        type,
-        limit,
-        sort: 'newest'
-    });
-};
+    limit: number = 10,
+): Promise<Product[]> =>
+    getProducts({ type, limit, sort: 'newest' });
 
-/**
- * Fetch best seller products
- */
+/** Best-seller products */
 export const getBestSellerProducts = async (
     type?: ProductType,
-    limit: number = 10
-): Promise<Product[]> => {
-    return getProducts({
-        type,
-        best_seller: true,
-        limit
-    });
-};
+    limit: number = 10,
+): Promise<Product[]> =>
+    getProducts({ type, best_seller: true, limit });
 
-
-/**
- * Fetch best deals (best seller products)
- */
+/** Best deals — alias for best sellers, defaults to 8 items */
 export const getBestDeals = async (
     type?: ProductType,
-    limit: number = 8
-): Promise<Product[]> => {
-    try {
-        const queryParams = new URLSearchParams();
-
-        if (type) queryParams.append('type', type);
-        queryParams.append('best_seller', 'true');
-        queryParams.append('limit', limit.toString());
-
-        const response = await apiClient.get(`/products?${queryParams.toString()}`);
-
-        if (response.data.success) {
-            return response.data.data.products as Product[];
-        }
-
-        return [];
-    } catch (error) {
-        console.error('Error fetching best deals:', error);
-        throw error;
-    }
-};
+    limit: number = 8,
+): Promise<Product[]> =>
+    getProducts({ best_seller: true, type, limit });
 
 /**
- * Fetch products by brand
+ * Fetch up to `limit` products for a given brand (by brand ID).
+ * The backend filters on Product.brand == brandId.
  */
 export const getProductsByBrand = async (
     brandId: string,
-    limit: number = 10
-): Promise<Product[]> => {
-    try {
-        const queryParams = new URLSearchParams();
-        queryParams.append('brand', brandId);
-        queryParams.append('limit', limit.toString());
+    limit: number = 5,
+): Promise<Product[]> =>
+    getProducts({ brand: brandId, limit });
 
-        const response = await apiClient.get(`/products?${queryParams.toString()}`);
-
-        if (response.data.success) {
-            return response.data.data.products as Product[];
-        }
-
-        return [];
-    } catch (error) {
-        console.error('Error fetching products by brand:', error);
-        throw error;
-    }
-};
+// ─── Brands ──────────────────────────────────────────────────────────────────
 
 /**
- * Fetch all brands
- * You'll need to create this endpoint in your backend
+ * Fetch all brands.
+ * The updated backend returns { id, name, product_count } for each brand.
  */
-export const getBrands = async (): Promise<Brand[]> => {
+export const getBrands = async (): Promise<BrandWithCount[]> => {
     try {
-        const response = await apiClient.get('/brands');
-
-        if (response.data.success) {
-            return response.data.data.brands as Brand[];
-        }
-
+        const response: BrandsApiResponse = await apiClient.get('/brands');
+        if (response.success) return response.data.brands;
         return [];
     } catch (error) {
         console.error('Error fetching brands:', error);
