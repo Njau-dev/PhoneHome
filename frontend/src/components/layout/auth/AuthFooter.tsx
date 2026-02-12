@@ -1,7 +1,7 @@
 export default function AuthFooter() {
     return (
-        <div className="py-6 text-center text-sm text-gray-500">
-            © 2026 YourStore • Privacy • Terms
-        </div>
+        <footer className="py-5 border-t border-nav-border text-center text-xs text-nav-muted">
+            Secure sign in • Privacy protected
+        </footer>
     );
 }

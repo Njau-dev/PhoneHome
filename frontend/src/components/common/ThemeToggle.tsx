@@ -8,14 +8,14 @@ const ThemeToggle = () => {
 
   if (!mounted) {
     return (
-      <div className="w-10 h-10 rounded-full bg-bg-light animate-pulse" />
+      <div className="w-10 h-10 rounded-full bg-black-border animate-pulse" />
     );
   }
 
   return (
     <button
       onClick={toggleTheme}
-      className="relative w-10 h-10 rounded-full bg-bg-light border border-border hover:border-accent transition-all duration-300 flex items-center justify-center group"
+      className="relative w-10 h-10 rounded-full bg-black-border border border-nav-border/50 hover:border-accent transition-all duration-300 flex items-center justify-center group"
       aria-label="Toggle theme"
     >
       {theme === "dark" ? (

@@ -31,9 +31,9 @@ export default function SiteLayout({
     }[variant];
 
     return (
-        <>
+        <div className="relative">
             {/* NAVBAR */}
-            <div className="bg-black-soft">
+            <div className="bg-black-soft shadow-md">
                 <Container>{Navbar}</Container>
             </div>
             {variant === "shop" && (
@@ -45,16 +45,16 @@ export default function SiteLayout({
             )}
 
             {/* MAIN */}
-            <main className=" min-h-screen">
+            <main className="min-h-screen">
                 <Container>{children}</Container>
             </main>
 
             {/* FOOTER */}
-            <div className="bg-black-soft mt-16">
+            <div className="bg-black-soft">
                 <Container>{Footer}</Container>
             </div>
 
             <BackToTop />
-        </>
+        </div>
     );
 }

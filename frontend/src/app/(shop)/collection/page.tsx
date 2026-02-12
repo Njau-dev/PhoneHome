@@ -9,7 +9,7 @@ import ProductItem from "@/components/product/ProductItem";
 import Pagination from "@/components/common/Pagination";
 import Breadcrumbs from "@/components/common/BreadCrumbs";
 import BrandedSpinner from "@/components/common/BrandedSpinner";
-import { Product, ProductType } from "@/lib/types/product";
+import { ProductType } from "@/lib/types/product";
 import { CURRENCY } from "@/lib/utils/constants";
 import { productsAPI } from "@/lib/api/products";
 import { useQuery } from "@tanstack/react-query";
