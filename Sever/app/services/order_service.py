@@ -23,6 +23,7 @@ class OrderService:
         "Shipped",
         "Out for Delivery",
         "Delivered",
+        "Canceled",
         "Pending Payment",
         "Payment Failed"
     ]
@@ -48,9 +49,31 @@ class OrderService:
             if not cart or not cart.items:
                 return None, "Cart is empty"
 
+            address_data = order_data.get('address') or {}
+            required_address_fields = [
+                'firstName', 'lastName', 'email', 'phone', 'city', 'street'
+            ]
+            missing_fields = [
+                field for field in required_address_fields
+                if not address_data.get(field)
+            ]
+            if missing_fields:
+                return None, f"Invalid address: missing {', '.join(missing_fields)}"
+
+            computed_total = 0
+            for cart_item in cart.items:
+                unit_price = cart_item.variation_price if cart_item.variation_price else (
+                    cart_item.product.price if cart_item.product else 0
+                )
+                computed_total += float(unit_price) * cart_item.quantity
+
+            requested_total = float(order_data.get('total_amount') or 0)
+            if round(requested_total, 2) != round(computed_total, 2):
+                return None, "Total amount does not match cart total"
+
             # Create address
             address = OrderService._create_address(
-                user_id, order_data.get('address'))
+                user_id, address_data)
             if not address:
                 return None, "Failed to create address"
 
@@ -291,8 +314,14 @@ class OrderService:
                 f"Order #{order.order_reference} status updated to {new_status}. Check your email for details."
             )
 
-            # Send email update
-            EmailService.send_shipment_update(order, old_status, new_status)
+            # Send email update (best-effort; should not fail order status update)
+            try:
+                email_service = EmailService()
+                email_service.send_shipment_update(order, old_status, new_status)
+            except Exception as email_error:
+                logger.warning(
+                    f"Failed to send shipment update email for {order.order_reference}: {email_error}"
+                )
 
             logger.info(
                 f"Order {order.order_reference} status updated: {old_status} -> {new_status}")

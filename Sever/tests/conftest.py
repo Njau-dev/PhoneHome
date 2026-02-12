@@ -21,6 +21,12 @@ def app():
     """Create application for testing session"""
     # Set testing environment
     os.environ['FLASK_ENV'] = 'testing'
+    os.environ.setdefault('SECRET_KEY', 'test-secret-key')
+    os.environ.setdefault('FRONTEND_URL', 'http://localhost:3000')
+    os.environ.setdefault('MPESA_CONSUMER_KEY', 'test')
+    os.environ.setdefault('MPESA_CONSUMER_SECRET', 'test')
+    os.environ.setdefault('MPESA_BUSINESS_SHORTCODE', '123456')
+    os.environ.setdefault('MPESA_PASSKEY', 'passkey')
 
     app = create_app('testing')
 
