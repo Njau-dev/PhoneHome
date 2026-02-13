@@ -27,7 +27,7 @@ const ProductImageGallery = ({ images, productName }: ProductImageGalleryProps) 
       </div>
 
       {/* Main Image */}
-      <div className="w-full sm:w-[80%]">
+      <div className="w-full sm:w-[95%]">
         <img
           src={selectedImage}
           alt={productName}

@@ -3,10 +3,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronRight } from 'lucide-react';
-import { BrandWithCount } from '@/lib/api/home';
 import { Product } from '@/lib/types/product';
 import ProductItem from '../product/ProductItem';
-import Title from '../common/Title';
+import { BrandWithCount } from '@/lib/types/home';
 
 // Brand → gradient config
 // Add / adjust colours for any brand you carry

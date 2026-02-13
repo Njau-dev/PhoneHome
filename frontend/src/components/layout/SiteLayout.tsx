@@ -8,7 +8,6 @@ import Container from "./Container";
 import ShopFooter from "./shop/ShopFooter";
 import ShopNavbar from "./shop/ShopNavbar";
 
-
 type Variant = "shop" | "checkout" | "auth";
 
 export default function SiteLayout({
@@ -32,12 +31,16 @@ export default function SiteLayout({
 
     return (
         <div className="relative">
-            {/* NAVBAR */}
-            <div className="bg-black-soft shadow-md">
-                <Container>{Navbar}</Container>
+            {/* NAVBAR - Now Sticky */}
+            <div className="sticky top-0 z-50 bg-black-soft shadow-md">
+                <Container>
+                    {Navbar}
+                </Container>
             </div>
+
+            {/* BREADCRUMBS */}
             {variant === "shop" && (
-                <div className="border-b border-border-light bg-bg">
+                <div className="-bg">
                     <Container>
                         <Breadcrumbs />
                     </Container>

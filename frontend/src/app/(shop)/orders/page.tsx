@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Package, RefreshCcw } from "lucide-react";
 import { useAuth, useOrders } from "@/lib/hooks";
 import BrandedSpinner from "@/components/common/BrandedSpinner";
-import Breadcrumbs from "@/components/common/BreadCrumbs";
 import Title from "@/components/common/Title";
 import OrderStats from "@/components/orders/OrderStats";
 import OrderCard from "@/components/orders/OrderCard";
@@ -136,72 +135,66 @@ export default function OrdersPage() {
 
   if (isError) {
     return (
-      <>
-        <Breadcrumbs />
-        <div className="flex flex-col justify-center items-center min-h-100 text-center pt-8">
-          <h2 className="text-2xl mb-4">Something went wrong</h2>
-          <p className="text-secondary mb-6">We couldn't load your order information</p>
-          <button
-            onClick={() => void refetch()}
-            className="flex items-center bg-accent text-bg px-6 py-3 rounded-full hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all"
-          >
-            <RefreshCcw size={18} className="mr-2" />
-            Try Again
-          </button>
-        </div>
-      </>
+      <div className="flex flex-col justify-center items-center min-h-100 text-center pt-8">
+        <h2 className="text-2xl mb-4">Something went wrong</h2>
+        <p className="text-secondary mb-6">We couldn't load your order information</p>
+        <button
+          onClick={() => void refetch()}
+          className="flex items-center bg-accent text-bg px-6 py-3 rounded-full hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all"
+        >
+          <RefreshCcw size={18} className="mr-2" />
+          Try Again
+        </button>
+      </div>
     );
   }
 
   const groupedOrders = getGroupedOrders();
 
   return (
-    <>
-      <Breadcrumbs />
-      <div className="pt-6 pb-16">
-        <div className="container mx-auto">
-          {/* Header */}
-          <div className="mb-8 text-center text-2xl sm:text-3xl">
-            <Title text1="MY" text2="ORDERS" />
-            <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
-              Track and manage your order history
-            </p>
-          </div>
-
-          {orderData.length === 0 ? (
-            <div className="text-center py-12 bg-bg-card rounded-xl p-6 border border-border shadow-md">
-              <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Package className="w-8 h-8 text-accent" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-bold mb-2">No orders yet</h3>
-              <p className="text-secondary text-sm mb-8">
-                Start shopping to see your orders here
-              </p>
-              <Link href="/collection">
-                <button className="bg-accent text-bg px-8 py-3 rounded-full hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all">
-                  Browse Products
-                </button>
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Order Stats */}
-              <OrderStats stats={getOrderStats()} />
-
-              {/* Orders List */}
-              <div className="space-y-6">
-                {groupedOrders.map((order) => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    onTrack={handleTrackOrder}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+    <div className="pt-6 pb-16">
+      <div className="container mx-auto">
+        {/* Header */}
+        <div className="mb-8 text-center text-2xl sm:text-3xl">
+          <Title text1="MY" text2="ORDERS" />
+          <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
+            Track and manage your order history
+          </p>
         </div>
+
+        {orderData.length === 0 ? (
+          <div className="text-center py-12 bg-bg-card rounded-xl p-6 border border-border shadow-md">
+            <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Package className="w-8 h-8 text-accent" />
+            </div>
+            <h3 className="text-lg sm:text-xl font-bold mb-2">No orders yet</h3>
+            <p className="text-secondary text-sm mb-8">
+              Start shopping to see your orders here
+            </p>
+            <Link href="/collection">
+              <button className="bg-accent text-bg px-8 py-3 rounded-full hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all">
+                Browse Products
+              </button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Order Stats */}
+            <OrderStats stats={getOrderStats()} />
+
+            {/* Orders List */}
+            <div className="space-y-6">
+              {groupedOrders.map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  onTrack={handleTrackOrder}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }

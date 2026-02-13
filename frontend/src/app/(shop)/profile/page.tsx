@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { RefreshCcw } from "lucide-react";
 import BrandedSpinner from "@/components/common/BrandedSpinner";
-import Breadcrumbs from "@/components/common/BreadCrumbs";
 import Title from "@/components/common/Title";
 import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileStats from "@/components/profile/ProfileStats";
@@ -161,194 +160,191 @@ export default function ProfilePage() {
   }
 
   return (
-    <>
-      <Breadcrumbs />
-      <div className="pt-4 pb-16">
-        <div className="container mx-auto">
-          {/* Header */}
-          <div className="mb-12 text-center text-2xl sm:text-3xl">
-            <Title text1="MY" text2="PROFILE" />
-            <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
-              Manage your personal information and track your orders
-            </p>
+    <div className="pt-4 pb-16">
+      <div className="container mx-auto">
+        {/* Header */}
+        <div className="mb-12 text-center text-2xl sm:text-3xl">
+          <Title text1="MY" text2="PROFILE" />
+          <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
+            Manage your personal information and track your orders
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Profile Card */}
+          <div className="lg:col-span-1">
+            <ProfileCard user={user} onUpdate={handleProfileUpdate} />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Profile Card */}
-            <div className="lg:col-span-1">
-              <ProfileCard user={user} onUpdate={handleProfileUpdate} />
-            </div>
+          {/* Stats and Activity */}
+          <div className="lg:col-span-3">
+            {/* Stats */}
+            <ProfileStats stats={profileData.stats} />
 
-            {/* Stats and Activity */}
-            <div className="lg:col-span-3">
-              {/* Stats */}
-              <ProfileStats stats={profileData.stats} />
-
-              {/* Recent Orders and Wishlist */}
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-                {/* Recent Orders */}
-                <div className="md:col-span-3 bg-bg-card rounded-xl p-6 border border-border shadow-md">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold">Recent Orders</h3>
-                    <Link href="/orders">
-                      <button className="text-accent text-sm hover:underline">
-                        View All
-                      </button>
-                    </Link>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    {transformedOrders.length > 0 ? (
-                      <table className="w-full min-w-155">
-                        <thead className="text-left">
-                          <tr className="border-b border-border">
-                            <th className="pb-3 text-secondary font-medium text-sm">
-                              Product
-                            </th>
-                            <th className="pb-3 text-secondary font-medium text-sm">
-                              Total
-                            </th>
-                            <th className="pb-3 text-secondary font-medium text-sm">
-                              Date
-                            </th>
-                            <th className="pb-3 text-secondary font-medium text-sm">
-                              Status
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {transformedOrders.map((order, index) => (
-                            <tr key={index} className="border-b border-border">
-                              <td className="py-4">
-                                {order.items[0] && (
-                                  <div className="flex items-center">
-                                    <img
-                                      src={order.items[0].image_url}
-                                      alt={order.items[0].name}
-                                      className="w-12 h-12 object-cover rounded-md mr-3"
-                                    />
-                                    <div>
-                                      <p className="font-medium text-sm">
-                                        {order.items[0].name}
-                                      </p>
-                                      <p className="text-secondary text-xs">
-                                        {order.items[0].brand}
-                                        {order.items[0].variation_name &&
-                                          ` - ${order.items[0].variation_name}`}
-                                      </p>
-                                    </div>
-                                  </div>
-                                )}
-                              </td>
-                              <td className="py-4 text-sm">
-                                {order.showOrderDetails ? (
-                                  <>
-                                    {CURRENCY} {formatPrice(order.total_amount)}
-                                  </>
-                                ) : (
-                                  "-"
-                                )}
-                              </td>
-                              <td className="py-4 text-sm">
-                                {order.showOrderDetails
-                                  ? formatDate(order.date)
-                                  : "-"}
-                              </td>
-                              <td className="py-4">
-                                {order.showOrderDetails ? (
-                                  <StatusBadge status={order.status} type="order" />
-                                ) : (
-                                  "-"
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    ) : (
-                      <div className="text-center py-8">
-                        <p className="text-secondary mb-4">
-                          You haven't placed any orders yet
-                        </p>
-                        <Link href="/collection">
-                          <button className="bg-accent text-bg px-6 py-2 rounded-full hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all">
-                            Shop Now
-                          </button>
-                        </Link>
-                      </div>
-                    )}
-                  </div>
+            {/* Recent Orders and Wishlist */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+              {/* Recent Orders */}
+              <div className="md:col-span-3 bg-bg-card rounded-xl p-6 border border-border shadow-md">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold">Recent Orders</h3>
+                  <Link href="/orders">
+                    <button className="text-accent text-sm hover:underline">
+                      View All
+                    </button>
+                  </Link>
                 </div>
 
-                {/* Wishlist */}
-                <div className="md:col-span-2 bg-bg-card rounded-xl p-6 border border-border shadow-md">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold">Wishlist</h3>
-                    <Link href="/wishlist">
-                      <button className="text-accent text-sm hover:underline">
-                        View All
-                      </button>
-                    </Link>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    {profileData.wishlistItems.length > 0 ? (
-                      <table className="w-full min-w-100">
-                        <thead className="text-left">
-                          <tr className="border-b border-border">
-                            <th className="pb-3 text-secondary font-medium text-sm">
-                              Product
-                            </th>
-                            <th className="pb-3 text-secondary font-medium text-sm">
-                              Brand
-                            </th>
-                            <th className="pb-3 text-secondary font-medium text-sm">
-                              Price
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {profileData.wishlistItems.slice(0, 5).map((item) => (
-                            <tr key={item.id} className="border-b border-border">
-                              <td className="py-4">
+                <div className="overflow-x-auto">
+                  {transformedOrders.length > 0 ? (
+                    <table className="w-full min-w-155">
+                      <thead className="text-left">
+                        <tr className="border-b border-border">
+                          <th className="pb-3 text-secondary font-medium text-sm">
+                            Product
+                          </th>
+                          <th className="pb-3 text-secondary font-medium text-sm">
+                            Total
+                          </th>
+                          <th className="pb-3 text-secondary font-medium text-sm">
+                            Date
+                          </th>
+                          <th className="pb-3 text-secondary font-medium text-sm">
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {transformedOrders.map((order, index) => (
+                          <tr key={index} className="border-b border-border">
+                            <td className="py-4">
+                              {order.items[0] && (
                                 <div className="flex items-center">
                                   <img
-                                    src={item.image_url}
-                                    alt={item.product_name}
+                                    src={order.items[0].image_url}
+                                    alt={order.items[0].name}
                                     className="w-12 h-12 object-cover rounded-md mr-3"
                                   />
-                                  <p className="font-medium text-sm">
-                                    {item.product_name}
-                                  </p>
+                                  <div>
+                                    <p className="font-medium text-sm">
+                                      {order.items[0].name}
+                                    </p>
+                                    <p className="text-secondary text-xs">
+                                      {order.items[0].brand}
+                                      {order.items[0].variation_name &&
+                                        ` - ${order.items[0].variation_name}`}
+                                    </p>
+                                  </div>
                                 </div>
-                              </td>
-                              <td className="py-4 text-sm">{item.brand}</td>
-                              <td className="py-4 text-sm">
-                                {CURRENCY} {formatPrice(item.price)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    ) : (
-                      <div className="text-center py-8">
-                        <p className="text-secondary mb-4">
-                          Your wishlist is empty
-                        </p>
-                        <Link href="/collection">
-                          <button className="bg-accent text-bg px-6 py-2 rounded-full hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all">
-                            Discover Products
-                          </button>
-                        </Link>
-                      </div>
-                    )}
-                  </div>
+                              )}
+                            </td>
+                            <td className="py-4 text-sm">
+                              {order.showOrderDetails ? (
+                                <>
+                                  {CURRENCY} {formatPrice(order.total_amount)}
+                                </>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td className="py-4 text-sm">
+                              {order.showOrderDetails
+                                ? formatDate(order.date)
+                                : "-"}
+                            </td>
+                            <td className="py-4">
+                              {order.showOrderDetails ? (
+                                <StatusBadge status={order.status} type="order" />
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-secondary mb-4">
+                        You haven't placed any orders yet
+                      </p>
+                      <Link href="/collection">
+                        <button className="bg-accent text-bg px-6 py-2 rounded-full hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all">
+                          Shop Now
+                        </button>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Wishlist */}
+              <div className="md:col-span-2 bg-bg-card rounded-xl p-6 border border-border shadow-md">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold">Wishlist</h3>
+                  <Link href="/wishlist">
+                    <button className="text-accent text-sm hover:underline">
+                      View All
+                    </button>
+                  </Link>
+                </div>
+
+                <div className="overflow-x-auto">
+                  {profileData.wishlistItems.length > 0 ? (
+                    <table className="w-full min-w-100">
+                      <thead className="text-left">
+                        <tr className="border-b border-border">
+                          <th className="pb-3 text-secondary font-medium text-sm">
+                            Product
+                          </th>
+                          <th className="pb-3 text-secondary font-medium text-sm">
+                            Brand
+                          </th>
+                          <th className="pb-3 text-secondary font-medium text-sm">
+                            Price
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {profileData.wishlistItems.slice(0, 5).map((item) => (
+                          <tr key={item.id} className="border-b border-border">
+                            <td className="py-4">
+                              <div className="flex items-center">
+                                <img
+                                  src={item.image_url}
+                                  alt={item.product_name}
+                                  className="w-12 h-12 object-cover rounded-md mr-3"
+                                />
+                                <p className="font-medium text-sm">
+                                  {item.product_name}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="py-4 text-sm">{item.brand}</td>
+                            <td className="py-4 text-sm">
+                              {CURRENCY} {formatPrice(item.price)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-secondary mb-4">
+                        Your wishlist is empty
+                      </p>
+                      <Link href="/collection">
+                        <button className="bg-accent text-bg px-6 py-2 rounded-full hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all">
+                          Discover Products
+                        </button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

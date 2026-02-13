@@ -3,11 +3,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useProducts } from "@/lib/hooks";
-import { useUIStore } from "@/lib/stores/useUIStore";
 import Title from "@/components/common/Title";
 import ProductItem from "@/components/product/ProductItem";
 import Pagination from "@/components/common/Pagination";
-import Breadcrumbs from "@/components/common/BreadCrumbs";
 import BrandedSpinner from "@/components/common/BrandedSpinner";
 import { ProductType } from "@/lib/types/product";
 import { CURRENCY } from "@/lib/utils/constants";
@@ -17,7 +15,7 @@ import { ChevronDown } from "lucide-react";
 
 const Collection = () => {
     const searchParams = useSearchParams();
-    const { searchQuery } = useUIStore();
+    const urlSearchQuery = searchParams.get("q");
     const { allProducts, isLoading: productsLoading } = useProducts();
 
     const [showFilter, setShowFilter] = useState(false);
@@ -55,12 +53,18 @@ const Collection = () => {
     useEffect(() => {
         const category = searchParams.get("category");
         const brand = searchParams.get("brand");
+        const query = searchParams.get("q");
 
         if (category) {
             setSelectedCategory(category as ProductType);
         }
         if (brand) {
             setSelectedBrand(brand);
+        }
+
+        // Reset to page 1 when search query changes
+        if (query) {
+            setCurrentPage(1);
         }
     }, [searchParams]);
 
@@ -84,11 +88,14 @@ const Collection = () => {
         );
 
         // Search filter
-        if (searchQuery) {
+        if (urlSearchQuery) {
+            const query = urlSearchQuery.toLowerCase();
             filtered = filtered.filter(
                 (p) =>
-                    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    p.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                    p.name.toLowerCase().includes(query) ||
+                    p.brand.toLowerCase().includes(query) ||
+                    p.type.toLowerCase().includes(query) ||
+                    p.description?.toLowerCase().includes(query)
             );
         }
 
@@ -111,7 +118,7 @@ const Collection = () => {
         selectedBrand,
         minPrice,
         maxPrice,
-        searchQuery,
+        urlSearchQuery,
         sortOption,
     ]);
 
@@ -152,199 +159,196 @@ const Collection = () => {
     }
 
     return (
-        <>
-            <Breadcrumbs />
 
-            <div className="flex flex-col sm:flex-row gap-1 sm:gap-10 pt-4">
-                {/* Filter Options */}
-                <div className="min-w-60">
-                    <p
-                        onClick={() => setShowFilter(!showFilter)}
-                        className="my-2 text-xl flex items-center cursor-pointer gap-2"
-                    >
-                        FILTERS
-                        <ChevronDown
-                            className={`h-4 sm:hidden transition-transform ${showFilter ? "rotate-180" : ""
-                                }`}
-                        />
-                    </p>
+        <div className="flex flex-col sm:flex-row gap-1 sm:gap-10 pt-4">
+            {/* Filter Options */}
+            <div className="min-w-60">
+                <p
+                    onClick={() => setShowFilter(!showFilter)}
+                    className="my-2 text-xl flex items-center cursor-pointer gap-2"
+                >
+                    FILTERS
+                    <ChevronDown
+                        className={`h-4 sm:hidden transition-transform ${showFilter ? "rotate-180" : ""
+                            }`}
+                    />
+                </p>
 
-                    {/* Price Range Filter */}
-                    <div
-                        className={`border border-border rounded-lg px-5 py-3 my-7 ${showFilter ? "" : "hidden"
-                            } sm:block`}
-                    >
-                        <p className="mb-3 text-sm font-medium">PRICE RANGE</p>
-                        <div className="flex flex-col gap-3">
-                            <div className="flex flex-col gap-2">
-                                <div className="flex flex-col w-full">
-                                    <label className="text-xs text-secondary mb-1">
-                                        Min Price
-                                    </label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary">
-                                            {CURRENCY}
-                                        </span>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={currentMinPrice}
-                                            onChange={(e) =>
-                                                setCurrentMinPrice(parseInt(e.target.value) || 0)
-                                            }
-                                            className="w-full bg-bg border border-border rounded-md py-2 pl-12 pr-2 text-sm outline-none focus:border-accent"
-                                            placeholder="Min Price"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col w-full">
-                                    <label className="text-xs text-secondary mb-1">
-                                        Max Price
-                                    </label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary">
-                                            {CURRENCY}
-                                        </span>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={currentMaxPrice}
-                                            onChange={(e) =>
-                                                setCurrentMaxPrice(parseInt(e.target.value) || 0)
-                                            }
-                                            className="w-full bg-bg border border-border rounded-md py-2 pl-12 pr-2 text-sm outline-none focus:border-accent"
-                                            placeholder="Max Price"
-                                        />
-                                    </div>
+                {/* Price Range Filter */}
+                <div
+                    className={`border border-border rounded-lg px-5 py-3 my-7 ${showFilter ? "" : "hidden"
+                        } sm:block`}
+                >
+                    <p className="mb-3 text-sm font-medium">PRICE RANGE</p>
+                    <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-2">
+                            <div className="flex flex-col w-full">
+                                <label className="text-xs text-secondary mb-1">
+                                    Min Price
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary">
+                                        {CURRENCY}
+                                    </span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={currentMinPrice}
+                                        onChange={(e) =>
+                                            setCurrentMinPrice(parseInt(e.target.value) || 0)
+                                        }
+                                        className="w-full bg-bg border border-border rounded-md py-2 pl-12 pr-2 text-sm outline-none focus:border-accent"
+                                        placeholder="Min Price"
+                                    />
                                 </div>
                             </div>
 
-                            <button
-                                onClick={applyPriceFilter}
-                                className="mt-2 bg-accent hover:bg-bg hover:text-accent border border-transparent hover:border-accent text-bg text-sm py-2 px-3 rounded-full transition duration-300"
-                            >
-                                Apply Price Filter
-                            </button>
+                            <div className="flex flex-col w-full">
+                                <label className="text-xs text-secondary mb-1">
+                                    Max Price
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary">
+                                        {CURRENCY}
+                                    </span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={currentMaxPrice}
+                                        onChange={(e) =>
+                                            setCurrentMaxPrice(parseInt(e.target.value) || 0)
+                                        }
+                                        className="w-full bg-bg border border-border rounded-md py-2 pl-12 pr-2 text-sm outline-none focus:border-accent"
+                                        placeholder="Max Price"
+                                    />
+                                </div>
+                            </div>
                         </div>
+
+                        <button
+                            onClick={applyPriceFilter}
+                            className="mt-2 bg-accent hover:bg-bg hover:text-accent border border-transparent hover:border-accent text-bg text-sm py-2 px-3 rounded-full transition duration-300"
+                        >
+                            Apply Price Filter
+                        </button>
+                    </div>
+                </div>
+
+                {/* Categories Filter */}
+                <div
+                    className={`border border-border rounded-lg pl-5 py-3 my-7 ${showFilter ? "" : "hidden"
+                        } sm:block`}
+                >
+                    <p className="mb-3 text-sm font-medium">CATEGORIES</p>
+                    <div className="flex flex-col gap-2 text-sm font-light text-primary">
+                        {categories.map((category) => (
+                            <label
+                                key={category.id}
+                                className="flex gap-2 items-center cursor-pointer"
+                            >
+                                <input
+                                    type="checkbox"
+                                    className="hidden peer"
+                                    onChange={() =>
+                                        setSelectedCategory(
+                                            selectedCategory === (category.name.toLowerCase() as ProductType)
+                                                ? null
+                                                : category.name.toLowerCase() as ProductType
+                                        )
+                                    }
+                                    checked={selectedCategory === (category.name.toLowerCase() as ProductType)}
+                                />
+                                <div className="w-5 h-5 border-2 border-border peer-checked:bg-accent peer-checked:border-accent transition duration-300 rounded-full">
+                                </div>
+                                <span className="ml-2 text-base">{category.name}</span>
+                            </label>
+                        ))}
                     </div>
 
-                    {/* Categories Filter */}
+                    <button
+                        onClick={clearFilters}
+                        className="mt-3 text-error hover:underline text-sm"
+                    >
+                        Clear Filters
+                    </button>
+                </div>
+
+                {/* Brands */}
+                {selectedCategory && brands.length > 0 && (
                     <div
-                        className={`border border-border rounded-lg pl-5 py-3 my-7 ${showFilter ? "" : "hidden"
+                        className={`border border-border rounded-lg pl-5 py-3 my-6 ${showFilter ? "" : "hidden"
                             } sm:block`}
                     >
-                        <p className="mb-3 text-sm font-medium">CATEGORIES</p>
+                        <p className="mb-3 text-sm font-medium">BRANDS</p>
                         <div className="flex flex-col gap-2 text-sm font-light text-primary">
-                            {categories.map((category) => (
+                            {brands.map((brand) => (
                                 <label
-                                    key={category.id}
+                                    key={brand.id}
                                     className="flex gap-2 items-center cursor-pointer"
                                 >
                                     <input
                                         type="checkbox"
                                         className="hidden peer"
                                         onChange={() =>
-                                            setSelectedCategory(
-                                                selectedCategory === (category.name.toLowerCase() as ProductType)
-                                                    ? null
-                                                    : category.name.toLowerCase() as ProductType
+                                            setSelectedBrand(
+                                                selectedBrand === brand.name ? null : brand.name
                                             )
                                         }
-                                        checked={selectedCategory === (category.name.toLowerCase() as ProductType)}
+                                        checked={selectedBrand === brand.name}
                                     />
-                                    <div className="w-5 h-5 border-2 border-border peer-checked:bg-accent peer-checked:border-accent transition duration-300 rounded-full">
-                                    </div>
-                                    <span className="ml-2 text-base">{category.name}</span>
+                                    <div className="w-5 h-5 border-2 border-border peer-checked:bg-accent peer-checked:border-accent transition duration-300 rounded-full"></div>
+                                    <span className="ml-2">{brand.name}</span>
                                 </label>
                             ))}
                         </div>
-
-                        <button
-                            onClick={clearFilters}
-                            className="mt-3 text-error hover:underline text-sm"
-                        >
-                            Clear Filters
-                        </button>
                     </div>
-
-                    {/* Brands */}
-                    {selectedCategory && brands.length > 0 && (
-                        <div
-                            className={`border border-border rounded-lg pl-5 py-3 my-6 ${showFilter ? "" : "hidden"
-                                } sm:block`}
-                        >
-                            <p className="mb-3 text-sm font-medium">BRANDS</p>
-                            <div className="flex flex-col gap-2 text-sm font-light text-primary">
-                                {brands.map((brand) => (
-                                    <label
-                                        key={brand.id}
-                                        className="flex gap-2 items-center cursor-pointer"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            className="hidden peer"
-                                            onChange={() =>
-                                                setSelectedBrand(
-                                                    selectedBrand === brand.name ? null : brand.name
-                                                )
-                                            }
-                                            checked={selectedBrand === brand.name}
-                                        />
-                                        <div className="w-5 h-5 border-2 border-border peer-checked:bg-accent peer-checked:border-accent transition duration-300 rounded-full"></div>
-                                        <span className="ml-2">{brand.name}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Products Grid */}
-                <div className="flex-1">
-                    <div className="flex justify-between items-center my-3">
-                        <div className="text-[18px] sm:text-2xl">
-                            <Title text1="OUR" text2="SHOP" />
-                        </div>
-
-                        <select
-                            value={sortOption}
-                            onChange={(e) => setSortOption(e.target.value)}
-                            className="border border-border bg-bg text-xs sm:text-sm px-3 py-2 mb-3 rounded outline-none focus:border-accent"
-                        >
-                            <option value="relevant">Sort by: Relevant</option>
-                            <option value="low-high">Sort by: Low to High</option>
-                            <option value="high-low">Sort by: High to Low</option>
-                        </select>
-                    </div>
-
-                    <p className="text-sm text-secondary mb-4">
-                        Showing {currentProducts.length} of{" "}
-                        {filteredAndSortedProducts.length} products
-                    </p>
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-6">
-                        {currentProducts.length > 0 ? (
-                            currentProducts.map((product) => (
-                                <ProductItem key={product.id} product={product} />
-                            ))
-                        ) : (
-                            <p className="col-span-full text-center text-secondary py-10">
-                                No products available.
-                            </p>
-                        )}
-                    </div>
-
-                    {filteredAndSortedProducts.length > productsPerPage && (
-                        <Pagination
-                            currentPage={currentPage}
-                            totalPages={totalPages}
-                            paginate={setCurrentPage}
-                        />
-                    )}
-                </div>
+                )}
             </div>
-        </>
+
+            {/* Products Grid */}
+            <div className="flex-1">
+                <div className="flex justify-between items-center my-3">
+                    <div className="text-[18px] sm:text-2xl">
+                        <Title text1="OUR" text2="SHOP" />
+                    </div>
+
+                    <select
+                        value={sortOption}
+                        onChange={(e) => setSortOption(e.target.value)}
+                        className="border border-border bg-bg text-xs sm:text-sm px-3 py-2 mb-3 rounded outline-none focus:border-accent"
+                    >
+                        <option value="relevant">Sort by: Relevant</option>
+                        <option value="low-high">Sort by: Low to High</option>
+                        <option value="high-low">Sort by: High to Low</option>
+                    </select>
+                </div>
+
+                <p className="text-sm text-secondary mb-4">
+                    Showing {currentProducts.length} of{" "}
+                    {filteredAndSortedProducts.length} products
+                </p>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-6">
+                    {currentProducts.length > 0 ? (
+                        currentProducts.map((product) => (
+                            <ProductItem key={product.id} product={product} />
+                        ))
+                    ) : (
+                        <p className="col-span-full text-center text-secondary py-10">
+                            No products available.
+                        </p>
+                    )}
+                </div>
+
+                {filteredAndSortedProducts.length > productsPerPage && (
+                    <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        paginate={setCurrentPage}
+                    />
+                )}
+            </div>
+        </div>
     );
 };
 

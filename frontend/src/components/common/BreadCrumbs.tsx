@@ -10,16 +10,18 @@ import {
   Phone,
   User,
   Heart,
-  ShoppingBag,
   Info,
   Package,
   SquareStack,
+  Store,
+  ShoppingBag,
 } from "lucide-react";
 
 interface BreadcrumbItem {
   name: string;
   path: string;
   isLast?: boolean;
+  icon?: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 }
 
 interface BreadcrumbsProps {
@@ -48,11 +50,11 @@ const Breadcrumbs = ({ productData }: BreadcrumbsProps) => {
       case '':
         return Home;
       case 'collection':
-        return ShoppingBag;
+        return Store;
       case 'cart':
-        return ShoppingBag;
-      case 'place-order':
         return ShoppingCart;
+      case 'place-order':
+        return ShoppingBag;
       case 'profile':
         return User;
       case 'orders':
@@ -73,7 +75,7 @@ const Breadcrumbs = ({ productData }: BreadcrumbsProps) => {
   // Build breadcrumb items based on the current path
   const generateBreadcrumbs = () => {
     const breadcrumbs: BreadcrumbItem[] = [
-      { name: 'Home', path: '/' }
+      { name: 'Home', path: '/', icon: Home }
     ];
 
     if (pathSegments[0] === 'collection') {
@@ -146,7 +148,7 @@ const Breadcrumbs = ({ productData }: BreadcrumbsProps) => {
   const PageIcon = getPageIcon(pathSegments);
 
   return (
-    <nav className="flex p-2.5 sm:p-4 text-xs md:text-sm border-t border-border bg-black/15" aria-label="Breadcrumb">
+    <nav className="flex py-2.5 px-4 sm:py-4 sm:px-6 text-xs md:text-sm bg-black/15 rounded-b-3xl" aria-label="Breadcrumb">
       <div className="flex items-center justify-between w-full">
         <ol className="inline-flex items-center space-x-1 md:space-x-2">
           {breadcrumbs.map((crumb, index) => (
@@ -161,7 +163,7 @@ const Breadcrumbs = ({ productData }: BreadcrumbsProps) => {
                   href={crumb.path}
                   className="text-primary hover:text-accent"
                 >
-                  {crumb.name}
+                  {crumb.icon ? <crumb.icon className="h-4" /> : crumb.name}
                 </Link>
               )}
             </li>
@@ -172,7 +174,7 @@ const Breadcrumbs = ({ productData }: BreadcrumbsProps) => {
         {PageIcon && (
           <div className="ml-4">
             <PageIcon
-              className="text-accent h-6 w-6 hover:scale-110 hover:rotate-6 transition-transform duration-300 ease-in-out"
+              className="text-accent h-5 w-5 sm:h-6 sm:w-6 hover:scale-110 hover:rotate-6 transition-transform duration-300 ease-in-out"
             />
           </div>
         )}

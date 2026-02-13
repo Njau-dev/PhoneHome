@@ -3,6 +3,7 @@ import { Outfit, Prata } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "./providers/QueryProvider";
 import { ToastProvider } from "./providers/ToastProvider";
+import ScrollToTop from "@/components/layout/ScrollToTop";
 
 const outfit = Outfit({ subsets: ["latin"] });
 const prata = Prata({ weight: "400", subsets: ["latin"] });
@@ -28,6 +29,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={outfit.className}>
         <QueryProvider>
+          <ScrollToTop />
           {children}
           <ToastProvider />
         </QueryProvider>
