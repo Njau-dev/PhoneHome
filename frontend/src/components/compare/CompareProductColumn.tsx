@@ -46,7 +46,7 @@ const CompareProductColumn = ({
       {/* Specifications */}
       {specifications.map((spec, index) => {
         const value = getSpecValue(product, spec.key);
-        const displayValue = spec.format ? spec.format(value as any) : value;
+        const displayValue = spec.format ? spec.format(value) : value;
 
         return (
           <div key={index} className="py-3 md:py-4 border-t border-border">
@@ -65,7 +65,7 @@ const CompareProductColumn = ({
         {product.hasVariation ? (
           <Link
             href={`/product/${product.id}`}
-            className="w-full bg-accent text-primary py-2 px-4 rounded-lg hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all flex items-center justify-center gap-2"
+            className="w-full bg-accent text-bg py-2 px-4 rounded-lg hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all flex items-center justify-center gap-2"
           >
             <Eye size={16} />
             Select Options
@@ -73,7 +73,7 @@ const CompareProductColumn = ({
         ) : (
           <button
             onClick={onAddToCart}
-            className="w-full bg-accent text-primary py-2 px-4 rounded-lg hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all flex items-center justify-center gap-2"
+            className="w-full bg-accent text-bg py-2 px-4 rounded-lg hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all flex items-center justify-center gap-2"
           >
             <ShoppingCart size={16} />
             Add to Cart

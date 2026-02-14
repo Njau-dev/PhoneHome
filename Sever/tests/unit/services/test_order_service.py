@@ -8,7 +8,7 @@ def _order_service(app):
         return OrderService
 
 
-def _order_payload(total_amount=1000, payment_method="COD"):
+def _order_payload(total_amount, payment_method="COD"):
     return {
         "address": {
             "firstName": "John",
@@ -29,7 +29,9 @@ def test_create_order_happy_path_cod_clears_cart(app, user, product, cart):
     db.session.add(CartItem(cart_id=cart.id, product_id=product.id, quantity=1))
     db.session.commit()
 
-    order, error = order_service.create_order(user.id, _order_payload())
+    order, error = order_service.create_order(
+        user.id, _order_payload(total_amount=float(product.price))
+    )
 
     assert error is None
     assert order is not None
@@ -39,7 +41,7 @@ def test_create_order_happy_path_cod_clears_cart(app, user, product, cart):
 
 def test_create_order_empty_cart_returns_error(app, user):
     order_service = _order_service(app)
-    order, error = order_service.create_order(user.id, _order_payload())
+    order, error = order_service.create_order(user.id, _order_payload(total_amount=1000))
 
     assert order is None
     assert error == "Cart is empty"
@@ -50,18 +52,18 @@ def test_create_order_missing_address_returns_error(app, user, product, cart):
     db.session.add(CartItem(cart_id=cart.id, product_id=product.id, quantity=1))
     db.session.commit()
 
-    payload = _order_payload()
+    payload = _order_payload(total_amount=float(product.price))
     payload["address"] = None
 
     order, error = order_service.create_order(user.id, payload)
 
     assert order is None
-    assert error == "Failed to create address"
+    assert error == "Invalid address: missing firstName, lastName, email, phone, city, street"
 
 
-def test_update_order_status_rejects_invalid_transition(app, order):
+def test_update_order_status_rejects_invalid_status(app, order):
     order_service = _order_service(app)
-    success, message = order_service.update_order_status(order.id, "Canceled")
+    success, message = order_service.update_order_status(order.id, "NotARealStatus")
 
     assert success is False
     assert "Invalid status" in message

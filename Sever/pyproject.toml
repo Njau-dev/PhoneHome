@@ -1,15 +1,15 @@
 [tool.black]
 line-length = 100
 target-version = ["py312"]
-exclude = """
-/(\
+exclude = '''
+/(
     \.git
   | \.venv
   | build
   | dist
   | migrations/versions
 )/
-"""
+'''
 
 [tool.isort]
 profile = "black"

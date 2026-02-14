@@ -26,7 +26,11 @@ def test_create_order_happy_path(client, auth_headers, cart, product):
     db.session.add(CartItem(cart_id=cart.id, product_id=product.id, quantity=1))
     db.session.commit()
 
-    response = client.post("/api/orders/", headers=auth_headers, json=_order_payload())
+    response = client.post(
+        "/api/orders/",
+        headers=auth_headers,
+        json=_order_payload(total=float(product.price)),
+    )
     body = response.get_json()
 
     assert response.status_code == 201
@@ -50,8 +54,12 @@ def test_get_order_by_reference_not_found(client, auth_headers):
     _assert_response_shape(body)
 
 
-def test_update_order_status_invalid_state_transition(client, admin_headers, order):
-    response = client.put(f"/api/orders/status/{order.id}", headers=admin_headers, json={"status": "Canceled"})
+def test_update_order_status_invalid_status(client, admin_headers, order):
+    response = client.put(
+        f"/api/orders/status/{order.id}",
+        headers=admin_headers,
+        json={"status": "NotARealStatus"},
+    )
     body = response.get_json()
 
     assert response.status_code == 400

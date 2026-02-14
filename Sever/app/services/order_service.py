@@ -3,10 +3,10 @@ Order Service
 Handles order creation, management, and status updates
 """
 import logging
-from datetime import datetime, timezone
+
 from app.extensions import db
 from app.models import (
-    Order, OrderItem, Address, Payment, Cart, CartItem
+    Order, OrderItem, Address, Payment, Cart
 )
 from app.services.notification_service import create_notification
 from app.services.email_service import EmailService
@@ -298,8 +298,12 @@ class OrderService:
                 order.payment.status = "Success"
 
                 # Send payment confirmation
-                from app.services.email_service import send_payment_notification
-                send_payment_notification(order.payment)
+                try:
+                    EmailService().send_payment_notification(order.payment)
+                except Exception as email_error:
+                    logger.warning(
+                        f"Failed to send payment notification for {order.order_reference}: {email_error}"
+                    )
 
                 create_notification(
                     order.user_id,
@@ -382,7 +386,7 @@ class OrderService:
                 order.status = 'Order Placed'
 
                 # Send confirmation email
-                EmailService.send_order_confirmation(order)
+                EmailService().send_order_confirmation(order)
 
                 create_notification(
                     order.user_id,

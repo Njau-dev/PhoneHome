@@ -69,8 +69,6 @@ export default function OrdersPage() {
     return allOrderItems;
   }, [orders]);
 
-  // console.log(orderData)
-
   const getGroupedOrders = (): GroupedOrder[] => {
     const groupedOrders: { [key: string]: GroupedOrder } = {};
 

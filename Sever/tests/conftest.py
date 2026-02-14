@@ -89,6 +89,7 @@ def admin_user(db):
 
     # Also create Admin record
     admin_record = Admin(
+        id=admin.id,
         username='admin',
         email='admin@example.com',
         password_hash=generate_password_hash('admin123')

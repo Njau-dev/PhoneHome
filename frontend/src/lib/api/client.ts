@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosError } from "axios";
 import { STORAGE_KEYS } from "@/lib/utils/constants";
 import { toast } from "sonner";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 let hasShownSessionExpiredToast = false;
 
@@ -84,12 +84,12 @@ apiClient.interceptors.response.use(
         window.location.href = "/login";
       }
     }
-    
-    const errorMessage = 
-      error.response?.data?.message || 
-      error.response?.data?.error || 
+
+    const errorMessage =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
       "An error occurred";
-    
+
     return Promise.reject(new Error(errorMessage));
   }
 );

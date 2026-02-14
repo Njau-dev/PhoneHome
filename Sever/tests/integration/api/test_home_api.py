@@ -38,3 +38,17 @@ def test_home_idempotency_repeat_get(client):
 
     assert first.status_code == 200
     assert second.status_code == 200
+
+
+def test_home_handles_internal_error(client, product, monkeypatch):
+    def _boom(*args, **kwargs):
+        raise RuntimeError("serialize boom")
+
+    monkeypatch.setattr("app.api.home.routes.ProductService._serialize_product", _boom)
+
+    response = client.get('/api/home')
+    payload = response.get_json()
+
+    assert response.status_code == 500
+    assert payload["success"] is False
+    assert "serialize boom" in payload["message"]

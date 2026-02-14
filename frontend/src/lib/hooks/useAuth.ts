@@ -3,7 +3,6 @@ import { useCartStore } from "@/lib/stores/useCartStore";
 import { useWishlistStore } from "@/lib/stores/useWishlistStore";
 import { useCompareStore } from "@/lib/stores/useCompareStore";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 export const useAuth = () => {
   const auth = useAuthStore();
@@ -61,7 +60,7 @@ export const useAuth = () => {
       wishlist.clearWishlist();
       compare.clearCompare();
 
-      router.push("/login");
+      router.push("/");
     } catch (error) {
       console.error("Logout error:", error);
     }

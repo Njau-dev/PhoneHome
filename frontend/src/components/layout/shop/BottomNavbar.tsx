@@ -6,12 +6,14 @@ import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Tag } from "lucide-react";
 import { productsAPI } from "@/lib/api/products";
-import { useAuth } from "@/lib/hooks";
+import { useAuth, useCompare } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
 
 const BottomNavbar = () => {
     const pathname = usePathname();
     const { isAuthenticated, logout } = useAuth();
+    const { getCompareCount, hasHydrated } = useCompare();
+    const compareCount = hasHydrated ? getCompareCount() : 0;
 
     const { data: categories = [] } = useQuery({
         queryKey: ["categories"],
@@ -120,11 +122,16 @@ const BottomNavbar = () => {
                         key={link.href}
                         href={link.href}
                         className={cn(
-                            "relative text-[15px] font-medium text-nav-text hover:text-nav-text transition-colors group",
+                            "relative text-[15px] font-medium text-nav-text hover:text-nav-text transition-colors group px-1",
                             pathname === link.href && "text-accent"
                         )}
                     >
                         {link.label}
+                        {link.href === "/compare" && (
+                            <span className="absolute -right-3 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold leading-none text-bg">
+                                {compareCount}
+                            </span>
+                        )}
                         <span
                             className={cn(
                                 "absolute -bottom-3 left-0 h-0.5 bg-accent transition-all duration-400 ease-out",
@@ -141,7 +148,7 @@ const BottomNavbar = () => {
                 {/* Deals */}
                 <Link
                     href="/collection?deals=true"
-                    className="flex items-center gap-2 text-sm font-medium text-nav-text hover:text-accent"
+                    className="flex items-center gap-2 text-sm font-medium text-nav-text transition-all duration-300 hover:text-accent"
                 >
                     <Tag className="h-4 w-4" />
                     UP TO <span className="font-bold text-accent">30% OFF</span> all items

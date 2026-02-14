@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { RefreshCcw } from "lucide-react";
 import { useCompare, useCart } from "@/lib/hooks";
 import BrandedSpinner from "@/components/common/BrandedSpinner";
 import Title from "@/components/common/Title";

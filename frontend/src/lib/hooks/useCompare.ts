@@ -1,13 +1,36 @@
 import { useCompareStore } from "@/lib/stores/useCompareStore";
 import { useAuthStore } from "@/lib/stores/useAuthStore";
 import { Product } from "@/lib/types/product";
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { MAX_COMPARE_ITEMS } from "@/lib/utils/constants";
+
+const subscribeToCompareHydration = (onStoreChange: () => void) => {
+  const unsubscribeStore = useCompareStore.subscribe(() => {
+    onStoreChange();
+  });
+  const unsubscribeHydrationStart = useCompareStore.persist.onHydrate(() => {
+    onStoreChange();
+  });
+  const unsubscribeHydrationEnd = useCompareStore.persist.onFinishHydration(() => {
+    onStoreChange();
+  });
+
+  return () => {
+    unsubscribeStore();
+    unsubscribeHydrationStart();
+    unsubscribeHydrationEnd();
+  };
+};
 
 export const useCompare = () => {
   const compare = useCompareStore();
   const { token, isAuthenticated } = useAuthStore();
+  const hasHydrated = useSyncExternalStore(
+    subscribeToCompareHydration,
+    () => useCompareStore.persist.hasHydrated(),
+    () => false
+  );
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -20,6 +43,7 @@ export const useCompare = () => {
       compare.syncWithServer();
     }
   }, [token, isAuthenticated]);
+
 
   const addToCompare = async (product: Product) => {
     if (compare.items.length >= MAX_COMPARE_ITEMS) {
@@ -39,9 +63,13 @@ export const useCompare = () => {
     await compare.removeItem(productId);
   };
 
+  const getCompareCount = () => compare.getCount();
+
   return {
     ...compare,
+    hasHydrated,
     addToCompare,
     removeFromCompare,
+    getCompareCount,
   };
 };

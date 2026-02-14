@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Menu, ShoppingCart, User } from "lucide-react";
 import ThemeToggle from "@/components/common/ThemeToggle";
 import SearchBar from "@/components/common/SearchBar";
-import { useAuth, useCart } from "@/lib/hooks";
+import { useAuth, useCart, useCompare } from "@/lib/hooks";
 
 interface TopNavbarProps {
     onMobileMenuToggle: () => void;
@@ -21,7 +21,7 @@ const TopNavbar = ({ onMobileMenuToggle }: TopNavbarProps) => {
                     <img
                         src="/assets/logo.png"
                         alt="Phone Home logo"
-                        className="h-20 w-auto"
+                        className="h-16 w-auto"
                     />
                 </Link>
 

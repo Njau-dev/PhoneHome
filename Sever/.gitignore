@@ -30,9 +30,18 @@ instance/
 # Logs
 *.log
 
-# testing
+# testing - DO NOT ignore .coveragerc or pytest.ini
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
+.pytest_cache/
 .tox/
-.coveragerc
-pytest.ini
+
+# Linting
+.ruff_cache/
+
+# System / OS
+.DS_Store
+Thumbs.db
+
