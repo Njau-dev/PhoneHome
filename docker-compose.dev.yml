@@ -1,0 +1,105 @@
+services:
+
+  # -------------------------
+  # Reverse Proxy (Public)
+  # -------------------------
+  nginx:
+    build: ./nginx
+    container_name: phk-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - admin
+      - api
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Frontend (Next.js)
+  # -------------------------
+  frontend:
+    build: ./frontend
+    container_name: phk-frontend
+    env_file:
+      - ./frontend/.env.production
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Admin (Vite)
+  # -------------------------
+  admin:
+    build: ./admin
+    container_name: phk-admin
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Backend (Flask)
+  # -------------------------
+  api:
+    build: ./backend
+    container_name: phk-api
+    env_file:
+      - ./backend/.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Database
+  # -------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: phk-postgres
+    env_file:
+      - ./.env.production
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - phk-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------
+  # Redis
+  # -------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: phk-redis
+    command: [ "redis-server", "--appendonly", "yes" ]
+    volumes:
+      - redis_data:/data
+    networks:
+      - phk-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+# -------------------------
+# Volumes
+# -------------------------
+volumes:
+  postgres_data:
+  redis_data:
+
+
+networks:
+  phk-network:
+    driver: bridge

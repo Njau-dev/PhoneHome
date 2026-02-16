@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         setLoading(true);
         try {
-            const response = await axios.post(backendUrl + '/admin/login', {
+            const response = await axios.post(backendUrl + '/auth/admin/login', {
                 email,
                 password
             });

@@ -1,0 +1,26 @@
+.git
+.gitignore
+
+# Dependencies and build outputs
+node_modules/
+.next/
+out/
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment files (keep production env for build)
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+
+# Misc
+.DS_Store
+.vscode/

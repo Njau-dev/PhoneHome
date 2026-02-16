@@ -9,7 +9,7 @@ import Breadcrumbs from '../components/BreadCrumbs';
 
 const Cart = () => {
 
-  const { products, currency, cartItems, setCartItems, navigate, token, backendUrl } = useContext(ShopContext);
+  const { products, currency, cartItems, setCartItems, navigate, token, backendUrl } = useContext(ShopContext); 
 
   const flatProducts = [
     ...products.phones,

@@ -1,0 +1,106 @@
+services:
+
+  # -------------------------
+  # Reverse Proxy (Public)
+  # -------------------------
+  nginx:
+    image: njaudev/phonehome-nginx:latest
+    container_name: phk-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_started
+      frontend:
+        condition: service_started
+      admin:
+        condition: service_started
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Frontend (Next.js)
+  # -------------------------
+  frontend:
+    image: njaudev/phonehome-frontend:latest
+    container_name: phk-frontend
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Admin (Vite)
+  # -------------------------
+  admin:
+    image: njaudev/phonehome-admin:latest
+    container_name: phk-admin
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Backend (Flask)
+  # -------------------------
+  api:
+    image: njaudev/phonehome-api:latest
+    container_name: phk-api
+    env_file:
+      - ./backend/.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Database
+  # -------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: phk-postgres
+    env_file:
+      - ./.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - phk-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------
+  # Redis
+  # -------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: phk-redis
+    command: [ "redis-server", "--appendonly", "yes" ]
+    volumes:
+      - redis_data:/data
+    networks:
+      - phk-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+# -------------------------
+# Volumes & Network
+# -------------------------
+volumes:
+  postgres_data:
+  redis_data:
+
+
+networks:
+  phk-network:
+    driver: bridge

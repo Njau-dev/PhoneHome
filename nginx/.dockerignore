@@ -1,0 +1,16 @@
+# Ignore everything by default
+*
+
+# Allow only required files
+!Dockerfile
+!nginx.conf
+
+# Explicit ignores (safety)
+.git
+.gitignore
+docker-compose.yml
+node_modules
+.env
+.env.*
+__pycache__
+*.pyc

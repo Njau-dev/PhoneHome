@@ -7,6 +7,7 @@ import BrandedSpinner from '../components/BrandedSpinner';
 import Breadcrumbs from '../components/BreadCrumbs';
 import Title from '../components/Title';
 import { ShopContext } from '../context/ShopContext';
+import StatusBadge from '../components/StatusBadge';
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -466,14 +467,7 @@ const Profile = () => {
                                   </td>
                                   <td className="py-4">
                                     {order.showOrderDetails ? (
-                                      <span className={`text-[10px] sm:text-xs py-1 px-2 rounded-full ${order.status === 'Delivered'
-                                        ? 'bg-green-400/20 text-green-400'
-                                        : order.status === 'Shipped'
-                                          ? 'bg-blue-400/20 text-blue-400'
-                                          : 'bg-yellow-400/20 text-yellow-400'
-                                        }`}>
-                                        {order.status}
-                                      </span>
+                                      <StatusBadge status={order.status} type='order' />
                                     ) : (
                                       <>-</>
                                     )}

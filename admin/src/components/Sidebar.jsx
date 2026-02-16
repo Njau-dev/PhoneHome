@@ -81,7 +81,7 @@ const Sidebar = () => {
                         </div>
                     ) : (
                         <>
-                            <img src={logo} alt="Logo" className="h-8 w-8 mx-auto" />
+                            <img src="/assets/logo.png" alt="Logo" className="h-8 w-8 mx-auto" />
                             {!isMobile && (
                                 <button
                                     onClick={toggleSidebar}
