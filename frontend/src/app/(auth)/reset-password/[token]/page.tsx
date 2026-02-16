@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { authAPI } from "@/lib/api/auth";
 import { toast } from "sonner";
@@ -8,19 +8,12 @@ import Title from "@/components/common/Title";
 
 export default function ResetPasswordPage() {
   const params = useParams();
-  const token = params.token as string;
+  const token = typeof params.token === "string" ? params.token : "";
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isValidToken, setIsValidToken] = useState(true);
+  const [isValidToken, setIsValidToken] = useState(Boolean(token));
   const [isReset, setIsReset] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    if (!token) {
-      setIsValidToken(false);
-      toast.error("Invalid or missing reset token");
-    }
-  }, [token]);
 
   const onSubmitHandler = async (e: React.FormEvent) => {
     e.preventDefault();

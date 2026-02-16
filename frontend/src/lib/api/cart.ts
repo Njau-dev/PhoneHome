@@ -31,7 +31,7 @@ export const cartAPI = {
     try {
       const response: CartResponse = await apiClient.get("/cart");
       return response.data.cart;
-    } catch (error) {
+    } catch {
       // If unauthorized, return empty cart
       return {};
     }

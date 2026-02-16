@@ -10,7 +10,7 @@ import { getCompareSpecifications } from "@/lib/utils/compareSpecs";
 import { Product } from "@/lib/types/product";
 
 export default function ComparePage() {
-    const { items, isLoading, removeFromCompare, syncWithServer } = useCompare();
+    const { items, isLoading, removeFromCompare } = useCompare();
     const { addItem } = useCart();
     const specifications = getCompareSpecifications();
 

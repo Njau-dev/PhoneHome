@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { X, Eye, ShoppingCart } from "lucide-react";
 import { Product } from "@/lib/types/product";
 import { getCompareSpecifications, getSpecValue } from "@/lib/utils/compareSpecs";
@@ -35,9 +36,12 @@ const CompareProductColumn = ({
         </button>
 
         <Link href={`/product/${product.id}`}>
-          <img
+          <Image
             src={imageUrl}
             alt={product.name}
+            width={320}
+            height={320}
+            unoptimized
             className="w-full h-48 md:h-64 object-cover rounded-md"
           />
         </Link>

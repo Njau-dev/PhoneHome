@@ -1,11 +1,18 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const ShopFooter = () => {
     return (
-        <footer className="mt-16 text-nav-text">
+        <footer className="text-nav-text">
             <div className="grid gap-10 py-12 text-sm md:grid-cols-[2fr_1fr_1fr]">
                 <div>
-                    <img src="/assets/logo.png" className="mb-4 w-32" alt="Logo" />
+                    <Image
+                        src="/assets/logo.png"
+                        className="mb-4 w-32 h-auto"
+                        alt="Logo"
+                        width={128}
+                        height={48}
+                    />
                     <p className="max-w-md text-nav-muted">
                         Phone Home is a Nairobi-based store focused on premium phones,
                         tablets, laptops, audio devices, and dependable customer support

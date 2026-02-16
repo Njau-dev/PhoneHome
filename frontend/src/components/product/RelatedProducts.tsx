@@ -3,7 +3,6 @@
 import { useProducts } from "@/lib/hooks";
 import ProductItem from "./ProductItem";
 import Title from "@/components/common/Title";
-import { ProductType } from "@/lib/types/product";
 
 interface RelatedProductsProps {
   category: string;

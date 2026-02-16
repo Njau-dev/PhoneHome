@@ -9,7 +9,7 @@ export default function ContactPage() {
                 <Title text1="CONTACT" text2="US" />
                 <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
                     We are here to help you with any questions you may have. Reach out to us
-                    and we'll respond as soon as we can.
+                    and we&apos;ll respond as soon as we can.
                 </p>
             </div>
             <ContactInfoBox />

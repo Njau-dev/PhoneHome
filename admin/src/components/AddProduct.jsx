@@ -3,7 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom'; // Add this import
+import { useNavigate } from 'react-router-dom';
 import { Upload, Plus, Star, ListChecks, Pencil, Smartphone, Laptop, Headphones, Package, Info, ChevronDown, Image, Building2, Settings, Trash2 } from 'lucide-react';
 import Title from './Title';
 import Breadcrumbs from './BreadCrumbs';
@@ -19,7 +19,7 @@ const Add = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { backendUrl } = useApp();
     const { token } = useAuth();
-    const navigate = useNavigate(); // Add this hook
+    const navigate = useNavigate();
 
     // State to hold images
     const [images, setImages] = useState([null, null, null, null]);

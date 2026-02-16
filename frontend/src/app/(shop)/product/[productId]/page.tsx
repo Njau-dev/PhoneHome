@@ -9,6 +9,7 @@ import ProductInfo from "@/components/product/ProductInfo";
 import RelatedProducts from "@/components/product/RelatedProducts";
 import ProductTabs from "@/components/product/ProductTab";
 import Link from "next/link";
+import { Product, ProductVariation } from "@/lib/types/product";
 
 export default function ProductPage() {
     const params = useParams();
@@ -35,6 +36,10 @@ export default function ProductPage() {
         );
     }
 
+    const productWithVariations = product as Product & {
+        variations?: ProductVariation[];
+    };
+
     return (
         <>
             <Breadcrumbs productData={product} />
@@ -48,7 +53,7 @@ export default function ProductPage() {
                     />
                     <ProductInfo
                         product={product}
-                        variations={(product as any).variations}
+                        variations={productWithVariations.variations}
                     />
                 </div>
 

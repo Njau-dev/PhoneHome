@@ -47,6 +47,7 @@ export const useOrders = (enabled = true) => {
     refetch,
     createOrder: createOrderMutation.mutate,
     cancelOrder: cancelOrderMutation.mutate,
+    paymentStatus: paymentStatusMutation.mutate,
     isCreating: createOrderMutation.isPending,
     isCancelling: cancelOrderMutation.isPending,
   };

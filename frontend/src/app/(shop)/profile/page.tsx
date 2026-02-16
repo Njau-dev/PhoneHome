@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { RefreshCcw } from "lucide-react";
 import BrandedSpinner from "@/components/common/BrandedSpinner";
 import Title from "@/components/common/Title";
@@ -14,6 +15,31 @@ import { apiClient } from "@/lib/api/client";
 import { formatPrice, formatDate } from "@/lib/utils/format";
 import { CURRENCY } from "@/lib/utils/constants";
 import { toast } from "sonner";
+import { User } from "@/lib/types/user";
+
+interface ProfileOrderItem {
+  id?: string | number;
+  image_url: string;
+  name: string;
+  brand?: string;
+  variation_name?: string | null;
+}
+
+interface ProfileOrder {
+  id: string | number;
+  status: string;
+  total_amount: number;
+  date: string;
+  items: ProfileOrderItem[];
+}
+
+interface ProfileWishlistItem {
+  id: string | number;
+  image_url: string;
+  product_name: string;
+  brand: string;
+  price: number;
+}
 
 interface ProfileData {
   stats: {
@@ -22,8 +48,8 @@ interface ProfileData {
     wishlist_count: number;
     review_count: number;
   };
-  recentOrders: any[];
-  wishlistItems: any[];
+  recentOrders: ProfileOrder[];
+  wishlistItems: ProfileWishlistItem[];
 }
 
 export default function ProfilePage() {
@@ -42,36 +68,120 @@ export default function ProfilePage() {
     wishlistItems: [],
   });
 
-  const normalizeStats = (value: any): ProfileData["stats"] => {
-    const stats = value?.stats ?? value?.data?.stats ?? value?.data ?? value ?? {};
+  const toRecord = (input: unknown): Record<string, unknown> => {
+    return typeof input === "object" && input !== null
+      ? (input as Record<string, unknown>)
+      : {};
+  };
+
+  const normalizeStats = (value: unknown): ProfileData["stats"] => {
+    const root = toRecord(value);
+    const data = toRecord(root.data);
+    const stats = toRecord(root.stats);
+    const dataStats = toRecord(data.stats);
+    const source = Object.keys(stats).length
+      ? stats
+      : Object.keys(dataStats).length
+        ? dataStats
+        : data;
+
     const toNumber = (input: unknown): number => {
       const parsed = typeof input === "number" ? input : Number(input);
       return Number.isFinite(parsed) ? parsed : 0;
     };
 
     return {
-      order_count: toNumber(stats.order_count ?? stats.orderCount),
-      total_payment: toNumber(stats.total_payment ?? stats.totalPayment),
-      wishlist_count: toNumber(stats.wishlist_count ?? stats.wishlistCount),
-      review_count: toNumber(stats.review_count ?? stats.reviewCount),
+      order_count: toNumber(source.order_count ?? source.orderCount),
+      total_payment: toNumber(source.total_payment ?? source.totalPayment),
+      wishlist_count: toNumber(source.wishlist_count ?? source.wishlistCount),
+      review_count: toNumber(source.review_count ?? source.reviewCount),
     };
   };
 
+  const normalizeOrders = (value: unknown): ProfileOrder[] => {
+    const root = toRecord(value);
+    const data = toRecord(root.data);
+    const rawOrders = Array.isArray(value)
+      ? value
+      : Array.isArray(root.orders)
+        ? root.orders
+        : Array.isArray(root.data)
+          ? (root.data as unknown[])
+          : Array.isArray(data.orders)
+            ? (data.orders as unknown[])
+            : [];
 
-  const normalizeOrders = (value: any): any[] => {
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value?.orders)) return value.orders;
-    if (Array.isArray(value?.data)) return value.data;
-    if (Array.isArray(value?.data?.orders)) return value.data.orders;
-    return [];
+    return rawOrders.map((entry, index) => {
+      const order = toRecord(entry);
+      const rawItems = Array.isArray(order.items) ? order.items : [];
+      const items: ProfileOrderItem[] = rawItems.map((rawItem, itemIndex) => {
+        const item = toRecord(rawItem);
+        return {
+          id:
+            typeof item.id === "number" || typeof item.id === "string"
+              ? item.id
+              : `${index}-${itemIndex}`,
+          image_url: typeof item.image_url === "string" ? item.image_url : "",
+          name: typeof item.name === "string" ? item.name : "",
+          brand: typeof item.brand === "string" ? item.brand : "",
+          variation_name:
+            typeof item.variation_name === "string" ? item.variation_name : null,
+        };
+      });
+
+      const id =
+        typeof order.id === "number" || typeof order.id === "string"
+          ? order.id
+          : index;
+      const totalAmount =
+        typeof order.total_amount === "number"
+          ? order.total_amount
+          : Number(order.total_amount) || 0;
+      const date =
+        typeof order.date === "string"
+          ? order.date
+          : typeof order.created_at === "string"
+            ? order.created_at
+            : "";
+      const status = typeof order.status === "string" ? order.status : "Unknown";
+
+      return {
+        id,
+        items,
+        total_amount: totalAmount,
+        date,
+        status,
+      };
+    });
   };
 
-  const normalizeWishlist = (value: any): any[] => {
-    if (Array.isArray(value)) return value;
-    if (Array.isArray(value?.wishlist)) return value.wishlist;
-    if (Array.isArray(value?.data)) return value.data;
-    if (Array.isArray(value?.data?.wishlist)) return value.data.wishlist;
-    return [];
+  const normalizeWishlist = (value: unknown): ProfileWishlistItem[] => {
+    const root = toRecord(value);
+    const data = toRecord(root.data);
+    const rawWishlist = Array.isArray(value)
+      ? value
+      : Array.isArray(root.wishlist)
+        ? root.wishlist
+        : Array.isArray(root.data)
+          ? (root.data as unknown[])
+          : Array.isArray(data.wishlist)
+            ? (data.wishlist as unknown[])
+            : [];
+
+    return rawWishlist.map((entry, index) => {
+      const item = toRecord(entry);
+      return {
+        id:
+          typeof item.id === "number" || typeof item.id === "string"
+            ? item.id
+            : index,
+        image_url: typeof item.image_url === "string" ? item.image_url : "",
+        product_name:
+          typeof item.product_name === "string" ? item.product_name : "",
+        brand: typeof item.brand === "string" ? item.brand : "",
+        price: typeof item.price === "number" ? item.price : Number(item.price) || 0,
+      };
+    });
   };
 
   const fetchProfileData = async () => {
@@ -108,9 +218,9 @@ export default function ProfilePage() {
       return;
     }
     fetchProfileData();
-  }, [hasHydrated, isAuthenticated, router]);
+  }, [hasHydrated, isAuthenticated, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleProfileUpdate = async (data: any) => {
+  const handleProfileUpdate = async (data: Partial<User>) => {
     try {
       await apiClient.put("/profile", data);
       updateUser(data);
@@ -126,7 +236,7 @@ export default function ProfilePage() {
   const transformedOrders = Array.isArray(profileData.recentOrders)
     ? profileData.recentOrders
       .flatMap((order) =>
-        order.items.map((item: any, index: number) => ({
+        order.items.map((item, index: number) => ({
           ...order,
           items: [item],
           showOrderDetails: index === 0,
@@ -147,7 +257,7 @@ export default function ProfilePage() {
     return (
       <div className="flex flex-col justify-center items-center min-h-100 text-center">
         <h2 className="text-2xl mb-4">Something went wrong</h2>
-        <p className="text-secondary mb-6">We couldn't load your profile information</p>
+        <p className="text-secondary mb-6">We couldn&apos;t load your profile information</p>
         <button
           onClick={fetchProfileData}
           className="flex items-center bg-accent text-bg px-6 py-3 rounded-full hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all"
@@ -219,9 +329,12 @@ export default function ProfilePage() {
                             <td className="py-4">
                               {order.items[0] && (
                                 <div className="flex items-center">
-                                  <img
-                                    src={order.items[0].image_url}
+                                  <Image
+                                    src={order.items[0].image_url || "/assets/logo.png"}
                                     alt={order.items[0].name}
+                                    width={48}
+                                    height={48}
+                                    unoptimized
                                     className="w-12 h-12 object-cover rounded-md mr-3"
                                   />
                                   <div>
@@ -265,7 +378,7 @@ export default function ProfilePage() {
                   ) : (
                     <div className="text-center py-8">
                       <p className="text-secondary mb-4">
-                        You haven't placed any orders yet
+                        You haven&apos;t placed any orders yet
                       </p>
                       <Link href="/collection">
                         <button className="bg-accent text-bg px-6 py-2 rounded-full hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all">
@@ -309,9 +422,12 @@ export default function ProfilePage() {
                           <tr key={item.id} className="border-b border-border">
                             <td className="py-4">
                               <div className="flex items-center">
-                                <img
-                                  src={item.image_url}
+                                <Image
+                                  src={item.image_url || "/assets/logo.png"}
                                   alt={item.product_name}
+                                  width={48}
+                                  height={48}
+                                  unoptimized
                                   className="w-12 h-12 object-cover rounded-md mr-3"
                                 />
                                 <p className="font-medium text-sm">

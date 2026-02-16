@@ -6,15 +6,16 @@ import { useRouter } from "next/navigation";
 
 export const useWishlist = () => {
   const wishlist = useWishlistStore();
+  const syncWithServer = useWishlistStore((state) => state.syncWithServer);
   const { isAuthenticated, token } = useAuthStore();
   const router = useRouter();
 
   // Sync with server when user is authenticated
   useEffect(() => {
     if (token && isAuthenticated) {
-      wishlist.syncWithServer();
+      syncWithServer();
     }
-  }, [token, isAuthenticated]);
+  }, [token, isAuthenticated, syncWithServer]);
 
   const addToWishlist = async (productId: number) => {
     if (!isAuthenticated) {

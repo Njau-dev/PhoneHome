@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { productsAPI } from "@/lib/api/products";
-import { Product, ProductType } from "@/lib/types/product";
+import { ProductType } from "@/lib/types/product";
 
 export const useProducts = () => {
   const { data: allProducts = [], isLoading, error } = useQuery({

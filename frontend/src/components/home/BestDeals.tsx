@@ -75,11 +75,10 @@ const BestDeals = () => {
                             {/* Featured Product Image */}
                             <div className="relative mt-auto h-full w-full">
                                 <Image
-                                    src="/assets/images/deals-banner.png"
+                                    src="/assets/images/audio-banner.png"
                                     alt="Hot Deal Product"
-
-                                    className="object-contain"
-                                    width={600}
+                                    className="object-cover"
+                                    width={500}
                                     height={7000}
                                 />
                             </div>

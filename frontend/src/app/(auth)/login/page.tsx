@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/hooks";
+import BrandedSpinner from "@/components/common/BrandedSpinner";
 
-export default function LoginPage() {
+function LoginContent() {
   const [currentState, setCurrentState] = useState<"Login" | "Sign Up">("Login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -109,5 +110,13 @@ export default function LoginPage() {
         {currentState === "Login" ? "Sign In" : "Sign Up"}
       </button>
     </form>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<BrandedSpinner message="Loading ..." />}>
+      <LoginContent />
+    </Suspense>
   );
 }

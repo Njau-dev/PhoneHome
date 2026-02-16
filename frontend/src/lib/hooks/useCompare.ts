@@ -25,6 +25,8 @@ const subscribeToCompareHydration = (onStoreChange: () => void) => {
 
 export const useCompare = () => {
   const compare = useCompareStore();
+  const loadFromLocalStorage = useCompareStore((state) => state.loadFromLocalStorage);
+  const syncWithServer = useCompareStore((state) => state.syncWithServer);
   const { token, isAuthenticated } = useAuthStore();
   const hasHydrated = useSyncExternalStore(
     subscribeToCompareHydration,
@@ -34,15 +36,15 @@ export const useCompare = () => {
 
   // Load from localStorage on mount
   useEffect(() => {
-    compare.loadFromLocalStorage();
-  }, []);
+    loadFromLocalStorage();
+  }, [loadFromLocalStorage]);
 
   // Sync with server when user is authenticated
   useEffect(() => {
     if (token && isAuthenticated) {
-      compare.syncWithServer();
+      syncWithServer();
     }
-  }, [token, isAuthenticated]);
+  }, [token, isAuthenticated, syncWithServer]);
 
 
   const addToCompare = async (product: Product) => {

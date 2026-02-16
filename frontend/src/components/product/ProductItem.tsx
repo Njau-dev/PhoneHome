@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Product } from "@/lib/types/product";
 import { CURRENCY } from "@/lib/utils/constants";
 import { formatPrice } from "@/lib/utils/format";
@@ -24,7 +25,6 @@ const ProductItem = ({ product }: ProductItemProps) => {
     review_count = 0,
     category,
     hasVariation,
-    type
   } = product;
 
   const { addItem: addCartItem } = useCartStore();
@@ -76,9 +76,12 @@ const ProductItem = ({ product }: ProductItemProps) => {
       <Link href={`/product/${id}`} className="block">
         {/* Product Image Container */}
         <div className="relative overflow-hidden">
-          <img
-            src={image_urls[0]}
+          <Image
+            src={image_urls[0] || "/assets/logo.png"}
             alt={name}
+            width={600}
+            height={600}
+            unoptimized
             className="w-full h-40 lg:h-64 object-cover transition-transform duration-700 group-hover:scale-105"
           />
 

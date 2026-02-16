@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Phone, Mail, Instagram, Facebook, Twitter } from "lucide-react";
 
 const ContactInfoBox = () => {
@@ -11,7 +12,13 @@ const ContactInfoBox = () => {
             <div className="absolute -bottom-4 -left-4 w-8 h-8 rounded-full bg-accent opacity-20 animate-pulse"></div>
 
             <div className="bg-bg rounded-xl p-6 relative z-10 border border-border flex items-center justify-center">
-              <img src="/assets/logo.png" alt="Phone Home Kenya" />
+              <Image
+                src="/assets/logo.png"
+                alt="Phone Home Kenya"
+                width={350}
+                height={200}
+                className="h-auto w-auto"
+              />
             </div>
           </div>
         </div>
@@ -23,7 +30,7 @@ const ContactInfoBox = () => {
               Contact Information
             </h3>
             <p className="text-secondary text-sm sm:text-base">
-              We're here to assist you. Feel free to reach out through any of the
+              We&apos;re here to assist you. Feel free to reach out through any of the
               following channels.
             </p>
           </div>
@@ -79,7 +86,7 @@ const ContactInfoBox = () => {
           </div>
 
           <p className="text-xs text-secondary">
-            Located in the heart of Nairobi, Kenya. We're committed to serving you.
+            Located in the heart of Nairobi, Kenya. We&apos;re committed to serving you.
           </p>
         </div>
       </div>

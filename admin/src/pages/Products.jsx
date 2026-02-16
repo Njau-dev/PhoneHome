@@ -343,7 +343,7 @@ const List = () => {
                                                 {currency} {product.price.toLocaleString()}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-center gap-2">
-                                                <Link to={`/product/edit/${product.id}`} className="p-2 bg-blue-500/10 text-blue-500 rounded-md hover:bg-blue-500/20 transition-colors">
+                                                <Link to={`/products/edit/${product.id}`} className="p-2 bg-blue-500/10 text-blue-500 rounded-md hover:bg-blue-500/20 transition-colors">
                                                     <Edit className="h-4 w-4" />
                                                 </Link>
                                                 <button

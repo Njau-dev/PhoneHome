@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { Suspense, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useProducts } from "@/lib/hooks";
 import Title from "@/components/common/Title";
@@ -13,14 +13,16 @@ import { productsAPI } from "@/lib/api/products";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 
-const Collection = () => {
+function CollectionContent() {
     const searchParams = useSearchParams();
     const urlSearchQuery = searchParams.get("q");
+    const initialCategory = searchParams.get("category") as ProductType | null;
+    const initialBrand = searchParams.get("brand");
     const { allProducts, isLoading: productsLoading } = useProducts();
 
     const [showFilter, setShowFilter] = useState(false);
-    const [selectedCategory, setSelectedCategory] = useState<ProductType | null>(null);
-    const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<ProductType | null>(initialCategory);
+    const [selectedBrand, setSelectedBrand] = useState<string | null>(initialBrand);
     const [sortOption, setSortOption] = useState("relevant");
 
     // Price range states
@@ -48,25 +50,6 @@ const Collection = () => {
         },
         enabled: !!selectedCategory,
     });
-
-    // Set filters from URL params
-    useEffect(() => {
-        const category = searchParams.get("category");
-        const brand = searchParams.get("brand");
-        const query = searchParams.get("q");
-
-        if (category) {
-            setSelectedCategory(category as ProductType);
-        }
-        if (brand) {
-            setSelectedBrand(brand);
-        }
-
-        // Reset to page 1 when search query changes
-        if (query) {
-            setCurrentPage(1);
-        }
-    }, [searchParams]);
 
     // Filter and sort products
     const filteredAndSortedProducts = useMemo(() => {
@@ -350,6 +333,12 @@ const Collection = () => {
             </div>
         </div>
     );
-};
+}
 
-export default Collection;
+export default function CollectionPage() {
+    return (
+        <Suspense fallback={<BrandedSpinner message="Loading products..." />}>
+            <CollectionContent />
+        </Suspense>
+    );
+}

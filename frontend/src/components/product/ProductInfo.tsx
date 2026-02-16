@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Product, ProductVariation } from "@/lib/types/product";
+import {
+  AudioSpecs,
+  LaptopSpecs,
+  PhoneSpecs,
+  Product,
+  ProductVariation,
+  TabletSpecs,
+} from "@/lib/types/product";
 import { CURRENCY } from "@/lib/utils/constants";
 import { formatPrice } from "@/lib/utils/format";
 import { useCart, useWishlist, useCompare } from "@/lib/hooks";
@@ -18,6 +25,8 @@ const ProductInfo = ({ product, variations = [] }: ProductInfoProps) => {
   const [selectedVariation, setSelectedVariation] = useState<ProductVariation | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [price, setPrice] = useState(product.price);
+  const productSpecs = product as Product &
+    Partial<PhoneSpecs & LaptopSpecs & TabletSpecs & AudioSpecs>;
 
   const { addItem } = useCart();
   const { addToWishlist } = useWishlist();
@@ -84,28 +93,28 @@ const ProductInfo = ({ product, variations = [] }: ProductInfoProps) => {
         <ul className="mt-2 list-disc pl-5 space-y-2 text-secondary">
           {product.type === "phone" || product.type === "tablet" ? (
             <>
-              <li><strong>RAM:</strong> {(product as any).ram}</li>
-              <li><strong>Storage:</strong> {(product as any).storage}</li>
-              <li><strong>Processor:</strong> {(product as any).processor}</li>
-              <li><strong>Main Camera:</strong> {(product as any).main_camera}</li>
-              <li><strong>Front Camera:</strong> {(product as any).front_camera}</li>
-              <li><strong>Operating System:</strong> {(product as any).os}</li>
-              <li><strong>Connectivity:</strong> {(product as any).connectivity}</li>
-              <li><strong>Colors:</strong> {(product as any).colors}</li>
-              <li><strong>Display:</strong> {(product as any).display}</li>
-              <li><strong>Battery:</strong> {(product as any).battery}</li>
+              <li><strong>RAM:</strong> {productSpecs.ram}</li>
+              <li><strong>Storage:</strong> {productSpecs.storage}</li>
+              <li><strong>Processor:</strong> {productSpecs.processor}</li>
+              <li><strong>Main Camera:</strong> {productSpecs.main_camera}</li>
+              <li><strong>Front Camera:</strong> {productSpecs.front_camera}</li>
+              <li><strong>Operating System:</strong> {productSpecs.os}</li>
+              <li><strong>Connectivity:</strong> {productSpecs.connectivity}</li>
+              <li><strong>Colors:</strong> {productSpecs.colors}</li>
+              <li><strong>Display:</strong> {productSpecs.display}</li>
+              <li><strong>Battery:</strong> {productSpecs.battery}</li>
             </>
           ) : product.type === "laptop" ? (
             <>
-              <li><strong>RAM:</strong> {(product as any).ram}</li>
-              <li><strong>Storage:</strong> {(product as any).storage}</li>
-              <li><strong>Display:</strong> {(product as any).display}</li>
-              <li><strong>Processor:</strong> {(product as any).processor}</li>
-              <li><strong>OS:</strong> {(product as any).os}</li>
-              <li><strong>Battery:</strong> {(product as any).battery}</li>
+              <li><strong>RAM:</strong> {productSpecs.ram}</li>
+              <li><strong>Storage:</strong> {productSpecs.storage}</li>
+              <li><strong>Display:</strong> {productSpecs.display}</li>
+              <li><strong>Processor:</strong> {productSpecs.processor}</li>
+              <li><strong>OS:</strong> {productSpecs.os}</li>
+              <li><strong>Battery:</strong> {productSpecs.battery}</li>
             </>
           ) : (
-            <li><strong>Battery:</strong> {(product as any).battery}</li>
+            <li><strong>Battery:</strong> {productSpecs.battery}</li>
           )}
         </ul>
       </div>

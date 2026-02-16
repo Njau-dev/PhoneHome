@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import {
     ChevronDown,
@@ -33,6 +34,12 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
     const [openCategory, setOpenCategory] = useState<string | null>(null);
     const [showCategories, setShowCategories] = useState(false);
     const pathname = usePathname();
+
+    const handleCloseMenu = () => {
+        setShowCategories(false);
+        setOpenCategory(null);
+        onClose();
+    };
 
     const { data: categories = [] } = useQuery({
         queryKey: ["categories"],
@@ -92,7 +99,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
 
     const handleLogout = async () => {
         await logout();
-        onClose();
+        handleCloseMenu();
     };
 
     // Prevent body scroll when menu is open
@@ -108,14 +115,6 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
         };
     }, [isOpen]);
 
-    // Reset states when menu closes
-    useEffect(() => {
-        if (!isOpen) {
-            setShowCategories(false);
-            setOpenCategory(null);
-        }
-    }, [isOpen]);
-
     return (
         <>
             {/* Backdrop */}
@@ -124,7 +123,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                     "fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 md:hidden",
                     isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
                 )}
-                onClick={onClose}
+                onClick={handleCloseMenu}
             />
 
             {/* Slide-in Menu */}
@@ -137,15 +136,17 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                 {/* Header */}
                 <div className="sticky top-0 bg-black-soft z-10 border-b border-border p-4">
                     <div className="flex items-center justify-between mb-4">
-                        <Link href="/" onClick={onClose} className="shrink-0">
-                            <img
+                        <Link href="/" onClick={handleCloseMenu} className="shrink-0">
+                            <Image
                                 src="/assets/logo.png"
                                 alt="Phone Home logo"
+                                width={200}
+                                height={64}
                                 className="h-16 w-auto"
                             />
                         </Link>
                         <button
-                            onClick={onClose}
+                            onClick={handleCloseMenu}
                             className="p-2 hover:bg-border rounded-full transition-colors"
                             aria-label="Close menu"
                         >
@@ -154,7 +155,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                     </div>
 
                     {/* Search in mobile menu */}
-                    <SearchBar variant="mobile" onSearch={onClose} />
+                    <SearchBar variant="mobile" onSearch={handleCloseMenu} />
                 </div>
 
                 {/* Menu Content */}
@@ -183,7 +184,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                                             <div className="flex items-center justify-between p-2 rounded-lg hover:bg-border/50">
                                                 <Link
                                                     href={category.href}
-                                                    onClick={onClose}
+                                                    onClick={handleCloseMenu}
                                                     className="flex-1 text-sm font-medium text-primary hover:text-accent"
                                                 >
                                                     {category.label}
@@ -214,7 +215,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                                                         <Link
                                                             key={`${category.key}-${brand}`}
                                                             href={`/collection?category=${category.key}&brand=${encodeURIComponent(brand)}`}
-                                                            onClick={onClose}
+                                                            onClick={handleCloseMenu}
                                                             className="rounded-full border border-nav-border/50 px-3 py-1 text-xs text-primary hover:border-accent hover:text-accent transition-colors"
                                                         >
                                                             {brand}
@@ -237,7 +238,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                                 <Link
                                     key={link.href}
                                     href={link.href}
-                                    onClick={onClose}
+                                    onClick={handleCloseMenu}
                                     className={cn(
                                         "flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-border/50 transition-colors",
                                         pathname === link.href
@@ -257,7 +258,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                         {/* Deals Link */}
                         <Link
                             href="/collection?deals=true"
-                            onClick={onClose}
+                            onClick={handleCloseMenu}
                             className="flex items-center gap-3 p-3 rounded-lg border border-accent bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
                         >
                             <Tag className="h-4 w-4" />
@@ -276,7 +277,7 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
                         ) : (
                             <Link
                                 href="/login"
-                                onClick={onClose}
+                                onClick={handleCloseMenu}
                                 className="flex items-center gap-3 p-3 rounded-lg border border-border text-primary hover:bg-border/50 transition-colors"
                             >
                                 <User className="h-4 w-4" />

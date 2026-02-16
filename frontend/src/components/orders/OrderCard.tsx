@@ -1,10 +1,30 @@
 import Link from "next/link";
+import Image from "next/image";
 import { formatPrice, formatDate } from "@/lib/utils/format";
 import { CURRENCY } from "@/lib/utils/constants";
 import StatusBadge from "@/components/common/StatusBadge";
 
+interface OrderCardItem {
+  id?: number | string;
+  image_url: string;
+  name: string;
+  variation_name?: string | null;
+  price: number;
+  quantity: number;
+}
+
+interface OrderCardData {
+  id: string | number;
+  order_reference?: string | number | null;
+  status: string;
+  payment: string;
+  paymentMethod: string;
+  created_at: string;
+  items: OrderCardItem[];
+}
+
 interface OrderCardProps {
-  order: any;
+  order: OrderCardData;
   onTrack: () => void;
 }
 
@@ -46,15 +66,18 @@ const OrderCard = ({ order, onTrack }: OrderCardProps) => {
 
       {/* Order Items */}
       <div className="p-4">
-        {order.items.map((item: any, index: number) => (
+        {order.items.map((item, index) => (
           <div
             key={index}
             className={`flex flex-col sm:flex-row items-start sm:items-center gap-4 py-4 ${index !== order.items.length - 1 ? "border-b border-border border-dashed" : ""
               }`}
           >
-            <img
-              src={item.image_url}
+            <Image
+              src={item.image_url || "/assets/logo.png"}
               alt={item.name}
+              width={80}
+              height={80}
+              unoptimized
               className="w-20 h-20 object-cover rounded-md border border-border"
             />
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { SquareStack, Trash2 } from "lucide-react";
 import { CURRENCY } from "@/lib/utils/constants";
 import { formatPrice } from "@/lib/utils/format";
@@ -22,9 +23,12 @@ const WishlistItem = ({ item, onRemove, onAddToCompare }: WishlistItemProps) => 
       <td className="py-4">
         <Link href={`/product/${item.id}`}>
           <div className="flex items-center">
-            <img
-              src={item.image_url}
+            <Image
+              src={item.image_url || "/assets/logo.png"}
               alt={item.name}
+              width={64}
+              height={64}
+              unoptimized
               className="w-12 h-12 sm:w-16 sm:h-16 object-cover rounded-md mr-3"
             />
             <p className="font-medium text-sm sm:text-base hover:text-accent transition-colors">

@@ -9,14 +9,16 @@ import Title from "@/components/common/Title";
 import WishlistStats from "@/components/wishlist/WishlistStats";
 import WishlistItem from "@/components/wishlist/WishlistItem";
 import DeleteModal from "@/components/common/DeleteModal";
+import { WishlistItem as WishlistEntry } from "@/lib/api/wishlist";
+import { Product } from "@/lib/types/product";
 
 export default function WishlistPage() {
     const { items, isLoading, removeFromWishlist, syncWithServer } = useWishlist();
     const { addToCompare } = useCompare();
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState<any>(null);
+    const [itemToDelete, setItemToDelete] = useState<WishlistEntry | null>(null);
 
-    const handleDeleteClick = (item: any) => {
+    const handleDeleteClick = (item: WishlistEntry) => {
         setItemToDelete(item);
         setShowDeleteModal(true);
     };
@@ -93,7 +95,7 @@ export default function WishlistPage() {
                                             key={item.id}
                                             item={item}
                                             onRemove={() => handleDeleteClick(item)}
-                                            onAddToCompare={() => addToCompare(item as any)}
+                                            onAddToCompare={() => addToCompare(item as unknown as Product)}
                                         />
                                     ))}
                                 </tbody>

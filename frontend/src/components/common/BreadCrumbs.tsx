@@ -43,33 +43,12 @@ const Breadcrumbs = ({ productData }: BreadcrumbsProps) => {
     ).join(' ');
   };
 
-  // Function to get the appropriate icon based on the current page
-  const getPageIcon = (pathSegments: string[]) => {
-    const firstSegment = pathSegments[0];
-    switch (firstSegment) {
-      case '':
-        return Home;
-      case 'collection':
-        return Store;
-      case 'cart':
-        return ShoppingCart;
-      case 'place-order':
-        return ShoppingBag;
-      case 'profile':
-        return User;
-      case 'orders':
-        return Package;
-      case 'wishlist':
-        return Heart;
-      case 'compare':
-        return SquareStack;
-      case 'contact':
-        return Phone;
-      case 'product':
-        return null;
-      default:
-        return Info;
-    }
+  const buildCollectionPath = (filters: { category?: string; brand?: string }) => {
+    const params = new URLSearchParams();
+    if (filters.category) params.set("category", filters.category);
+    if (filters.brand) params.set("brand", filters.brand);
+    const query = params.toString();
+    return query ? `/collection?${query}` : "/collection";
   };
 
   // Build breadcrumb items based on the current path
@@ -94,10 +73,19 @@ const Breadcrumbs = ({ productData }: BreadcrumbsProps) => {
 
       // Add category for product pages
       const category = productData.type;
+      const brand = productData.brand;
       if (category) {
         breadcrumbs.push({
           name: capitalize(category),
-          path: `/collection/${category}`,
+          path: buildCollectionPath({ category }),
+        });
+      }
+
+      // Add brand and keep both category + brand selected in collection
+      if (brand) {
+        breadcrumbs.push({
+          name: brand,
+          path: buildCollectionPath({ category, brand }),
         });
       }
 
@@ -121,8 +109,16 @@ const Breadcrumbs = ({ productData }: BreadcrumbsProps) => {
       breadcrumbs.push({ name: 'Profile', path: '/profile', isLast: true });
     }
     else if (pathSegments[0] === 'orders') {
+      const orderId = pathSegments[1] ? decodeURIComponent(pathSegments[1]) : null;
       breadcrumbs.push({ name: 'Profile', path: '/profile' });
-      breadcrumbs.push({ name: 'Orders', path: '/orders', isLast: true });
+      breadcrumbs.push({ name: 'Orders', path: '/orders', isLast: !orderId });
+      if (orderId) {
+        breadcrumbs.push({
+          name: orderId,
+          path: pathname,
+          isLast: true,
+        });
+      }
     }
     else if (pathSegments[0] === 'wishlist') {
       breadcrumbs.push({ name: 'Profile', path: '/profile' });
@@ -144,8 +140,10 @@ const Breadcrumbs = ({ productData }: BreadcrumbsProps) => {
   // Don't render if we only have the Home link
   if (breadcrumbs.length <= 1) return null;
 
-  // Get the icon for the current page
-  const PageIcon = getPageIcon(pathSegments);
+  const firstSegment = pathSegments[0];
+  const showPageIcon = firstSegment !== "product";
+  const iconClassName =
+    "text-accent h-5 w-5 sm:h-6 sm:w-6 hover:scale-110 hover:rotate-6 transition-transform duration-300 ease-in-out";
 
   return (
     <nav className="flex py-2.5 px-4 sm:py-4 sm:px-6 text-xs md:text-sm bg-black/15 rounded-b-3xl" aria-label="Breadcrumb">
@@ -171,11 +169,28 @@ const Breadcrumbs = ({ productData }: BreadcrumbsProps) => {
         </ol>
 
         {/* Page Icon Container */}
-        {PageIcon && (
+        {showPageIcon && (
           <div className="ml-4">
-            <PageIcon
-              className="text-accent h-5 w-5 sm:h-6 sm:w-6 hover:scale-110 hover:rotate-6 transition-transform duration-300 ease-in-out"
-            />
+            {firstSegment === "" && <Home className={iconClassName} />}
+            {firstSegment === "collection" && <Store className={iconClassName} />}
+            {firstSegment === "cart" && <ShoppingCart className={iconClassName} />}
+            {firstSegment === "place-order" && <ShoppingBag className={iconClassName} />}
+            {firstSegment === "profile" && <User className={iconClassName} />}
+            {firstSegment === "orders" && <Package className={iconClassName} />}
+            {firstSegment === "wishlist" && <Heart className={iconClassName} />}
+            {firstSegment === "compare" && <SquareStack className={iconClassName} />}
+            {firstSegment === "contact" && <Phone className={iconClassName} />}
+            {![
+              "",
+              "collection",
+              "cart",
+              "place-order",
+              "profile",
+              "orders",
+              "wishlist",
+              "compare",
+              "contact",
+            ].includes(firstSegment) && <Info className={iconClassName} />}
           </div>
         )}
       </div>

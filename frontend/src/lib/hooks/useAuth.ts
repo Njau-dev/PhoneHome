@@ -25,7 +25,7 @@ export const useAuth = () => {
 
       router.push("/");
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   };
@@ -46,7 +46,7 @@ export const useAuth = () => {
 
       router.push("/");
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   };

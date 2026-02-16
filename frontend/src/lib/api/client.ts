@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosError } from "axios";
 import { STORAGE_KEYS } from "@/lib/utils/constants";
 import { toast } from "sonner";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL
 
 let hasShownSessionExpiredToast = false;
 

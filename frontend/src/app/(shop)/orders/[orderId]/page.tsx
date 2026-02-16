@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowLeft,
   Clock,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth, useOrder } from "@/lib/hooks";
 import { ordersAPI } from "@/lib/api/orders";
+import { Order, OrderItem, OrderPayment } from "@/lib/types/order";
 import BrandedSpinner from "@/components/common/BrandedSpinner";
 import StatusBadge from "@/components/common/StatusBadge";
 import { formatPrice, formatDate } from "@/lib/utils/format";
@@ -28,7 +30,7 @@ export default function OrderDetailsPage() {
   const { isAuthenticated } = useAuth();
   const orderReference = params.orderId as string;
 
-  const [order, setOrder] = useState<any>(null);
+  const [order, setOrder] = useState<Order | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const { order: fetchedOrder, isLoading, error } = useOrder(
     orderReference,
@@ -47,10 +49,14 @@ export default function OrderDetailsPage() {
       const paymentStatus = await ordersAPI.getPaymentStatus(orderReference);
       toast.success(`Payment status updated: ${paymentStatus}`);
 
-      setOrder((prev: any) => ({
-        ...prev,
-        payment: paymentStatus,
-      }));
+      setOrder((prev) =>
+        prev
+          ? {
+            ...prev,
+            payment: paymentStatus,
+          }
+          : prev
+      );
     } catch (error) {
       console.error("Status check error:", error);
       toast.error("Failed to check payment status");
@@ -101,13 +107,31 @@ export default function OrderDetailsPage() {
     }
   }, [error]);
 
+  const getPaymentInfo = (): OrderPayment => {
+    if (!order) return {};
+
+    if (order.payment && typeof order.payment === "object") {
+      return order.payment as OrderPayment;
+    }
+
+    return {
+      status: typeof order.payment === "string" ? order.payment : null,
+      method: order.payment_method ?? null,
+      transaction_id: order.transaction_id ?? null,
+      failure_reason: order.failure_reason ?? null,
+      checkout_request_id: order.checkout_request_id ?? null,
+    };
+  };
+
   const getPaymentStatus = () => {
     if (!order) return "Unknown";
-    if (order.payment === "Success" || order.payment === "success") return "Paid";
-    if (order.payment === "Failed" || order.payment === "failed") return "Failed";
-    if (order.payment === "Pending" || order.payment === "pending") return "Processing";
-    if (order.payment === "Cancelled" || order.payment === "cancelled") return "Cancelled";
-    if (order.payment === "refunded") return "Refunded";
+    const status = (getPaymentInfo().status ?? "").toLowerCase();
+
+    if (status === "paid" || status.includes("success")) return "Paid";
+    if (status.includes("fail")) return "Failed";
+    if (status.includes("pending") || status.includes("processing")) return "Processing";
+    if (status.includes("cancel")) return "Cancelled";
+    if (status.includes("refund")) return "Refunded";
     return "Unpaid";
   };
 
@@ -124,10 +148,12 @@ export default function OrderDetailsPage() {
   const calculateOrderTotal = () => {
     if (!order?.items) return 0;
     return order.items.reduce(
-      (total: number, item: any) => total + item.price * item.quantity,
+      (total: number, item: OrderItem) => total + (item.price ?? 0) * item.quantity,
       0
     );
   };
+
+  const order_ref = order?.order_reference || orderReference
 
   const getTimeline = () => {
     const statuses = [
@@ -164,28 +190,21 @@ export default function OrderDetailsPage() {
     );
   }
 
+  const paymentInfo = getPaymentInfo();
+
   return (
     <div className="pt-4 pb-16">
-      <div className="container mx-auto max-w-5xl">
+      <div className="container mx-auto">
         {/* Page Header */}
         <div className="mb-8 text-center text-2xl sm:text-3xl">
-          <Title text1="ORDER" text2="DETAILS" />
+          <Title text1="ORDER" text2={`#${order_ref}`} />
           <p className="text-secondary w-3/4 m-auto text-sm sm:text-base mx-auto">
-            Track and manage your order
+            Placed on {formatDate(order.created_at ?? "")}
           </p>
         </div>
 
-        {/* Order Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-            Order #{order.order_reference || orderReference}
-          </h1>
-          <p className="text-secondary">
-            Placed on {formatDate(order.created_at)}
-          </p>
-        </div>
         {/* Payment Success Alert */}
-        {getPaymentStatus() === "Paid" && order.payment_method === "MPESA" && (
+        {getPaymentStatus() === "Paid" && paymentInfo.method === "MPESA" && (
           <div className="mb-6 p-4 bg-success/10 border border-success/30 rounded-lg">
             <div className="flex items-start gap-3">
               <CheckCircle className="text-success mt-0.5 shrink-0" size={20} />
@@ -194,11 +213,11 @@ export default function OrderDetailsPage() {
                 <p className="text-success/90 text-sm mb-3">
                   Your M-Pesa payment has been completed successfully.
                 </p>
-                {order.transaction_id && (
+                {paymentInfo.transaction_id && (
                   <div className="p-3 bg-success/20 rounded">
                     <p className="text-success text-sm">
                       <span className="font-medium">Transaction ID:</span>{" "}
-                      {order.transaction_id}
+                      {paymentInfo.transaction_id}
                     </p>
                   </div>
                 )}
@@ -216,10 +235,10 @@ export default function OrderDetailsPage() {
                 <p className="text-error/90 text-sm mb-3">
                   Your payment could not be completed.
                 </p>
-                {order.failure_reason && (
+                {paymentInfo.failure_reason && (
                   <div className="p-3 bg-error/20 rounded mb-3">
                     <p className="text-error text-sm">
-                      <span className="font-medium">Reason:</span> {order.failure_reason}
+                      <span className="font-medium">Reason:</span> {paymentInfo.failure_reason}
                     </p>
                   </div>
                 )}
@@ -234,7 +253,7 @@ export default function OrderDetailsPage() {
               <Clock size={16} className="text-accent" />
               <h4 className="font-medium">Order Date</h4>
             </div>
-            <p className="text-secondary">{formatDate(order.created_at)}</p>
+            <p className="text-secondary">{formatDate(order.created_at ?? "")}</p>
           </div>
           <div className="p-4 bg-bg-card rounded-lg border border-border">
             <div className="flex items-center gap-2 mb-3">
@@ -250,9 +269,9 @@ export default function OrderDetailsPage() {
             </div>
             <div className="flex items-center gap-2">
               <StatusBadge status={getPaymentStatus()} type="payment" />
-              <span className="text-secondary text-sm">{order.payment_method}</span>
+              <span className="text-secondary text-sm">{paymentInfo.method ?? "Unknown"}</span>
             </div>
-            {order.payment_method !== "COD" && getPaymentStatus() === "Processing" && (
+            {paymentInfo.method !== "COD" && getPaymentStatus() === "Processing" && (
               <button
                 onClick={checkPaymentStatus}
                 disabled={isCheckingStatus}
@@ -339,7 +358,7 @@ export default function OrderDetailsPage() {
                 </tr>
               </thead>
               <tbody>
-                {order.items?.map((item: any, index: number) => (
+                {order.items?.map((item: OrderItem, index: number) => (
                   <tr
                     key={index}
                     className={`${index !== order.items.length - 1 ? "border-b border-border" : ""
@@ -347,13 +366,16 @@ export default function OrderDetailsPage() {
                   >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={item.image_url}
-                          alt={item.name}
+                        <Image
+                          src={item.image_url || "/assets/logo.png"}
+                          alt={item.name ?? "Order item"}
+                          width={64}
+                          height={64}
+                          unoptimized
                           className="w-16 h-16 object-cover rounded border border-border"
                         />
                         <div>
-                          <h5 className="font-medium">{item.name}</h5>
+                          <h5 className="font-medium">{item.name ?? `Product #${item.product_id}`}</h5>
                           {item.variation_name && (
                             <p className="text-secondary text-sm">
                               Variation: {item.variation_name}
@@ -363,11 +385,11 @@ export default function OrderDetailsPage() {
                       </div>
                     </td>
                     <td className="text-center p-4">
-                      {CURRENCY} {formatPrice(item.price)}
+                      {CURRENCY} {formatPrice(item.price ?? 0)}
                     </td>
                     <td className="text-center p-4">{item.quantity}</td>
                     <td className="text-right p-4 font-medium">
-                      {CURRENCY} {formatPrice(item.price * item.quantity)}
+                      {CURRENCY} {formatPrice((item.price ?? 0) * item.quantity)}
                     </td>
                   </tr>
                 ))}

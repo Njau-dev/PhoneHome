@@ -23,7 +23,7 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
 
   addItem: async (productId: number) => {
     try {
-      const response = await wishlistAPI.addItem(productId);
+      await wishlistAPI.addItem(productId);
       
       // Refresh wishlist from server
       await get().syncWithServer();

@@ -17,6 +17,8 @@ export default function SiteLayout({
     children: React.ReactNode;
     variant: Variant;
 }) {
+    const isAuth = variant === "auth";
+
     const Navbar = {
         shop: <ShopNavbar />,
         checkout: <CheckoutNavbar />,
@@ -30,7 +32,7 @@ export default function SiteLayout({
     }[variant];
 
     return (
-        <div className="relative">
+        <div className="flex min-h-screen flex-col">
             {/* NAVBAR - Now Sticky */}
             <div className="sticky top-0 z-50 bg-black-soft shadow-md">
                 <Container>
@@ -48,12 +50,14 @@ export default function SiteLayout({
             )}
 
             {/* MAIN */}
-            <main className="min-h-screen">
-                <Container>{children}</Container>
+            <main className={`flex-1 ${isAuth ? "flex" : ""}`}>
+                <Container className={isAuth ? "flex flex-1 items-center justify-center py-8" : ""}>
+                    {children}
+                </Container>
             </main>
 
             {/* FOOTER */}
-            <div className="bg-black-soft">
+            <div className="bg-black-soft mt-16">
                 <Container>{Footer}</Container>
             </div>
 

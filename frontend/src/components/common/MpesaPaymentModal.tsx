@@ -69,24 +69,19 @@ const MpesaPaymentModal = ({
   };
 
   useEffect(() => {
-    if (!isOpen) {
-      resetState();
-    }
-  }, [isOpen, orderReference]);
-
-  useEffect(() => {
-    if (!isOpen || paymentStatus !== "pending") {
-      return;
-    }
-
-    if (countdown <= 0) {
-      setPaymentStatus("timeout");
-      clearPolling();
+    if (!isOpen || paymentStatus !== "pending" || countdown <= 0) {
       return;
     }
 
     const timer = setTimeout(() => {
-      setCountdown((prev) => prev - 1);
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearPolling();
+          setPaymentStatus("timeout");
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
     return () => clearTimeout(timer);
@@ -169,10 +164,12 @@ const MpesaPaymentModal = ({
   };
 
   const handleSimpleClose = () => {
+    resetState();
     onClose();
   };
 
   const handleCloseWithRedirect = () => {
+    resetState();
     if (onModalClose) {
       onModalClose();
     } else {
@@ -365,7 +362,7 @@ const MpesaPaymentModal = ({
 
         <div className="mt-4 text-xs text-secondary space-y-1">
           <p>• Make sure your phone has sufficient M-Pesa balance</p>
-          <p>• You'll receive an STK push notification on your phone</p>
+          <p>• You&apos;ll receive an STK push notification on your phone</p>
           <p>• Enter your M-Pesa PIN when prompted</p>
           {isRetry && <p>• This is a payment retry for an existing order</p>}
         </div>

@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import { Outfit, Prata } from "next/font/google";
+import { Outfit } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "./providers/QueryProvider";
 import { ToastProvider } from "./providers/ToastProvider";
 import ScrollToTop from "@/components/layout/ScrollToTop";
 
 const outfit = Outfit({ subsets: ["latin"] });
-const prata = Prata({ weight: "400", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Phone Home Kenya - Your Electronics Hub",

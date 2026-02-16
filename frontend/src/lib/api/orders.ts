@@ -2,22 +2,6 @@ import { apiClient } from "./client";
 import { Order } from "@/lib/types/order";
 import { paymentsAPI } from "./payments";
 
-interface OrdersResponse {
-  success: boolean;
-  data: {
-    orders: Order[];
-  };
-  message: string;
-}
-
-interface OrderResponse {
-  success: boolean;
-  data: {
-    order: Order;
-  };
-  message: string;
-}
-
 const extractOrders = (response: unknown): Order[] => {
   if (response && typeof response === "object") {
     const dataOrders = (response as { data?: { orders?: Order[] } }).data?.orders;
@@ -71,7 +55,7 @@ export const ordersAPI = {
     return order;
   },
 
-  create: async (orderData: any): Promise<Order> => {
+  create: async (orderData: Record<string, unknown>): Promise<Order> => {
     const response = await apiClient.post("/orders", orderData);
     const order = extractOrder(response);
     if (!order) {

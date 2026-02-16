@@ -9,11 +9,12 @@ import BrandedSpinner from "@/components/common/BrandedSpinner";
 import Title from "@/components/common/Title";
 import OrderStats from "@/components/orders/OrderStats";
 import OrderCard from "@/components/orders/OrderCard";
+import { Order } from "@/lib/types/order";
 import { toast } from "sonner";
 
 interface GroupedOrder {
   id: string | number;
-  order_reference?: string | null;
+  order_reference?: string | number | null;
   created_at: string;
   updated_at: string;
   status: string;
@@ -21,9 +22,111 @@ interface GroupedOrder {
   payment: string;
   failure_reason?: string;
   checkout_request_id?: string;
-  address: any;
-  items: any[];
+  address?: OrderAddress | null;
+  items: EnrichedOrderItem[];
 }
+
+interface OrderAddress {
+  first_name?: string;
+  last_name?: string;
+  street?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  [key: string]: unknown;
+}
+
+interface OrderListItem {
+  id?: string | number;
+  product_id?: string | number;
+  image_url: string;
+  name: string;
+  brand?: string;
+  variation_name?: string | null;
+  quantity: number;
+  price: number;
+  review?: unknown;
+  [key: string]: unknown;
+}
+
+interface OrderListEntry {
+  id: string | number;
+  order_reference?: string | number | null;
+  created_at: string;
+  updated_at: string;
+  status: string;
+  payment: string;
+  payment_method: string;
+  failure_reason?: string;
+  checkout_request_id?: string;
+  address?: OrderAddress | null;
+  items: OrderListItem[];
+}
+
+interface EnrichedOrderItem extends OrderListItem {
+  status: string;
+  payment: string;
+  failure_reason?: string;
+  checkout_request_id?: string;
+  paymentMethod: string;
+  created_at: string;
+  updated_at: string;
+  orderId: string | number;
+  order_reference: string | number;
+  address?: OrderAddress | null;
+}
+
+const normalizePayment = (order: Order) => {
+  if (order.payment && typeof order.payment === "object") {
+    return {
+      payment: order.payment.status ?? "Unknown",
+      paymentMethod: order.payment.method ?? order.payment_method ?? "Unknown",
+      failure_reason:
+        (typeof order.payment.failure_reason === "string"
+          ? order.payment.failure_reason
+          : undefined) ?? (order.failure_reason ?? undefined),
+      checkout_request_id:
+        (typeof order.payment.checkout_request_id === "string"
+          ? order.payment.checkout_request_id
+          : undefined) ?? (order.checkout_request_id ?? undefined),
+    };
+  }
+
+  return {
+    payment: typeof order.payment === "string" ? order.payment : "Unknown",
+    paymentMethod: order.payment_method ?? "Unknown",
+    failure_reason: order.failure_reason ?? undefined,
+    checkout_request_id: order.checkout_request_id ?? undefined,
+  };
+};
+
+const normalizeOrderEntry = (order: Order): OrderListEntry => {
+  const paymentData = normalizePayment(order);
+
+  return {
+    id: order.id,
+    order_reference: order.order_reference ?? order.id,
+    created_at: order.created_at ?? "",
+    updated_at: order.updated_at ?? order.created_at ?? "",
+    status: order.status,
+    payment: paymentData.payment,
+    payment_method: paymentData.paymentMethod,
+    failure_reason: paymentData.failure_reason,
+    checkout_request_id: paymentData.checkout_request_id,
+    address: order.address ?? null,
+    items: order.items.map((item) => ({
+      id: item.id,
+      product_id: item.product_id,
+      image_url: item.image_url ?? "/assets/logo.png",
+      name: item.name ?? `Product #${item.product_id}`,
+      brand: item.brand,
+      variation_name: item.variation_name ?? null,
+      quantity: item.quantity,
+      price: item.price ?? item.variation_price ?? 0,
+      review: null,
+    })),
+  };
+};
 
 export default function OrdersPage() {
   const { isAuthenticated } = useAuth();
@@ -39,30 +142,33 @@ export default function OrdersPage() {
   }, [isAuthenticated, router]);
 
   const orderData = useMemo(() => {
-    const sortedOrders = [...(orders as any[])].sort(
-      (a: any, b: any) =>
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    const normalizedOrders = orders.map(normalizeOrderEntry);
+    const sortedOrders = [...normalizedOrders].sort(
+      (a, b) =>
+        new Date(b.updated_at || b.created_at).getTime() -
+        new Date(a.updated_at || a.created_at).getTime()
     );
 
-    const allOrderItems: any[] = [];
+    const allOrderItems: EnrichedOrderItem[] = [];
 
-    sortedOrders.forEach((order: any) => {
+    sortedOrders.forEach((order) => {
       const orderAddress = order.address;
 
-      order.items.forEach((item: any) => {
-        item.status = order.status;
-        item.payment = order.payment;
-        item.failure_reason = order.failure_reason;
-        item.checkout_request_id = order.checkout_request_id;
-        item.paymentMethod = order.payment_method;
-        item.created_at = order.created_at;
-        item.updated_at = order.updated_at;
-        item.orderId = order.order_reference || order.id;
-        item.order_reference = order.order_reference || order.id;
-        item.product_id = item.product_id;
-        item.address = orderAddress;
-        item.review = item.review || null;
-        allOrderItems.push(item);
+      order.items.forEach((item) => {
+        allOrderItems.push({
+          ...item,
+          status: order.status,
+          payment: order.payment,
+          failure_reason: order.failure_reason,
+          checkout_request_id: order.checkout_request_id,
+          paymentMethod: order.payment_method,
+          created_at: order.created_at,
+          updated_at: order.updated_at,
+          orderId: order.order_reference || order.id,
+          order_reference: order.order_reference || order.id,
+          address: orderAddress,
+          review: item.review || null,
+        });
       });
     });
 
@@ -73,8 +179,9 @@ export default function OrdersPage() {
     const groupedOrders: { [key: string]: GroupedOrder } = {};
 
     orderData.forEach((item) => {
-      if (!groupedOrders[item.orderId]) {
-        groupedOrders[item.orderId] = {
+      const groupedKey = String(item.orderId);
+      if (!groupedOrders[groupedKey]) {
+        groupedOrders[groupedKey] = {
           id: item.orderId,
           order_reference: item.order_reference,
           created_at: item.created_at,
@@ -88,7 +195,7 @@ export default function OrdersPage() {
           items: [],
         };
       }
-      groupedOrders[item.orderId].items.push(item);
+      groupedOrders[groupedKey].items.push(item);
     });
 
     return Object.values(groupedOrders);
@@ -135,7 +242,7 @@ export default function OrdersPage() {
     return (
       <div className="flex flex-col justify-center items-center min-h-100 text-center pt-8">
         <h2 className="text-2xl mb-4">Something went wrong</h2>
-        <p className="text-secondary mb-6">We couldn't load your order information</p>
+        <p className="text-secondary mb-6">We couldn&apos;t load your order information</p>
         <button
           onClick={() => void refetch()}
           className="flex items-center bg-accent text-bg px-6 py-3 rounded-full hover:bg-bg hover:text-accent border border-transparent hover:border-accent transition-all"

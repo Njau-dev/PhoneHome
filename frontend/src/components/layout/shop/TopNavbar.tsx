@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, ShoppingCart, User } from "lucide-react";
 import ThemeToggle from "@/components/common/ThemeToggle";
 import SearchBar from "@/components/common/SearchBar";
-import { useAuth, useCart, useCompare } from "@/lib/hooks";
+import { useAuth, useCart } from "@/lib/hooks";
 
 interface TopNavbarProps {
     onMobileMenuToggle: () => void;
@@ -18,9 +19,11 @@ const TopNavbar = ({ onMobileMenuToggle }: TopNavbarProps) => {
         <div className="py-4">
             <div className="flex items-center justify-between gap-3">
                 <Link href="/" className="shrink-0">
-                    <img
+                    <Image
                         src="/assets/logo.png"
                         alt="Phone Home logo"
+                        width={200}
+                        height={64}
                         className="h-16 w-auto"
                     />
                 </Link>

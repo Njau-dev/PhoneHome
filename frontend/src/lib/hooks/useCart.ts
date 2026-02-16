@@ -1,6 +1,6 @@
 import { useCartStore } from "@/lib/stores/useCartStore";
 import { useAuthStore } from "@/lib/stores/useAuthStore";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 
 export const useCart = () => {
   const items = useCartStore((state) => state.items);
@@ -17,7 +17,7 @@ export const useCart = () => {
   const getCount = useCartStore((state) => state.getCount);
   const getTotal = useCartStore((state) => state.getTotal);
   const { token, isAuthenticated } = useAuthStore();
-  const [hasHydrated, setHasHydrated] = useState(false);
+  const hasHydrated = true;
 
   // Sync with server when user logs in
   useEffect(() => {
@@ -25,10 +25,6 @@ export const useCart = () => {
       syncWithServer(token);
     }
   }, [token, isAuthenticated, syncWithServer]);
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
 
   const count = useMemo(() => {
     let totalCount = 0;

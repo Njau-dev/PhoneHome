@@ -9,7 +9,7 @@ export const useApp = () => useContext(AppContext);
 
 export const AppProvider = ({ children }) => {
     // App-wide settings
-    const backendUrl = 'https://0d2b8047b32651.lhr.life';
+    const backendUrl = 'http://localhost:5000/api';
     const currency = 'Kshs';
 
     // Notification helper

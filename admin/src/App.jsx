@@ -19,6 +19,7 @@ import Users from './pages/Users';
 import AddProduct from './components/AddProduct';
 import OrderDetails from './components/OrderDetails';
 import BrandManagement from './components/BrandManagement';
+import EditProduct from './components/EditProduct';
 
 const App = () => {
   const { isAuthenticated } = useAuth();
@@ -37,6 +38,7 @@ const App = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
             <Route path="/products/add" element={<AddProduct />} />
+            <Route path="/products/edit/:productId" element={<EditProduct />} />
             <Route path="/products/brand-management" element={<BrandManagement />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/:id" element={<OrderDetails />} />

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Product } from "@/lib/types/product";
 import { CURRENCY } from "@/lib/utils/constants";
 import { formatPrice } from "@/lib/utils/format";
@@ -28,9 +29,12 @@ const CartItem = ({
     <tr className="border border-border rounded-lg lg:border-x-0 relative mb-4 lg:mb-0 flex flex-col lg:table-row">
       {/* Product Image */}
       <td className="pt-8 lg:pt-6 lg:pb-6 flex items-center justify-center lg:table-cell">
-        <img
-          src={product.image_urls[0]}
+        <Image
+          src={product.image_urls[0] || "/assets/logo.png"}
           alt={product.name}
+          width={80}
+          height={80}
+          unoptimized
           className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded"
         />
       </td>

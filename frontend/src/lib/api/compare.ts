@@ -13,7 +13,7 @@ export const compareAPI = {
     try {
       const response: CompareResponse = await apiClient.get("/compare");
       return response.data.product_ids;
-    } catch (error) {
+    } catch {
       return [];
     }
   },

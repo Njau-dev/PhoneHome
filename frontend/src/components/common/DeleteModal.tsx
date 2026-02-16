@@ -13,7 +13,7 @@ const DeleteModal = ({ isOpen, itemName, onConfirm, onCancel }: DeleteModalProps
       <div className="bg-bg-card border border-border rounded-xl p-6 max-w-md w-[90%] mx-4 shadow-xl">
         <h3 className="text-xl font-bold mb-4">Remove from Wishlist</h3>
         <p className="text-secondary mb-6">
-          Are you sure you want to remove "{itemName}" from your wishlist?
+          Are you sure you want to remove &quot;{itemName}&quot; from your wishlist?
         </p>
         <div className="flex gap-4 justify-end">
           <button

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 interface ProductImageGalleryProps {
@@ -15,10 +16,13 @@ const ProductImageGallery = ({ images, productName }: ProductImageGalleryProps) 
       {/* Thumbnail Images */}
       <div className="flex overflow-x-auto gap-3 w-full">
         {images.map((image, index) => (
-          <img
+          <Image
             key={index}
-            src={image}
+            src={image || "/assets/logo.png"}
             alt={`${productName} ${index + 1}`}
+            width={160}
+            height={160}
+            unoptimized
             onClick={() => setSelectedImage(image)}
             className={`w-[24%] md:w-[15%] shrink-0 cursor-pointer rounded-xl border-2 transition-all ${selectedImage === image ? "border-accent" : "border-transparent"
               }`}
@@ -28,9 +32,12 @@ const ProductImageGallery = ({ images, productName }: ProductImageGalleryProps) 
 
       {/* Main Image */}
       <div className="w-full sm:w-[95%]">
-        <img
-          src={selectedImage}
+        <Image
+          src={selectedImage || "/assets/logo.png"}
           alt={productName}
+          width={900}
+          height={900}
+          unoptimized
           className="w-full h-auto rounded-lg"
         />
       </div>
