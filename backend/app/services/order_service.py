@@ -383,8 +383,13 @@ class OrderService:
                 # Update order status
                 order.status = 'Order Placed'
 
-                # Send confirmation email
-                EmailService().send_order_confirmation(order)
+                # Send confirmation email (best-effort)
+                try:
+                    EmailService().send_order_confirmation(order)
+                except Exception as email_error:
+                    logger.warning(
+                        f"Failed to send order confirmation for {order.order_reference}: {email_error}"
+                    )
 
                 create_notification(
                     order.user_id,
