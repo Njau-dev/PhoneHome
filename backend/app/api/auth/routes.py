@@ -7,7 +7,7 @@ import os
 import re
 from datetime import datetime, timedelta
 
-from flask import Blueprint, Flask, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import create_access_token, get_jwt, jwt_required
 from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -18,13 +18,16 @@ from app.services.email_service import EmailService
 from app.utils.response_formatter import format_response
 
 logger = logging.getLogger(__name__)
-app = Flask(__name__)
 
 # Create blueprint
 auth_bp = Blueprint('auth', __name__)
 
-with app.app_context():
-    serializer = URLSafeTimedSerializer(os.getenv('SECRET_KEY'))
+
+def _get_serializer():
+    secret_key = current_app.config.get("SECRET_KEY")
+    if not secret_key:
+        raise RuntimeError("SECRET_KEY is not configured")
+    return URLSafeTimedSerializer(secret_key)
 
 
 # ============================================================================
@@ -250,7 +253,7 @@ def forgot_password():
 
         try:
             # Generate reset token
-            token = serializer.dumps(email, salt='password-reset')
+            token = _get_serializer().dumps(email, salt='password-reset')
             reset_url = f"{os.getenv('FRONTEND_URL')}/reset-password/{token}"
             logger.info(f"Password reset link: {reset_url}")
             logger.info(f"Email: {email}")
@@ -316,7 +319,7 @@ def reset_password(token):
 
         try:
             # Verify token
-            email = serializer.loads(
+            email = _get_serializer().loads(
                 token,
                 salt='password-reset',
                 max_age=int(os.getenv("PASSWORD_RESET_TIMEOUT", 3600))
