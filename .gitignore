@@ -31,3 +31,4 @@ Server/.vscode/
 *.swp
 *.swo.env
 .env
+.env.production
