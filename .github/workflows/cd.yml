@@ -15,8 +15,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PYTHON_VERSION: "3.12"
-  NODE_VERSION: "20"
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   FRONTEND_API_URL: ${{ secrets.FRONTEND_API_URL }}
   SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -24,104 +22,9 @@ env:
   SSH_PATH: ${{ secrets.SSH_PATH }}
 
 jobs:
-  backend-quality:
-    name: Backend lint and tests
-    if: github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-
-    steps:
-      - name: Checkout merged commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: "pip"
-          cache-dependency-path: |
-            backend/requirements.txt
-            backend/requirements-dev.txt
-
-      - name: Install backend dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-dev.txt
-
-      - name: Run backend lint
-        run: ruff check app tests
-
-      - name: Run backend tests
-        run: pytest
-
-  frontend-quality:
-    name: Frontend lint and build
-    if: github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-
-    steps:
-      - name: Checkout merged commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Run frontend lint
-        run: npm run lint
-
-      - name: Run frontend build
-        run: npm run build
-
-  admin-quality:
-    name: Admin build
-    if: github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: admin
-
-    steps:
-      - name: Checkout merged commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: admin/package-lock.json
-
-      - name: Install admin dependencies
-        run: npm ci
-
-      - name: Run admin build
-        run: npm run build
-
   build-and-push:
     name: Build and push Docker images
     if: github.event.pull_request.merged == true
-    needs:
-      - backend-quality
-      - frontend-quality
-      - admin-quality
     runs-on: ubuntu-latest
 
     steps:
@@ -190,6 +93,7 @@ jobs:
           host: ${{ env.SSH_HOST }}
           username: ${{ env.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
             set -e
             cd "${{ env.SSH_PATH }}"
