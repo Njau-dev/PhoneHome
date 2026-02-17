@@ -3,9 +3,6 @@ from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
-# Import configuration
-from app.config.base import BaseConfig
-
 # initialize SQLAlchemy
 db = SQLAlchemy()
 
@@ -16,5 +13,5 @@ jwt = JWTManager()
 migrate = Migrate()
 
 
-cors = CORS(resources=BaseConfig.CORS_RESOURCES, origins=BaseConfig.CORS_ORIGINS,
-            supports_credentials=BaseConfig.CORS_SUPPORTS_CREDENTIALS)
+# Load CORS options from app config in create_app.
+cors = CORS()

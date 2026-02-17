@@ -1,7 +1,7 @@
 """Production-specific configuration"""
 import os
 
-from .base import BaseConfig
+from .base import BaseConfig, parse_cors_origins
 
 
 class ProductionConfig(BaseConfig):
@@ -27,5 +27,13 @@ class ProductionConfig(BaseConfig):
     CACHE_REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 
     # Production CORS settings
-    CORS_ORIGINS = os.getenv(
-        'CORS_ORIGINS', 'https://your-frontend.com,https://www.your-frontend.com')
+    CORS_ORIGINS = parse_cors_origins(
+        os.getenv('CORS_ORIGINS'),
+        'https://phonehome.co.ke,https://www.phonehome.co.ke'
+    )
+    CORS_RESOURCES = {
+        r"/*": {
+            "origins": CORS_ORIGINS,
+            "supports_credentials": BaseConfig.CORS_SUPPORTS_CREDENTIALS
+        }
+    }

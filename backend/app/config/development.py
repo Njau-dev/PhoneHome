@@ -1,7 +1,7 @@
 """Development-specific configuration"""
 import os
 
-from .base import BaseConfig
+from .base import BaseConfig, parse_cors_origins
 
 
 class DevelopmentConfig(BaseConfig):
@@ -21,5 +21,13 @@ class DevelopmentConfig(BaseConfig):
     PREFERRED_URL_SCHEME = 'http'
 
     # Development CORS settings
-    CORS_ORIGINS = os.getenv(
-        'CORS_ORIGINS', 'http://localhost:5173,http://localhost:3000')
+    CORS_ORIGINS = parse_cors_origins(
+        os.getenv('CORS_ORIGINS'),
+        'http://localhost:3000,http://localhost:5173'
+    )
+    CORS_RESOURCES = {
+        r"/*": {
+            "origins": CORS_ORIGINS,
+            "supports_credentials": BaseConfig.CORS_SUPPORTS_CREDENTIALS
+        }
+    }
