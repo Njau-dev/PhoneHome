@@ -32,3 +32,6 @@ Server/.vscode/
 *.swo.env
 .env
 .env.production
+
+# TLS certs
+nginx/certs/

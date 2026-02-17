@@ -87,6 +87,20 @@ jobs:
       - build-and-push
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout merged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Sync production compose file to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: docker-compose.prod.yml
+          target: ${{ env.SSH_PATH }}
+
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.2.2
         with:
