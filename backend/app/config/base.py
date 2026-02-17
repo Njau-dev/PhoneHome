@@ -25,6 +25,14 @@ def load_environment():
     return env
 
 
+def parse_cors_origins(value, fallback):
+    """Parse comma-separated origins from env into a clean list."""
+    raw = value if value is not None else fallback
+    if not raw:
+        return []
+    return [origin.strip() for origin in str(raw).split(',') if origin.strip()]
+
+
 # Load environment variables
 ENVIRONMENT = load_environment()
 
@@ -72,7 +80,10 @@ class BaseConfig:
     BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
 
     # CORS Configuration
-    CORS_ORIGINS = os.getenv('CORS_ORIGINS', FRONTEND_URL)
+    CORS_ORIGINS = parse_cors_origins(
+        os.getenv('CORS_ORIGINS'),
+        FRONTEND_URL
+    )
     CORS_SUPPORTS_CREDENTIALS = True
     CORS_RESOURCES = {
         r"/*": {
