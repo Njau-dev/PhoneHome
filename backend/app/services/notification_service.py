@@ -2,6 +2,7 @@
 Notification Service
 Handles creating and managing user notifications
 """
+
 import logging
 
 from app.extensions import db
@@ -26,16 +27,11 @@ class NotificationService:
             Notification object or None if failed
         """
         try:
-            notification = Notification(
-                user_id=user_id,
-                message=message,
-                is_read=False
-            )
+            notification = Notification(user_id=user_id, message=message, is_read=False)
             db.session.add(notification)
             db.session.commit()
 
-            logger.info(
-                f"Notification created for user {user_id}: {message[:50]}")
+            logger.info(f"Notification created for user {user_id}: {message[:50]}")
             return notification
 
         except Exception as e:
@@ -61,15 +57,14 @@ class NotificationService:
             if unread_only:
                 query = query.filter_by(is_read=False)
 
-            notifications = query.order_by(
-                Notification.created_at.desc()).all()
+            notifications = query.order_by(Notification.created_at.desc()).all()
 
             return [
                 {
                     "id": n.id,
                     "message": n.message,
                     "is_read": n.is_read,
-                    "created_at": n.created_at.isoformat()
+                    "created_at": n.created_at.isoformat(),
                 }
                 for n in notifications
             ]
@@ -91,10 +86,7 @@ class NotificationService:
             True if successful, False otherwise
         """
         try:
-            notification = Notification.query.filter_by(
-                id=notification_id,
-                user_id=user_id
-            ).first()
+            notification = Notification.query.filter_by(id=notification_id, user_id=user_id).first()
 
             if not notification:
                 return False
@@ -122,15 +114,13 @@ class NotificationService:
             Number of notifications marked as read
         """
         try:
-            count = Notification.query.filter_by(
-                user_id=user_id,
-                is_read=False
-            ).update({"is_read": True})
+            count = Notification.query.filter_by(user_id=user_id, is_read=False).update(
+                {"is_read": True}
+            )
 
             db.session.commit()
 
-            logger.info(
-                f"Marked {count} notifications as read for user {user_id}")
+            logger.info(f"Marked {count} notifications as read for user {user_id}")
             return count
 
         except Exception as e:

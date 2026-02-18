@@ -2,6 +2,7 @@
 Cart Service
 Handles shopping cart operations
 """
+
 import logging
 from collections import defaultdict
 
@@ -58,7 +59,11 @@ class CartService:
                 variation_name = item.variation_name or None
                 grouped_items[item.product_id][variation_name] = {
                     "quantity": item.quantity,
-                    "price": float(item.variation_price) if item.variation_price else float(item.product.price)
+                    "price": (
+                        float(item.variation_price)
+                        if item.variation_price
+                        else float(item.product.price)
+                    ),
                 }
 
             return dict(grouped_items)
@@ -97,9 +102,7 @@ class CartService:
 
             # Check if item already exists
             cart_item = CartItem.query.filter_by(
-                cart_id=cart.id,
-                product_id=product_id,
-                variation_name=variation_name
+                cart_id=cart.id, product_id=product_id, variation_name=variation_name
             ).first()
 
             if cart_item:
@@ -112,14 +115,13 @@ class CartService:
                     product_id=product_id,
                     quantity=quantity,
                     variation_name=variation_name,
-                    variation_price=variation_price
+                    variation_price=variation_price,
                 )
                 db.session.add(cart_item)
 
             db.session.commit()
 
-            logger.info(
-                f"Added to cart: Product {product_id} x{quantity} for user {user_id}")
+            logger.info(f"Added to cart: Product {product_id} x{quantity} for user {user_id}")
             return True, "Product added to cart successfully"
 
         except Exception as e:
@@ -152,9 +154,7 @@ class CartService:
 
             # Find cart item
             cart_item = CartItem.query.filter_by(
-                cart_id=cart.id,
-                product_id=product_id,
-                variation_name=variation_name
+                cart_id=cart.id, product_id=product_id, variation_name=variation_name
             ).first()
 
             if not cart_item:
@@ -164,8 +164,7 @@ class CartService:
             cart_item.quantity = quantity
             db.session.commit()
 
-            logger.info(
-                f"Updated cart item: Product {product_id} to quantity {quantity}")
+            logger.info(f"Updated cart item: Product {product_id} to quantity {quantity}")
             return True, "Cart item updated successfully"
 
         except Exception as e:
@@ -193,9 +192,7 @@ class CartService:
 
             # Find and delete cart item
             cart_item = CartItem.query.filter_by(
-                cart_id=cart.id,
-                product_id=product_id,
-                variation_name=variation_name
+                cart_id=cart.id, product_id=product_id, variation_name=variation_name
             ).first()
 
             if not cart_item:
@@ -210,8 +207,7 @@ class CartService:
 
             db.session.commit()
 
-            logger.info(
-                f"Removed from cart: Product {product_id} for user {user_id}")
+            logger.info(f"Removed from cart: Product {product_id} for user {user_id}")
             return True, "Cart item removed successfully"
 
         except Exception as e:
@@ -268,8 +264,11 @@ class CartService:
 
             total = 0.0
             for item in cart.items:
-                price = float(item.variation_price) if item.variation_price else float(
-                    item.product.price)
+                price = (
+                    float(item.variation_price)
+                    if item.variation_price
+                    else float(item.product.price)
+                )
                 total += price * item.quantity
 
             return round(total, 2)

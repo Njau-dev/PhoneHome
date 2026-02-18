@@ -39,7 +39,9 @@ def test_create_order_happy_path(client, auth_headers, cart, product):
 
 
 def test_create_order_validation_error_missing_address(client, auth_headers):
-    response = client.post("/api/orders/", headers=auth_headers, json={"payment_method": "COD", "total_amount": 100})
+    response = client.post(
+        "/api/orders/", headers=auth_headers, json={"payment_method": "COD", "total_amount": 100}
+    )
     body = response.get_json()
 
     assert response.status_code == 400

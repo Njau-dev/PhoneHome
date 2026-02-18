@@ -37,13 +37,14 @@ const List = () => {
         try {
             setIsLoading(true);
             const response = await axios.get(backendUrl + '/products');
-            if (response.data.products) {
-                setList(response.data.products);
-                setFilteredList(response.data.products);
+
+            if (response.data.data.products) {
+                setList(response.data.data.products);
+                setFilteredList(response.data.data.products);
                 // Extract and count categories
-                processCategories(response.data.products);
+                processCategories(response.data.data.products);
             } else {
-                toast.error(response.data.message || 'Failed to fetch products');
+                toast.error(response.data.message);
             }
         } catch (error) {
             console.error(error);
@@ -65,7 +66,7 @@ const List = () => {
 
         try {
             setIsLoading(true);
-            const response = await axios.delete(backendUrl + '/product/' + productToDelete.id, {
+            const response = await axios.delete(backendUrl + '/products/' + productToDelete.id, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }

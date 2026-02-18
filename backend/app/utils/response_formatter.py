@@ -3,6 +3,7 @@ Response Formatter Utility
 Provides consistent API response formatting across the application.
 """
 
+
 def format_response(success, data=None, message=None):
     """
     Formats API responses consistently.
@@ -15,8 +16,4 @@ def format_response(success, data=None, message=None):
     Returns:
         dict: Formatted response dictionary.
     """
-    return {
-        "success": success,
-        "data": data,
-        "message": message
-    }
+    return {"success": success, "data": data, "message": message}

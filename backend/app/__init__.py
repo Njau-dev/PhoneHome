@@ -2,6 +2,7 @@
 Application Factory
 Creates and configures the Flask application
 """
+
 import logging
 import os
 from importlib import import_module
@@ -30,7 +31,7 @@ def create_app(config_name=None):
 
     # Determine config
     if config_name is None:
-        config_name = os.getenv('FLASK_ENV', 'development')
+        config_name = os.getenv("FLASK_ENV", "development")
 
     # Load configuration
     app.config.from_object(get_config(config_name))
@@ -83,20 +84,20 @@ def register_blueprints(app):
     from app.api.wishlist.routes import wishlist_bp
 
     # Register auth blueprint
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(products_bp, url_prefix='/api/products')
-    app.register_blueprint(categories_bp, url_prefix='/api/categories')
-    app.register_blueprint(brands_bp, url_prefix='/api/brands')
-    app.register_blueprint(cart_bp, url_prefix='/api/cart')
-    app.register_blueprint(orders_bp, url_prefix='/api/orders')
-    app.register_blueprint(payments_bp, url_prefix='/api/payments')
-    app.register_blueprint(reviews_bp, url_prefix='/api/reviews')
-    app.register_blueprint(profile_bp, url_prefix='/api/profile')
-    app.register_blueprint(compare_bp, url_prefix='/api/compare')
-    app.register_blueprint(wishlist_bp, url_prefix='/api/wishlist')
-    app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
-    app.register_blueprint(admin_bp, url_prefix='/api/admin')
-    app.register_blueprint(home_bp, url_prefix='/api/home')
+    app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(products_bp, url_prefix="/api/products")
+    app.register_blueprint(categories_bp, url_prefix="/api/categories")
+    app.register_blueprint(brands_bp, url_prefix="/api/brands")
+    app.register_blueprint(cart_bp, url_prefix="/api/cart")
+    app.register_blueprint(orders_bp, url_prefix="/api/orders")
+    app.register_blueprint(payments_bp, url_prefix="/api/payments")
+    app.register_blueprint(reviews_bp, url_prefix="/api/reviews")
+    app.register_blueprint(profile_bp, url_prefix="/api/profile")
+    app.register_blueprint(compare_bp, url_prefix="/api/compare")
+    app.register_blueprint(wishlist_bp, url_prefix="/api/wishlist")
+    app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
+    app.register_blueprint(admin_bp, url_prefix="/api/admin")
+    app.register_blueprint(home_bp, url_prefix="/api/home")
 
     app.logger.info("Blueprints registered")
 
@@ -140,16 +141,14 @@ def register_error_handlers(app):
 def setup_logging(app):
     """Configure logging"""
     # Create logs directory if it doesn't exist
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
+    if not os.path.exists("logs"):
+        os.makedirs("logs")
 
     # Configure logging format
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     # File handler
-    file_handler = logging.FileHandler('logs/app.log')
+    file_handler = logging.FileHandler("logs/app.log")
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.INFO)
 
@@ -164,7 +163,7 @@ def setup_logging(app):
     app.logger.setLevel(logging.INFO)
 
     # Also configure Gunicorn logger if it exists
-    gunicorn_logger = logging.getLogger('gunicorn.error')
+    gunicorn_logger = logging.getLogger("gunicorn.error")
     if gunicorn_logger.handlers:
         app.logger.handlers = gunicorn_logger.handlers
         app.logger.setLevel(gunicorn_logger.level)

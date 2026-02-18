@@ -37,9 +37,9 @@ export const AuthProvider = ({ children }) => {
                 password
             });
 
-            if (response.data.access_token) {
-                setToken(response.data.access_token);
-                setUser(response.data.user);
+            if (response.data.data.access_token) {
+                setToken(response.data.data.access_token);
+                setUser(response.data.data.user);
 
                 toast.success('Login successful!');
                 navigate('/dashboard');

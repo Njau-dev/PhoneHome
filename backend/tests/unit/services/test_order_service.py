@@ -5,6 +5,7 @@ from app.models import Cart, CartItem, Order
 def _order_service(app):
     with app.app_context():
         from app.services.order_service import OrderService
+
         return OrderService
 
 
@@ -79,7 +80,9 @@ def test_update_payment_status_unknown_order_fails(app, db):
 
 def test_update_payment_status_success_updates_order(app, monkeypatch, order):
     order_service = _order_service(app)
-    monkeypatch.setattr("app.services.order_service.EmailService.send_order_confirmation", lambda *_: None)
+    monkeypatch.setattr(
+        "app.services.order_service.EmailService.send_order_confirmation", lambda *_: None
+    )
     monkeypatch.setattr("app.services.order_service.create_notification", lambda *_: None)
 
     success, message = order_service.update_payment_status(

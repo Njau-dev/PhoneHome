@@ -2,6 +2,7 @@
 Admin Routes Blueprint
 Handles: admin operations - user management, notification sending, audit logs
 """
+
 import logging
 
 from flask import Blueprint, jsonify, request
@@ -15,13 +16,13 @@ from app.utils.response_formatter import format_response
 logger = logging.getLogger(__name__)
 
 # Create blueprint
-admin_bp = Blueprint('admin', __name__)
+admin_bp = Blueprint("admin", __name__)
 
 
 # ============================================================================
 # GET ALL USERS
 # ============================================================================
-@admin_bp.route('/users', methods=['GET'])
+@admin_bp.route("/users", methods=["GET"])
 @jwt_required()
 @admin_required
 def get_all_users():
@@ -34,14 +35,20 @@ def get_all_users():
     """
     try:
         users = User.query.all()
-        users_data = [{
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "is_admin": user.is_admin
-        } for user in users]
+        users_data = [
+            {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "is_admin": user.is_admin,
+            }
+            for user in users
+        ]
 
-        return jsonify(format_response(True, {"users": users_data}, "Users fetched successfully")), 200
+        return (
+            jsonify(format_response(True, {"users": users_data}, "Users fetched successfully")),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error fetching users: {str(e)}")
@@ -51,7 +58,7 @@ def get_all_users():
 # ===========================================================================
 # UPDATE USER ROLE TO ADMIN
 # ============================================================================
-@admin_bp.route('/users/<int:user_id>/promote', methods=['PUT'])
+@admin_bp.route("/users/<int:user_id>/promote", methods=["PUT"])
 @jwt_required()
 @admin_required
 def promote_user_to_admin(user_id):
@@ -88,7 +95,7 @@ def promote_user_to_admin(user_id):
 # ===========================================================================
 # DELETE USER
 # ============================================================================
-@admin_bp.route('/users/<int:user_id>', methods=['DELETE'])
+@admin_bp.route("/users/<int:user_id>", methods=["DELETE"])
 @jwt_required()
 @admin_required
 def delete_user(user_id):
@@ -118,6 +125,7 @@ def delete_user(user_id):
         return jsonify(format_response(True, None, f"User {user_id} deleted")), 200
 
     except Exception as e:
+        db.session.rollback()
         logger.error(f"Error deleting user: {str(e)}")
         return jsonify(format_response(False, None, "An error occurred while deleting user")), 500
 
@@ -125,7 +133,7 @@ def delete_user(user_id):
 # ============================================================================
 # SEND NOTIFICATION TO USER
 # ============================================================================
-@admin_bp.route('/notifications', methods=['POST'])
+@admin_bp.route("/notifications", methods=["POST"])
 @jwt_required()
 @admin_required
 def send_notification():
@@ -143,8 +151,8 @@ def send_notification():
     """
     try:
         data = request.get_json()
-        user_id = data.get('user_id')
-        message = data.get('message')
+        user_id = data.get("user_id")
+        message = data.get("message")
 
         if not user_id or not message:
             return jsonify(format_response(False, None, "user_id and message are required")), 400
@@ -157,13 +165,16 @@ def send_notification():
 
     except Exception as e:
         logger.error(f"Error sending notification: {str(e)}")
-        return jsonify(format_response(False, None, "An error occurred while sending notification")), 500
+        return (
+            jsonify(format_response(False, None, "An error occurred while sending notification")),
+            500,
+        )
 
 
 # ============================================================================
 # GET AUDIT LOGS
 # ============================================================================
-@admin_bp.route('/audit-logs', methods=['GET'])
+@admin_bp.route("/audit-logs", methods=["GET"])
 @jwt_required()
 @admin_required
 def get_audit_logs():
@@ -176,18 +187,29 @@ def get_audit_logs():
     """
     try:
         logs = AuditLog.query.order_by(AuditLog.created_at.desc()).all()
-        logs_data = [{
-            "id": log.id,
-            "action": log.action,
-            "performed_by": log.admin_id,
-            "timestamp": log.created_at.isoformat()
-        } for log in logs]
+        logs_data = [
+            {
+                "id": log.id,
+                "action": log.action,
+                "performed_by": log.admin_id,
+                "timestamp": log.created_at.isoformat(),
+            }
+            for log in logs
+        ]
 
-        return jsonify(format_response(True, {"audit_logs": logs_data}, "Audit logs fetched successfully")), 200
+        return (
+            jsonify(
+                format_response(True, {"audit_logs": logs_data}, "Audit logs fetched successfully")
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error fetching audit logs: {str(e)}")
-        return jsonify(format_response(False, None, "An error occurred while fetching audit logs")), 500
+        return (
+            jsonify(format_response(False, None, "An error occurred while fetching audit logs")),
+            500,
+        )
 
 
 # ============================================================================

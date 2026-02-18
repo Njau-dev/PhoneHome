@@ -2,6 +2,7 @@
 M-Pesa Payment Service
 Handles M-Pesa STK push payments and callbacks
 """
+
 import base64
 import logging
 from datetime import datetime
@@ -24,6 +25,7 @@ class MpesaService:
         """
         if config is None:
             from flask import current_app
+
             config = current_app.config
 
         self.config = config
@@ -31,20 +33,18 @@ class MpesaService:
 
     def _load_config(self):
         """Load and validate M-Pesa configuration"""
-        self.consumer_key = self.config.get('MPESA_CONSUMER_KEY')
-        self.consumer_secret = self.config.get('MPESA_CONSUMER_SECRET')
-        self.till_number = self.config.get('MPESA_BUSINESS_SHORTCODE')
-        self.passkey = self.config.get('MPESA_PASSKEY')
-        self.environment = self.config.get(
-            'MPESA_ENVIRONMENT', 'sandbox').lower()
-        self.callback_base_url = self.config.get(
-            'BACKEND_URL', 'http://localhost:5000')
+        self.consumer_key = self.config.get("MPESA_CONSUMER_KEY")
+        self.consumer_secret = self.config.get("MPESA_CONSUMER_SECRET")
+        self.till_number = self.config.get("MPESA_BUSINESS_SHORTCODE")
+        self.passkey = self.config.get("MPESA_PASSKEY")
+        self.environment = self.config.get("MPESA_ENVIRONMENT", "sandbox").lower()
+        self.callback_base_url = self.config.get("BACKEND_URL", "http://localhost:5000")
 
         # Validate required config
         self._validate_config()
 
         # Set base URLs
-        if self.environment == 'production':
+        if self.environment == "production":
             self.base_url = "https://api.safaricom.co.ke"
         else:
             self.base_url = "https://sandbox.safaricom.co.ke"
@@ -55,17 +55,16 @@ class MpesaService:
     def _validate_config(self):
         """Validate that all required configuration is set"""
         required_configs = [
-            ('MPESA_CONSUMER_KEY', self.consumer_key),
-            ('MPESA_CONSUMER_SECRET', self.consumer_secret),
-            ('MPESA_BUSINESS_SHORTCODE', self.till_number),
-            ('MPESA_PASSKEY', self.passkey),
+            ("MPESA_CONSUMER_KEY", self.consumer_key),
+            ("MPESA_CONSUMER_SECRET", self.consumer_secret),
+            ("MPESA_BUSINESS_SHORTCODE", self.till_number),
+            ("MPESA_PASSKEY", self.passkey),
         ]
 
         missing = [name for name, value in required_configs if not value]
 
         if missing:
-            raise ValueError(
-                f"Missing M-Pesa configuration: {', '.join(missing)}")
+            raise ValueError(f"Missing M-Pesa configuration: {', '.join(missing)}")
 
     @staticmethod
     def init_app(app):
@@ -89,8 +88,7 @@ class MpesaService:
         """
         try:
             credentials = f"{self.consumer_key}:{self.consumer_secret}"
-            encoded_credentials = base64.b64encode(
-                credentials.encode()).decode()
+            encoded_credentials = base64.b64encode(credentials.encode()).decode()
 
             headers = {"Authorization": f"Basic {encoded_credentials}"}
 
@@ -151,7 +149,9 @@ class MpesaService:
 
         return phone
 
-    def initiate_payment(self, phone_number, amount, order_reference, callback_path="/api/payments/ganji/inaflow"):
+    def initiate_payment(
+        self, phone_number, amount, order_reference, callback_path="/api/payments/ganji/inaflow"
+    ):
         """
         Initiate STK Push payment
 
@@ -172,10 +172,7 @@ class MpesaService:
             # Get access token
             access_token, error = self.get_access_token()
             if error:
-                return {
-                    "success": False,
-                    "error": error
-                }
+                return {"success": False, "error": error}
 
             # Generate password and timestamp
             password, timestamp = self.generate_password()
@@ -198,24 +195,18 @@ class MpesaService:
                 "PhoneNumber": formatted_phone,
                 "CallBackURL": callback_url,
                 "AccountReference": order_reference,
-                "TransactionDesc": f"Payment for order {order_reference}"
+                "TransactionDesc": f"Payment for order {order_reference}",
             }
 
             # Send request
             headers = {
                 "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
 
-            logger.info(
-                f"Initiating payment for order {order_reference}, amount: {amount}")
+            logger.info(f"Initiating payment for order {order_reference}, amount: {amount}")
 
-            response = requests.post(
-                self.stk_push_url,
-                json=payload,
-                headers=headers,
-                timeout=30
-            )
+            response = requests.post(self.stk_push_url, json=payload, headers=headers, timeout=30)
             response.raise_for_status()
 
             result = response.json()
@@ -228,28 +219,19 @@ class MpesaService:
                         "checkout_request_id": result.get("CheckoutRequestID"),
                         "merchant_request_id": result.get("MerchantRequestID"),
                         "response_description": result.get("ResponseDescription"),
-                        "customer_message": result.get("CustomerMessage", "")
-                    }
+                        "customer_message": result.get("CustomerMessage", ""),
+                    },
                 }
             else:
                 error_msg = result.get("errorMessage", "STK Push failed")
-                return {
-                    "success": False,
-                    "error": f"M-Pesa error: {error_msg}"
-                }
+                return {"success": False, "error": f"M-Pesa error: {error_msg}"}
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Payment request failed: {e}")
-            return {
-                "success": False,
-                "error": f"Payment request failed: {str(e)}"
-            }
+            return {"success": False, "error": f"Payment request failed: {str(e)}"}
         except Exception as e:
             logger.error(f"Unexpected error during payment: {e}")
-            return {
-                "success": False,
-                "error": f"Payment initiation failed: {str(e)}"
-            }
+            return {"success": False, "error": f"Payment initiation failed: {str(e)}"}
 
     def process_callback(self, callback_data):
         """
@@ -267,17 +249,17 @@ class MpesaService:
         """
         try:
             # Extract relevant data from callback
-            result_code = callback_data.get("Body", {}).get(
-                "stkCallback", {}).get("ResultCode")
-            result_desc = callback_data.get("Body", {}).get(
-                "stkCallback", {}).get("ResultDesc")
-            checkout_request_id = callback_data.get("Body", {}).get(
-                "stkCallback", {}).get("CheckoutRequestID")
+            result_code = callback_data.get("Body", {}).get("stkCallback", {}).get("ResultCode")
+            result_desc = callback_data.get("Body", {}).get("stkCallback", {}).get("ResultDesc")
+            checkout_request_id = (
+                callback_data.get("Body", {}).get("stkCallback", {}).get("CheckoutRequestID")
+            )
 
             # Find metadata
             metadata = {}
-            callback_metadata = callback_data.get("Body", {}).get(
-                "stkCallback", {}).get("CallbackMetadata", {})
+            callback_metadata = (
+                callback_data.get("Body", {}).get("stkCallback", {}).get("CallbackMetadata", {})
+            )
             if callback_metadata and "Item" in callback_metadata:
                 for item in callback_metadata["Item"]:
                     if "Name" in item and "Value" in item:
@@ -292,27 +274,17 @@ class MpesaService:
                 "result_code": result_code,
                 "result_desc": result_desc,
                 "checkout_request_id": checkout_request_id,
-                "metadata": metadata
+                "metadata": metadata,
             }
 
             if success:
-                return {
-                    "success": True,
-                    "data": result
-                }
+                return {"success": True, "data": result}
             else:
-                return {
-                    "success": False,
-                    "error": f"Payment failed: {result_desc}",
-                    "data": result
-                }
+                return {"success": False, "error": f"Payment failed: {result_desc}", "data": result}
 
         except Exception as e:
             logger.error(f"Error processing callback: {e}")
-            return {
-                "success": False,
-                "error": f"Failed to process callback: {str(e)}"
-            }
+            return {"success": False, "error": f"Failed to process callback: {str(e)}"}
 
     def validate_payment_data(self, phone_number, amount):
         """

@@ -2,6 +2,7 @@
 Payments Routes Blueprint
 Handles: M-Pesa STK Push, callback, payment retry, status check
 """
+
 import logging
 
 from flask import Blueprint, jsonify, request
@@ -16,13 +17,13 @@ from app.utils.response_formatter import format_response
 logger = logging.getLogger(__name__)
 
 # Create blueprint
-payments_bp = Blueprint('payments', __name__)
+payments_bp = Blueprint("payments", __name__)
 
 
 # ============================================================================
 # INITIATE M-PESA PAYMENT
 # ============================================================================
-@payments_bp.route('/mpesa/initiate', methods=['POST'])
+@payments_bp.route("/mpesa/initiate", methods=["POST"])
 @jwt_required()
 def initiate_mpesa_payment():
     """
@@ -57,7 +58,7 @@ def initiate_mpesa_payment():
         logger.info(f"Initiating M-Pesa payment for user {current_user_id}")
 
         # Validate required fields
-        required_fields = ['phone_number', 'total_amount', 'address']
+        required_fields = ["phone_number", "total_amount", "address"]
         for field in required_fields:
             if field not in data:
                 return jsonify(format_response(False, None, f"{field} is required")), 400
@@ -67,19 +68,15 @@ def initiate_mpesa_payment():
             logger.warning(f"Empty cart for user {current_user_id}")
             return jsonify(format_response(False, None, "Cart is empty")), 400
 
-        phone_number = data['phone_number']
-        amount = float(data['total_amount'])
+        phone_number = data["phone_number"]
+        amount = float(data["total_amount"])
 
         # Validate amount
         if amount <= 0:
             return jsonify(format_response(False, None, "Amount must be greater than 0")), 400
 
         # Prepare order data
-        order_data = {
-            'address': data['address'],
-            'payment_method': 'MPESA',
-            'total_amount': amount
-        }
+        order_data = {"address": data["address"], "payment_method": "MPESA", "total_amount": amount}
 
         # Create order first (with Pending Payment status)
         order, error = OrderService.create_order(current_user_id, order_data)
@@ -95,13 +92,13 @@ def initiate_mpesa_payment():
             MpesaService(),
             phone_number=phone_number,
             amount=amount,
-            order_reference=order_reference
+            order_reference=order_reference,
         )
 
         if not result["success"]:
             logger.error(f"STK Push failed: {result.get('error')}")
             # Update order status to failed
-            order.status = 'Payment Failed'
+            order.status = "Payment Failed"
             db.session.commit()
             return jsonify(format_response(False, None, result["error"])), 400
 
@@ -115,15 +112,24 @@ def initiate_mpesa_payment():
         # Create notification
         create_notification(
             current_user_id,
-            f"Order #{order_reference} created. Please complete M-Pesa payment on your phone."
+            f"Order #{order_reference} created. Please complete M-Pesa payment on your phone.",
         )
 
         logger.info(f"STK Push initiated for order {order_reference}")
 
-        return jsonify(format_response(True, {
-            "order_reference": order_reference,
-            "checkout_request_id": result["checkout_request_id"]
-        }, "Order created successfully. Please check your phone for M-Pesa prompt.")), 201
+        return (
+            jsonify(
+                format_response(
+                    True,
+                    {
+                        "order_reference": order_reference,
+                        "checkout_request_id": result["checkout_request_id"],
+                    },
+                    "Order created successfully. Please check your phone for M-Pesa prompt.",
+                )
+            ),
+            201,
+        )
 
     except Exception as e:
         logger.error(f"M-Pesa payment initiation failed: {str(e)}")
@@ -133,7 +139,7 @@ def initiate_mpesa_payment():
 # ============================================================================
 # M-PESA CALLBACK
 # ============================================================================
-@payments_bp.route('/ganji/inaflow', methods=['POST'])
+@payments_bp.route("/ganji/inaflow", methods=["POST"])
 def mpesa_callback():
     """
     Handle M-Pesa STK Push callback
@@ -158,52 +164,70 @@ def mpesa_callback():
 
         if not checkout_request_id:
             logger.error("No CheckoutRequestID in callback")
-            return jsonify(format_response(False, {"ResultCode": 1, "ResultDesc": "Invalid callback data"}, "Invalid callback data")), 400
+            return (
+                jsonify(
+                    format_response(
+                        False,
+                        {"ResultCode": 1, "ResultDesc": "Invalid callback data"},
+                        "Invalid callback data",
+                    )
+                ),
+                400,
+            )
 
         # Find payment record
-        payment = Payment.query.filter_by(
-            checkout_request_id=checkout_request_id).first()
+        payment = Payment.query.filter_by(checkout_request_id=checkout_request_id).first()
         if not payment:
-            logger.error(
-                f"Payment not found for CheckoutRequestID: {checkout_request_id}")
-            return jsonify(format_response(False, {"ResultCode": 1, "ResultDesc": "Payment record not found"}, "Payment record not found")), 404
+            logger.error(f"Payment not found for CheckoutRequestID: {checkout_request_id}")
+            return (
+                jsonify(
+                    format_response(
+                        False,
+                        {"ResultCode": 1, "ResultDesc": "Payment record not found"},
+                        "Payment record not found",
+                    )
+                ),
+                404,
+            )
 
         # Prepare payment data for service
-        payment_data = {
-            'result_code': str(result_code),
-            'result_desc': result_desc
-        }
+        payment_data = {"result_code": str(result_code), "result_desc": result_desc}
 
         if result_code == 0:  # Success
             # Extract transaction details
-            callback_metadata = stk_callback.get(
-                "CallbackMetadata", {}).get("Item", [])
+            callback_metadata = stk_callback.get("CallbackMetadata", {}).get("Item", [])
 
             for item in callback_metadata:
                 name = item.get("Name")
                 value = item.get("Value")
 
                 if name == "MpesaReceiptNumber":
-                    payment_data['mpesa_receipt'] = value
-                    payment_data['transaction_id'] = value
+                    payment_data["mpesa_receipt"] = value
+                    payment_data["transaction_id"] = value
                 elif name == "PhoneNumber":
-                    payment_data['phone_number'] = str(value)
+                    payment_data["phone_number"] = str(value)
 
-            payment_data['status'] = 'Success'
+            payment_data["status"] = "Success"
         else:  # Payment Failed
-            payment_data['status'] = 'Failed'
+            payment_data["status"] = "Failed"
 
         # Update payment using service
-        success, message = OrderService.update_payment_status(
-            payment.order_reference,
-            payment_data
-        )
+        success, message = OrderService.update_payment_status(payment.order_reference, payment_data)
 
         if not success:
             logger.error(f"Failed to update payment: {message}")
 
         # Return success response to callback
-        return jsonify(format_response(True, {"message": "Callback processed successfully"}, "Callback processed successfully")), 200
+        return (
+            jsonify(
+                format_response(
+                    True,
+                    {"message": "Callback processed successfully"},
+                    "Callback processed successfully",
+                )
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"M-Pesa callback processing failed: {str(e)}")
@@ -213,7 +237,7 @@ def mpesa_callback():
 # ============================================================================
 # RETRY M-PESA PAYMENT
 # ============================================================================
-@payments_bp.route('/mpesa/retry', methods=['POST'])
+@payments_bp.route("/mpesa/retry", methods=["POST"])
 @jwt_required()
 def retry_mpesa_payment():
     """
@@ -241,11 +265,16 @@ def retry_mpesa_payment():
         logger.info(f"Retrying M-Pesa payment for user {current_user_id}")
 
         # Validate required fields
-        if not data or 'phone_number' not in data or 'order_reference' not in data:
-            return jsonify(format_response(False, None, "phone_number and order_reference are required")), 400
+        if not data or "phone_number" not in data or "order_reference" not in data:
+            return (
+                jsonify(
+                    format_response(False, None, "phone_number and order_reference are required")
+                ),
+                400,
+            )
 
-        order_reference = data['order_reference']
-        phone_number = data['phone_number']
+        order_reference = data["order_reference"]
+        phone_number = data["phone_number"]
 
         # Find order and verify ownership
         order = Order.query.filter_by(order_reference=order_reference).first()
@@ -254,20 +283,19 @@ def retry_mpesa_payment():
             return jsonify(format_response(False, None, "Order not found")), 404
 
         if str(order.user_id) != current_user_id:
-            logger.warning(
-                f"Unauthorized retry attempt for order {order_reference}")
+            logger.warning(f"Unauthorized retry attempt for order {order_reference}")
             return jsonify(format_response(False, None, "Unauthorized access to order")), 403
 
         # Check if order can be retried
-        if order.status not in ['Pending Payment', 'Payment Failed']:
+        if order.status not in ["Pending Payment", "Payment Failed"]:
             logger.warning(
-                f"Cannot retry payment for order {order_reference} with status {order.status}")
+                f"Cannot retry payment for order {order_reference} with status {order.status}"
+            )
             return jsonify(format_response(False, None, "Order payment cannot be retried")), 400
 
         payment = order.payment
         if not payment:
-            logger.error(
-                f"No payment record found for order {order_reference}")
+            logger.error(f"No payment record found for order {order_reference}")
             return jsonify(format_response(False, None, "No payment record found")), 404
 
         amount = payment.amount
@@ -277,7 +305,7 @@ def retry_mpesa_payment():
             MpesaService(),
             phone_number=phone_number,
             amount=amount,
-            order_reference=order_reference
+            order_reference=order_reference,
         )
 
         if not result["success"]:
@@ -291,22 +319,31 @@ def retry_mpesa_payment():
         payment.merchant_request_id = result["merchant_request_id"]
 
         # Update order status
-        order.status = 'Pending Payment'
+        order.status = "Pending Payment"
 
         db.session.commit()
 
         # Create notification
         create_notification(
             current_user_id,
-            f"Payment retry initiated for order #{order_reference}. Please complete M-Pesa payment."
+            f"Payment retry initiated for order #{order_reference}. Please complete M-Pesa payment.",
         )
 
         logger.info(f"Payment retry initiated for order {order_reference}")
 
-        return jsonify(format_response(True, {
-            "order_reference": order_reference,
-            "checkout_request_id": result["checkout_request_id"]
-        }, "Payment retry initiated successfully. Please check your phone for M-Pesa prompt.")), 200
+        return (
+            jsonify(
+                format_response(
+                    True,
+                    {
+                        "order_reference": order_reference,
+                        "checkout_request_id": result["checkout_request_id"],
+                    },
+                    "Payment retry initiated successfully. Please check your phone for M-Pesa prompt.",
+                )
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"M-Pesa payment retry failed: {str(e)}")
@@ -316,7 +353,7 @@ def retry_mpesa_payment():
 # ============================================================================
 # GET PAYMENT STATUS
 # ============================================================================
-@payments_bp.route('/status/<string:order_reference>', methods=['GET'])
+@payments_bp.route("/status/<string:order_reference>", methods=["GET"])
 @jwt_required()
 def get_payment_status(order_reference):
     """
@@ -358,9 +395,12 @@ def get_payment_status(order_reference):
             "mpesa_receipt": payment.mpesa_receipt,
             "failure_reason": payment.failure_reason,
             "created_at": payment.created_at.isoformat(),
-            "updated_at": payment.updated_at.isoformat()
+            "updated_at": payment.updated_at.isoformat(),
         }
-        return jsonify(format_response(True, payment_data, "Payment status fetched successfully")), 200
+        return (
+            jsonify(format_response(True, payment_data, "Payment status fetched successfully")),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error fetching payment status: {str(e)}")

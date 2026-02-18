@@ -52,7 +52,7 @@ const Add = () => {
         const fetchCategories = async () => {
             try {
                 const response = await axios.get(backendUrl + '/categories');
-                setCategories(response.data.categories);
+                setCategories(response.data.data.categories);
             } catch (error) {
                 console.error('Error fetching categories:', error);
             }
@@ -65,7 +65,7 @@ const Add = () => {
                     ? `${backendUrl}/brands?category=${selectedCategory}`
                     : `${backendUrl}/brands`;
                 const response = await axios.get(url);
-                setBrands(response.data);
+                setBrands(response.data.data.brands);
             } catch (error) {
                 console.error('Error fetching brands:', error);
             }

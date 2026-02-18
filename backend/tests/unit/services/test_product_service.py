@@ -122,7 +122,10 @@ def test_build_product_instance_covers_laptop_and_audio_branches(app, category, 
 
 def test_create_product_returns_upload_error(app, category, brand, monkeypatch):
     product_service = _product_service(app)
-    monkeypatch.setattr("app.services.product_service.upload_images", lambda *_args, **_kwargs: (False, "upload failed"))
+    monkeypatch.setattr(
+        "app.services.product_service.upload_images",
+        lambda *_args, **_kwargs: (False, "upload failed"),
+    )
 
     product, error = product_service.create_product(
         _phone_payload(category.id, brand.id),
@@ -244,7 +247,9 @@ def test_create_product_invalid_variations_payload_returns_error(app, category, 
 
 def test_update_product_happy_path_updates_name_and_price(app, product):
     product_service = _product_service(app)
-    updated, error = product_service.update_product(product.id, {"name": "Updated Name", "price": "130000"})
+    updated, error = product_service.update_product(
+        product.id, {"name": "Updated Name", "price": "130000"}
+    )
 
     assert error is None
     assert updated.name == "Updated Name"
@@ -340,7 +345,9 @@ def test_update_product_handles_internal_exception(app, product, monkeypatch):
     def _boom(*_args, **_kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("app.services.product_service.ProductService._update_type_specific_fields", _boom)
+    monkeypatch.setattr(
+        "app.services.product_service.ProductService._update_type_specific_fields", _boom
+    )
 
     updated, error = product_service.update_product(product.id, {"name": "X"})
 
@@ -373,7 +380,9 @@ def test_delete_product_happy_path_removes_product(app, product):
     assert Product.query.get(product.id) is None
 
 
-def test_delete_product_removes_related_records(app, product, cart, wishlist, compare_list, order, review):
+def test_delete_product_removes_related_records(
+    app, product, cart, wishlist, compare_list, order, review
+):
     product_service = _product_service(app)
     db.session.add(CartItem(cart_id=cart.id, product_id=product.id, quantity=1))
     db.session.commit()

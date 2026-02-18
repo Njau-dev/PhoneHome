@@ -2,6 +2,7 @@
 Orders Routes Blueprint
 Handles: order creation, viewing orders, updating status, generating invoices/receipts
 """
+
 import logging
 from datetime import datetime
 from io import BytesIO
@@ -18,13 +19,13 @@ from app.utils.response_formatter import format_response
 logger = logging.getLogger(__name__)
 
 # Create blueprint
-orders_bp = Blueprint('orders', __name__)
+orders_bp = Blueprint("orders", __name__)
 
 
 # ============================================================================
 # GET USER ORDERS
 # ============================================================================
-@orders_bp.route('/', methods=['GET'])
+@orders_bp.route("/", methods=["GET"])
 @jwt_required()
 def get_user_orders():
     """
@@ -42,7 +43,10 @@ def get_user_orders():
 
         orders = OrderService.get_user_orders(current_user_id)
 
-        return jsonify(format_response(True, {"orders": orders}, "Orders fetched successfully")), 200
+        return (
+            jsonify(format_response(True, {"orders": orders}, "Orders fetched successfully")),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error fetching user orders: {str(e)}")
@@ -52,7 +56,7 @@ def get_user_orders():
 # ============================================================================
 # CREATE ORDER
 # ============================================================================
-@orders_bp.route('/', methods=['POST'])
+@orders_bp.route("/", methods=["POST"])
 @jwt_required()
 def create_order():
     """
@@ -88,19 +92,26 @@ def create_order():
         if not data:
             return jsonify(format_response(False, None, "Request body is required")), 400
 
-        if 'address' not in data:
+        if "address" not in data:
             return jsonify(format_response(False, None, "Address is required")), 400
 
-        if 'payment_method' not in data:
+        if "payment_method" not in data:
             return jsonify(format_response(False, None, "Payment method is required")), 400
 
-        if 'total_amount' not in data:
+        if "total_amount" not in data:
             return jsonify(format_response(False, None, "Total amount is required")), 400
 
         # Validate payment method
-        valid_methods = ['COD', 'MPESA']
-        if data['payment_method'] not in valid_methods:
-            return jsonify(format_response(False, None, f"Payment method must be one of: {', '.join(valid_methods)}")), 400
+        valid_methods = ["COD", "MPESA"]
+        if data["payment_method"] not in valid_methods:
+            return (
+                jsonify(
+                    format_response(
+                        False, None, f"Payment method must be one of: {', '.join(valid_methods)}"
+                    )
+                ),
+                400,
+            )
 
         # Create order using service
         order, error = OrderService.create_order(current_user_id, data)
@@ -108,9 +119,15 @@ def create_order():
         if error:
             return jsonify(format_response(False, None, error)), 400
 
-        logger.info(
-            f"Order created: {order.order_reference} for user {current_user_id}")
-        return jsonify(format_response(True, {"order_reference": order.order_reference}, "Order placed successfully")), 201
+        logger.info(f"Order created: {order.order_reference} for user {current_user_id}")
+        return (
+            jsonify(
+                format_response(
+                    True, {"order_reference": order.order_reference}, "Order placed successfully"
+                )
+            ),
+            201,
+        )
 
     except Exception as e:
         logger.error(f"Error creating order: {str(e)}")
@@ -120,7 +137,7 @@ def create_order():
 # ============================================================================
 # GET ORDER BY REFERENCE
 # ============================================================================
-@orders_bp.route('/<string:order_reference>', methods=['GET'])
+@orders_bp.route("/<string:order_reference>", methods=["GET"])
 @jwt_required()
 def get_order_by_reference(order_reference):
     """
@@ -140,8 +157,7 @@ def get_order_by_reference(order_reference):
     try:
         current_user_id = get_jwt_identity()
 
-        order = OrderService.get_order_by_reference(
-            order_reference, current_user_id)
+        order = OrderService.get_order_by_reference(order_reference, current_user_id)
 
         if not order:
             return jsonify(format_response(False, None, "Order not found")), 404
@@ -156,7 +172,7 @@ def get_order_by_reference(order_reference):
 # ============================================================================
 # GET ALL ORDERS (ADMIN ONLY)
 # ============================================================================
-@orders_bp.route('/admin/all', methods=['GET'])
+@orders_bp.route("/admin/all", methods=["GET"])
 @jwt_required()
 @admin_required
 def get_all_orders():
@@ -173,7 +189,10 @@ def get_all_orders():
     try:
         orders = OrderService.get_all_orders()
 
-        return jsonify(format_response(True, {"orders": orders}, "Orders fetched successfully")), 200
+        return (
+            jsonify(format_response(True, {"orders": orders}, "Orders fetched successfully")),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error fetching all orders: {str(e)}")
@@ -183,7 +202,7 @@ def get_all_orders():
 # ============================================================================
 # GET ORDER DETAILS (ADMIN)
 # ============================================================================
-@orders_bp.route('/admin/<int:order_id>', methods=['GET'])
+@orders_bp.route("/admin/<int:order_id>", methods=["GET"])
 @jwt_required()
 @admin_required
 def get_order_details(order_id):
@@ -210,17 +229,25 @@ def get_order_details(order_id):
 
         order_data = OrderService.get_order_by_reference(order.order_reference)
 
-        return jsonify(format_response(True, {"order": order_data}, "Order details fetched successfully")), 200
+        return (
+            jsonify(
+                format_response(True, {"order": order_data}, "Order details fetched successfully")
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error fetching order details: {str(e)}")
-        return jsonify(format_response(False, None, "An error occurred while fetching order details")), 500
+        return (
+            jsonify(format_response(False, None, "An error occurred while fetching order details")),
+            500,
+        )
 
 
 # ============================================================================
 # UPDATE ORDER STATUS (ADMIN ONLY)
 # ============================================================================
-@orders_bp.route('/status/<int:order_id>', methods=['PUT'])
+@orders_bp.route("/status/<int:order_id>", methods=["PUT"])
 @jwt_required()
 @admin_required
 def update_order_status(order_id):
@@ -254,14 +281,13 @@ def update_order_status(order_id):
     try:
         data = request.get_json()
 
-        if not data or 'status' not in data:
+        if not data or "status" not in data:
             return jsonify(format_response(False, None, "Status is required")), 400
 
-        new_status = data['status']
+        new_status = data["status"]
 
         # Update order status using service
-        success, message = OrderService.update_order_status(
-            order_id, new_status)
+        success, message = OrderService.update_order_status(order_id, new_status)
 
         if not success:
             status_code = 404 if "not found" in message.lower() else 400
@@ -278,7 +304,7 @@ def update_order_status(order_id):
 # ============================================================================
 # GENERATE INVOICE/RECEIPT PDF
 # ============================================================================
-@orders_bp.route('/document/<string:order_reference>/<string:doc_type>', methods=['GET'])
+@orders_bp.route("/document/<string:order_reference>/<string:doc_type>", methods=["GET"])
 @jwt_required()
 def generate_document(order_reference, doc_type):
     """
@@ -299,8 +325,15 @@ def generate_document(order_reference, doc_type):
     """
     try:
         # Validate document type
-        if doc_type not in ['invoice', 'receipt']:
-            return jsonify(format_response(False, None, "Invalid document type. Must be 'invoice' or 'receipt'")), 400
+        if doc_type not in ["invoice", "receipt"]:
+            return (
+                jsonify(
+                    format_response(
+                        False, None, "Invalid document type. Must be 'invoice' or 'receipt'"
+                    )
+                ),
+                400,
+            )
 
         current_user_id = get_jwt_identity()
 
@@ -314,8 +347,13 @@ def generate_document(order_reference, doc_type):
             return jsonify(format_response(False, None, "Unauthorized access to this order")), 403
 
         # Check if trying to access receipt for non-delivered order
-        if doc_type == 'receipt' and order.status != 'Delivered':
-            return jsonify(format_response(False, None, "Receipt is only available for delivered orders")), 400
+        if doc_type == "receipt" and order.status != "Delivered":
+            return (
+                jsonify(
+                    format_response(False, None, "Receipt is only available for delivered orders")
+                ),
+                400,
+            )
 
         # Generate PDF
         pdf_content = _generate_pdf(order, doc_type)
@@ -326,9 +364,9 @@ def generate_document(order_reference, doc_type):
         # Send PDF file
         return send_file(
             BytesIO(pdf_content),
-            mimetype='application/pdf',
+            mimetype="application/pdf",
             as_attachment=True,
-            download_name=f'{doc_type}_{order.order_reference}.pdf'
+            download_name=f"{doc_type}_{order.order_reference}.pdf",
         )
 
     except Exception as e:
@@ -353,17 +391,14 @@ def _generate_pdf(order, doc_type):
         company_name = "Phone Home Kenya"
 
         # Choose template based on document type
-        if doc_type == 'invoice':
+        if doc_type == "invoice":
             template = _get_invoice_template()
         else:
             template = _get_receipt_template()
 
         # Render HTML
         html = render_template_string(
-            template,
-            order=order,
-            company_name=company_name,
-            now=datetime.now()
+            template, order=order, company_name=company_name, now=datetime.now()
         )
 
         # Convert to PDF

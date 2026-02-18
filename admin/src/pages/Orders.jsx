@@ -47,12 +47,12 @@ const Orders = () => {
 
         try {
             setIsLoading(true);
-            const response = await axios.get(backendUrl + '/orders/admin', {
+            const response = await axios.get(backendUrl + '/orders/admin/all', {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            if (response.data.orders.length > 0) {
-                const ordersData = response.data.orders.reverse();
+            if (response.data.data.orders.length > 0) {
+                const ordersData = response.data.data.orders.reverse();
                 setOrders(ordersData);
                 setFilteredOrders(ordersData);
                 calculateStats(ordersData);

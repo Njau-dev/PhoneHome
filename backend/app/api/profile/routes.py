@@ -2,6 +2,7 @@
 Profile Routes Blueprint
 Handles: user profile, stats, recent orders, wishlist
 """
+
 import logging
 
 from flask import Blueprint, jsonify, request
@@ -16,13 +17,13 @@ from app.utils.response_formatter import format_response
 logger = logging.getLogger(__name__)
 
 # Create blueprint
-profile_bp = Blueprint('profile', __name__)
+profile_bp = Blueprint("profile", __name__)
 
 
 # ============================================================================
 # GET USER PROFILE
 # ============================================================================
-@profile_bp.route('/', methods=['GET'])
+@profile_bp.route("/", methods=["GET"])
 @jwt_required()
 def get_profile():
     """
@@ -47,20 +48,26 @@ def get_profile():
             "email": user.email,
             "phone_number": user.phone_number,
             "address": user.address,
-            "created_at": user.created_at.isoformat()
+            "created_at": user.created_at.isoformat(),
         }
 
-        return jsonify(format_response(True, {"profile": user_data}, "Profile fetched successfully")), 200
+        return (
+            jsonify(format_response(True, {"profile": user_data}, "Profile fetched successfully")),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error fetching profile: {str(e)}")
-        return jsonify(format_response(False, None, "An error occurred while fetching profile")), 500
+        return (
+            jsonify(format_response(False, None, "An error occurred while fetching profile")),
+            500,
+        )
 
 
 # ============================================================================
 # UPDATE USER PROFILE
 # ============================================================================
-@profile_bp.route('/', methods=['PUT'])
+@profile_bp.route("/", methods=["PUT"])
 @jwt_required()
 def update_profile():
     """
@@ -90,10 +97,10 @@ def update_profile():
 
         data = request.get_json()
 
-        user.username = data.get('username', user.username)
-        user.email = data.get('email', user.email)
-        user.phone_number = data.get('phone_number', user.phone_number)
-        user.address = data.get('address', user.address)
+        user.username = data.get("username", user.username)
+        user.email = data.get("email", user.email)
+        user.phone_number = data.get("phone_number", user.phone_number)
+        user.address = data.get("address", user.address)
 
         db.session.commit()
 
@@ -102,13 +109,16 @@ def update_profile():
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error updating profile: {str(e)}")
-        return jsonify(format_response(False, None, "An error occurred while updating profile")), 500
+        return (
+            jsonify(format_response(False, None, "An error occurred while updating profile")),
+            500,
+        )
 
 
 # ============================================================================
 # GET PROFILE STATS
 # ============================================================================
-@profile_bp.route('/stats', methods=['GET'])
+@profile_bp.route("/stats", methods=["GET"])
 @jwt_required()
 def get_profile_stats():
     """
@@ -133,10 +143,13 @@ def get_profile_stats():
         order_count = Order.query.filter_by(user_id=current_user_id).count()
 
         # 2. Get total payment amount
-        total_payment = db.session.query(func.coalesce(func.sum(Order.total_amount), 0)).join(Payment).filter(
-            Order.user_id == current_user_id,
-            Payment.status == 'successful'
-        ).scalar() or 0
+        total_payment = (
+            db.session.query(func.coalesce(func.sum(Order.total_amount), 0))
+            .join(Payment)
+            .filter(Order.user_id == current_user_id, Payment.status == "successful")
+            .scalar()
+            or 0
+        )
 
         # 3. Get wishlist count
         wishlist = WishList.query.filter_by(user_id=current_user_id).first()
@@ -149,21 +162,25 @@ def get_profile_stats():
             "order_count": order_count,
             "total_payment": round(float(total_payment), 2),
             "wishlist_count": wishlist_count,
-            "review_count": review_count
+            "review_count": review_count,
         }
 
-        return jsonify(format_response(True, {"stats": stats}, "Profile stats fetched successfully")), 200
+        return (
+            jsonify(format_response(True, {"stats": stats}, "Profile stats fetched successfully")),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error fetching profile stats: {str(e)}")
         return jsonify(format_response(False, None, "An error occurred while fetching stats")), 500
+
 
 # ============================================================================
 # GET PROFILE ORDERS
 # ============================================================================
 
 
-@profile_bp.route('/orders', methods=['GET'])
+@profile_bp.route("/orders", methods=["GET"])
 @jwt_required()
 def get_profile_orders():
     """
@@ -182,18 +199,26 @@ def get_profile_orders():
 
         recent_orders = orders[:5]
 
-        return jsonify(format_response(True, {"orders": recent_orders}, "Profile orders fetched successfully")), 200
+        return (
+            jsonify(
+                format_response(
+                    True, {"orders": recent_orders}, "Profile orders fetched successfully"
+                )
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error fetching profile orders: {str(e)}")
         return jsonify(format_response(False, None, "An error occurred while fetching orders")), 500
+
 
 # ============================================================================
 # GET PROFILE WISHLIST
 # ============================================================================
 
 
-@profile_bp.route('/wishlist', methods=['GET'])
+@profile_bp.route("/wishlist", methods=["GET"])
 @jwt_required()
 def get_profile_wishlist():
     """
@@ -221,12 +246,22 @@ def get_profile_wishlist():
                 "product_name": product.name,
                 "brand": product.brand.name if product.brand else "N/A",
                 "image_url": product.image_urls[0] if product.image_urls else None,
-                "price": float(product.price)
+                "price": float(product.price),
             }
             wishlist_items.append(item_data)
 
-        return jsonify(format_response(True, {"wishlist": wishlist_items}, "Profile wishlist fetched successfully")), 200
+        return (
+            jsonify(
+                format_response(
+                    True, {"wishlist": wishlist_items}, "Profile wishlist fetched successfully"
+                )
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error fetching profile wishlist: {str(e)}")
-        return jsonify(format_response(False, None, "An error occurred while fetching wishlist")), 500
+        return (
+            jsonify(format_response(False, None, "An error occurred while fetching wishlist")),
+            500,
+        )

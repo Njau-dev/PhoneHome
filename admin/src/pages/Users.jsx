@@ -74,11 +74,11 @@ const Users = () => {
                     Authorization: `Bearer ${token}`
                 }
             });
-            if (response.data.users) {
-                setUsersList(response.data.users);
-                setFilteredUsers(response.data.users);
+            if (response.data.data.users) {
+                setUsersList(response.data.data.users);
+                setFilteredUsers(response.data.data.users);
                 // Extract and count roles
-                processRoles(response.data.users);
+                processRoles(response.data.data.users);
             } else {
                 toast.error(response.data.message || 'Failed to fetch users');
             }
@@ -103,7 +103,7 @@ const Users = () => {
             onConfirm: async () => {
                 try {
                     setIsLoading(true);
-                    const response = await axios.delete(backendUrl + '/admin/user/' + id, {
+                    const response = await axios.delete(backendUrl + '/admin/users/' + id, {
                         headers: {
                             Authorization: `Bearer ${token}`
                         }
@@ -140,8 +140,8 @@ const Users = () => {
             onConfirm: async () => {
                 try {
                     setIsLoading(true);
-                    const response = await axios.patch(
-                        backendUrl + '/user/' + id + '/admin',
+                    const response = await axios.put(
+                        backendUrl + '/admin/users/' + id + '/promote',
                         { is_admin: !currentStatus },
                         {
                             headers: {

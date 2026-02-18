@@ -57,13 +57,13 @@ const EditProduct = () => {
 
         try {
             setIsLoading(true);
-            const response = await axios.get(`${backendUrl}/product/${productId}`, {
+            const response = await axios.get(`${backendUrl}/products/${productId}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
             });
 
-            const product = response.data;
+            const product = response.data.data.product;
 
             // Populate form with existing data
             setName(product.name || '');
@@ -118,7 +118,7 @@ const EditProduct = () => {
         const fetchCategories = async () => {
             try {
                 const response = await axios.get(backendUrl + '/categories');
-                setCategories(response.data.categories);
+                setCategories(response.data.data.categories);
             } catch (error) {
                 console.error('Error fetching categories:', error);
             }
@@ -130,7 +130,7 @@ const EditProduct = () => {
                     ? `${backendUrl}/brands?category=${selectedCategory}`
                     : `${backendUrl}/brands`;
                 const response = await axios.get(url);
-                setBrands(response.data);
+                setBrands(response.data.data.brands);
             } catch (error) {
                 console.error('Error fetching brands:', error);
             }
