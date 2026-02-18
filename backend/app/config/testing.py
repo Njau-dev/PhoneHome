@@ -1,4 +1,5 @@
 """Testing-specific configuration"""
+
 from sqlalchemy.pool import StaticPool
 
 from .base import BaseConfig
@@ -6,6 +7,7 @@ from .base import BaseConfig
 
 class TestingConfig(BaseConfig):
     """Testing configuration"""
+
     TESTING = True
     DEBUG = False
     WTF_CSRF_ENABLED = False

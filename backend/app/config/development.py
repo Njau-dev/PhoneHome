@@ -1,4 +1,5 @@
 """Development-specific configuration"""
+
 import os
 
 from .base import BaseConfig, parse_cors_origins
@@ -6,6 +7,7 @@ from .base import BaseConfig, parse_cors_origins
 
 class DevelopmentConfig(BaseConfig):
     """Development configuration"""
+
     DEBUG = True
     TESTING = False
 
@@ -18,16 +20,15 @@ class DevelopmentConfig(BaseConfig):
     SESSION_COOKIE_HTTPONLY = False
 
     # Disable HTTPS in development
-    PREFERRED_URL_SCHEME = 'http'
+    PREFERRED_URL_SCHEME = "http"
 
     # Development CORS settings
     CORS_ORIGINS = parse_cors_origins(
-        os.getenv('CORS_ORIGINS'),
-        'http://localhost:3000,http://localhost:5173'
+        os.getenv("CORS_ORIGINS"), "http://localhost:3000,http://localhost:5173"
     )
     CORS_RESOURCES = {
         r"/*": {
             "origins": CORS_ORIGINS,
-            "supports_credentials": BaseConfig.CORS_SUPPORTS_CREDENTIALS
+            "supports_credentials": BaseConfig.CORS_SUPPORTS_CREDENTIALS,
         }
     }

@@ -9,12 +9,10 @@ class FakeFile:
         self.filename = filename
 
 
-
 def _load_cloudinary_module(app):
     with app.app_context():
         module = importlib.import_module("app.services.cloudinary_service")
         return importlib.reload(module)
-
 
 
 def test_upload_image_success_maps_secure_url(app, monkeypatch):
@@ -31,7 +29,6 @@ def test_upload_image_success_maps_secure_url(app, monkeypatch):
 
     assert success is True
     assert result == "https://cdn.example.com/image.jpg"
-
 
 
 def test_upload_image_cloudinary_error_mapping_and_log(app, monkeypatch, caplog):
@@ -51,7 +48,6 @@ def test_upload_image_cloudinary_error_mapping_and_log(app, monkeypatch, caplog)
     assert "Cloudinary upload failed" in caplog.text
 
 
-
 def test_upload_image_invalid_extension_uses_allowed_extension_message(app, monkeypatch):
     module = _load_cloudinary_module(app)
     monkeypatch.setattr(module, "ALLOWED_EXTENSIONS", {"png"})
@@ -60,7 +56,6 @@ def test_upload_image_invalid_extension_uses_allowed_extension_message(app, monk
 
     assert success is False
     assert "Invalid file type. Allowed: png" == result
-
 
 
 def test_upload_images_partial_success_logs_warning(app, monkeypatch, caplog):
@@ -79,12 +74,13 @@ def test_upload_images_partial_success_logs_warning(app, monkeypatch, caplog):
     assert "Some uploads failed" in caplog.text
 
 
-
 def test_delete_image_success_and_failure_paths(app, monkeypatch):
     module = _load_cloudinary_module(app)
 
     monkeypatch.setattr(module.cloudinary.uploader, "destroy", lambda _public_id: {"result": "ok"})
     assert module.CloudinaryService.delete_image("img-1") is True
 
-    monkeypatch.setattr(module.cloudinary.uploader, "destroy", lambda _public_id: {"result": "not found"})
+    monkeypatch.setattr(
+        module.cloudinary.uploader, "destroy", lambda _public_id: {"result": "not found"}
+    )
     assert module.CloudinaryService.delete_image("img-2") is False

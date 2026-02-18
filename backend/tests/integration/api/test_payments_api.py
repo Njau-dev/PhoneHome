@@ -52,7 +52,9 @@ def test_initiate_mpesa_happy_path(client, auth_headers, cart, product, monkeypa
 
 
 def test_initiate_mpesa_empty_cart_error(client, auth_headers):
-    response = client.post("/api/payments/mpesa/initiate", headers=auth_headers, json=_payment_payload())
+    response = client.post(
+        "/api/payments/mpesa/initiate", headers=auth_headers, json=_payment_payload()
+    )
     body = response.get_json()
 
     assert response.status_code == 400
@@ -84,7 +86,9 @@ def test_initiate_mpesa_non_positive_amount_rejected(client, auth_headers, cart,
     assert "greater than 0" in body["message"]
 
 
-def test_initiate_mpesa_stk_failure_marks_order_failed(client, auth_headers, cart, product, monkeypatch):
+def test_initiate_mpesa_stk_failure_marks_order_failed(
+    client, auth_headers, cart, product, monkeypatch
+):
     db.session.add(CartItem(cart_id=cart.id, product_id=product.id, quantity=1))
     db.session.commit()
 

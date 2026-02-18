@@ -17,6 +17,7 @@ _test_ctx.push()
 def _notification_service(app):
     with app.app_context():
         from app.services.notification_service import NotificationService
+
         return NotificationService
 
 
@@ -31,8 +32,7 @@ def test_create_notification_happy_path(app, user):
 
 
 def test_create_notification_success_commits_and_returns_object(db, user):
-    notification = NotificationService.create_notification(
-        user.id, "Order dispatched")
+    notification = NotificationService.create_notification(user.id, "Order dispatched")
 
     assert notification is not None
     assert notification.user_id == user.id
@@ -46,8 +46,7 @@ def test_create_notification_db_error_rolls_back_and_logs(monkeypatch, caplog):
     def fail_add(_obj):
         raise RuntimeError("db write failed")
 
-    monkeypatch.setattr(
-        "app.services.notification_service.db.session.add", fail_add)
+    monkeypatch.setattr("app.services.notification_service.db.session.add", fail_add)
     monkeypatch.setattr(
         "app.services.notification_service.db.session.rollback",
         lambda: called.__setitem__("rollback", called["rollback"] + 1),
@@ -72,16 +71,17 @@ def test_get_user_notifications_unread_only_filters(app, user):
 
     assert len(unread) == 1
     assert unread[0]["message"] == "First"
-    assert {"id", "message", "is_read",
-            "created_at"}.issubset(unread[0].keys())
+    assert {"id", "message", "is_read", "created_at"}.issubset(unread[0].keys())
 
 
 def test_get_user_notifications_unread_filter_mapping(monkeypatch):
     rows = [
-        SimpleNamespace(id=1, message="Unread", is_read=False,
-                        created_at=datetime(2025, 1, 1, 10, 0, 0)),
-        SimpleNamespace(id=2, message="Unread 2", is_read=False,
-                        created_at=datetime(2025, 1, 2, 10, 0, 0)),
+        SimpleNamespace(
+            id=1, message="Unread", is_read=False, created_at=datetime(2025, 1, 1, 10, 0, 0)
+        ),
+        SimpleNamespace(
+            id=2, message="Unread 2", is_read=False, created_at=datetime(2025, 1, 2, 10, 0, 0)
+        ),
     ]
 
     class FakeQuery:
@@ -99,11 +99,9 @@ def test_get_user_notifications_unread_filter_mapping(monkeypatch):
             return rows
 
     fake_query = FakeQuery()
-    monkeypatch.setattr(
-        "app.services.notification_service.Notification.query", fake_query)
+    monkeypatch.setattr("app.services.notification_service.Notification.query", fake_query)
 
-    result = NotificationService.get_user_notifications(
-        user_id=9, unread_only=True)
+    result = NotificationService.get_user_notifications(user_id=9, unread_only=True)
 
     assert fake_query.filters == [{"user_id": 9}, {"is_read": False}]
     assert result[0]["id"] == 1
@@ -129,11 +127,9 @@ def test_mark_as_read_not_found_returns_false(monkeypatch):
         def first(self):
             return None
 
-    monkeypatch.setattr(
-        "app.services.notification_service.Notification.query", FakeReadQuery())
+    monkeypatch.setattr("app.services.notification_service.Notification.query", FakeReadQuery())
 
-    assert NotificationService.mark_as_read(
-        notification_id=1, user_id=2) is False
+    assert NotificationService.mark_as_read(notification_id=1, user_id=2) is False
 
 
 # Mark all as read tests
@@ -151,8 +147,7 @@ def test_mark_all_as_read_updates_unread_count(app, user):
     count = service.mark_all_as_read(user.id)
 
     assert count == 2
-    assert Notification.query.filter_by(
-        user_id=user.id, is_read=False).count() == 0
+    assert Notification.query.filter_by(user_id=user.id, is_read=False).count() == 0
 
 
 def test_mark_all_as_read_handles_update_error(monkeypatch, caplog):
@@ -165,8 +160,7 @@ def test_mark_all_as_read_handles_update_error(monkeypatch, caplog):
         def update(self, _payload):
             raise RuntimeError("update failed")
 
-    monkeypatch.setattr(
-        "app.services.notification_service.Notification.query", FakeUpdateQuery())
+    monkeypatch.setattr("app.services.notification_service.Notification.query", FakeUpdateQuery())
     monkeypatch.setattr(
         "app.services.notification_service.db.session.rollback",
         lambda: called.__setitem__("rollback", called["rollback"] + 1),

@@ -289,7 +289,9 @@ def test_create_product_handles_exception(client, admin_headers, category, brand
     _assert_response_shape(body)
 
 
-def test_update_product_happy_path_forwards_update_payload(client, admin_headers, product, monkeypatch):
+def test_update_product_happy_path_forwards_update_payload(
+    client, admin_headers, product, monkeypatch
+):
     captured = {}
 
     def _fake_update(product_id, product_data, new_image_files):

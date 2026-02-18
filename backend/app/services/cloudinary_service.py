@@ -2,6 +2,7 @@
 Cloudinary Service
 Handles image uploads to Cloudinary CDN
 """
+
 import logging
 
 import cloudinary
@@ -11,7 +12,7 @@ from flask import current_app
 logger = logging.getLogger(__name__)
 
 # Allowed image extensions
-ALLOWED_EXTENSIONS = current_app.config.get('ALLOWED_EXTENSIONS')
+ALLOWED_EXTENSIONS = current_app.config.get("ALLOWED_EXTENSIONS")
 
 
 class CloudinaryService:
@@ -24,11 +25,11 @@ class CloudinaryService:
         Should be called during app initialization
         """
         cloudinary.config(
-            cloud_name=current_app.config.get('CLOUDINARY_CLOUD_NAME'),
-            api_key=current_app.config.get('CLOUDINARY_API_KEY'),
-            api_secret=current_app.config.get('CLOUDINARY_API_SECRET'),
+            cloud_name=current_app.config.get("CLOUDINARY_CLOUD_NAME"),
+            api_key=current_app.config.get("CLOUDINARY_API_KEY"),
+            api_secret=current_app.config.get("CLOUDINARY_API_SECRET"),
             debug=True,
-            secure=True
+            secure=True,
         )
         logger.info("Cloudinary configured")
 
@@ -43,8 +44,7 @@ class CloudinaryService:
         Returns:
             True if allowed, False otherwise
         """
-        return '.' in filename and \
-               filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+        return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
     @staticmethod
     def upload_image(image_file):
@@ -69,7 +69,7 @@ class CloudinaryService:
             logger.info(f"Uploading {image_file.filename} to Cloudinary...")
             result = cloudinary.uploader.upload(image_file)
 
-            secure_url = result.get('secure_url')
+            secure_url = result.get("secure_url")
             logger.info(f"Upload successful: {secure_url}")
 
             return True, secure_url
@@ -109,8 +109,7 @@ class CloudinaryService:
         # If some succeeded
         if uploaded_urls:
             if failed_files:
-                logger.warning(
-                    f"Some uploads failed: {', '.join(failed_files)}")
+                logger.warning(f"Some uploads failed: {', '.join(failed_files)}")
             return True, uploaded_urls
 
         # All failed
@@ -131,7 +130,7 @@ class CloudinaryService:
         try:
             result = cloudinary.uploader.destroy(public_id)
 
-            if result.get('result') == 'ok':
+            if result.get("result") == "ok":
                 logger.info(f"Image deleted: {public_id}")
                 return True
             else:

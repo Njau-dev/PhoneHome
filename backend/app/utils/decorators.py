@@ -1,6 +1,7 @@
 """
 Custom decorators for routes
 """
+
 from functools import wraps
 
 from flask import jsonify, request
@@ -21,6 +22,7 @@ def admin_required(f):
         def admin_only_route():
             ...
     """
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         current_user_id = get_jwt_identity()
@@ -44,6 +46,7 @@ def validate_json(*required_fields):
             data = request.get_json()
             # email and password are guaranteed to exist
     """
+
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
@@ -53,15 +56,16 @@ def validate_json(*required_fields):
             data = request.get_json()
 
             # Check for required fields
-            missing_fields = [
-                field for field in required_fields if not data.get(field)]
+            missing_fields = [field for field in required_fields if not data.get(field)]
 
             if missing_fields:
-                return jsonify({
-                    "error": f"Missing required fields: {', '.join(missing_fields)}"
-                }), 400
+                return (
+                    jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}),
+                    400,
+                )
 
             return f(*args, **kwargs)
 
         return wrapped
+
     return decorator

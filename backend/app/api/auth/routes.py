@@ -2,6 +2,7 @@
 Authentication Routes Blueprint
 Handles: signup, login, logout, password reset
 """
+
 import logging
 import os
 import re
@@ -20,7 +21,7 @@ from app.utils.response_formatter import format_response
 logger = logging.getLogger(__name__)
 
 # Create blueprint
-auth_bp = Blueprint('auth', __name__)
+auth_bp = Blueprint("auth", __name__)
 
 
 def _get_serializer():
@@ -35,7 +36,7 @@ def _get_serializer():
 # ============================================================================
 
 
-@auth_bp.route('/signup', methods=['POST'])
+@auth_bp.route("/signup", methods=["POST"])
 def signup():
     """
     User registration endpoint
@@ -58,10 +59,10 @@ def signup():
         data = request.get_json()
 
         # Validate required fields
-        username = data.get('username')
-        email = data.get('email')
-        phone_number = data.get('phone_number')
-        password = data.get('password')
+        username = data.get("username")
+        email = data.get("email")
+        phone_number = data.get("phone_number")
+        password = data.get("password")
 
         if not all([email, phone_number, password, username]):
             return jsonify(format_response(False, None, "Missing required fields")), 400
@@ -73,10 +74,7 @@ def signup():
         # Create new user
         hashed_password = generate_password_hash(password)
         new_user = User(
-            username=username,
-            email=email,
-            phone_number=phone_number,
-            password_hash=hashed_password
+            username=username, email=email, phone_number=phone_number, password_hash=hashed_password
         )
 
         db.session.add(new_user)
@@ -86,31 +84,33 @@ def signup():
         notification = Notification(
             user_id=new_user.id,
             message="Your account has been created successfully.",
-            is_read=False
+            is_read=False,
         )
         db.session.add(notification)
         db.session.commit()
 
         # Generate token
-        token = create_access_token(
-            identity=str(new_user.id),
-            expires_delta=timedelta(days=1)
-        )
+        token = create_access_token(identity=str(new_user.id), expires_delta=timedelta(days=1))
 
         logger.info(f"New user registered: {email}")
 
-        return jsonify(format_response(
-            True,
-            {
-                "token": token,
-                "user": {
-                    "id": new_user.id,
-                    "username": new_user.username,
-                    "email": new_user.email
-                }
-            },
-            "Sign-Up Successful!"
-        )), 201
+        return (
+            jsonify(
+                format_response(
+                    True,
+                    {
+                        "token": token,
+                        "user": {
+                            "id": new_user.id,
+                            "username": new_user.username,
+                            "email": new_user.email,
+                        },
+                    },
+                    "Sign-Up Successful!",
+                )
+            ),
+            201,
+        )
 
     except Exception as e:
         db.session.rollback()
@@ -121,7 +121,7 @@ def signup():
 # ============================================================================
 # LOGIN
 # ============================================================================
-@auth_bp.route('/login', methods=['POST'])
+@auth_bp.route("/login", methods=["POST"])
 def login():
     """
     User login endpoint
@@ -139,8 +139,8 @@ def login():
     """
     try:
         data = request.get_json()
-        email = data.get('email')
-        password = data.get('password')
+        email = data.get("email")
+        password = data.get("password")
 
         if not email or not password:
             return jsonify(format_response(False, None, "Email and password are required")), 400
@@ -150,27 +150,29 @@ def login():
 
         # Verify credentials
         if user and check_password_hash(user.password_hash, password):
-            token = create_access_token(
-                identity=str(user.id),
-                expires_delta=timedelta(days=1)
-            )
+            token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=1))
 
             logger.info(f"User logged in: {email}")
 
-            return jsonify(format_response(
-                True,
-                {
-                    "token": token,
-                    "user": {
-                        "id": user.id,
-                        "username": user.username,
-                        "email": user.email,
-                        "role": user.role or "user",
-                        "created_at": user.created_at
-                    }
-                },
-                "Login successful"
-            )), 200
+            return (
+                jsonify(
+                    format_response(
+                        True,
+                        {
+                            "token": token,
+                            "user": {
+                                "id": user.id,
+                                "username": user.username,
+                                "email": user.email,
+                                "role": user.role or "user",
+                                "created_at": user.created_at,
+                            },
+                        },
+                        "Login successful",
+                    )
+                ),
+                200,
+            )
         else:
             return jsonify(format_response(False, None, "Invalid Email or Password!")), 400
 
@@ -182,7 +184,7 @@ def login():
 # ============================================================================
 # LOGOUT
 # ============================================================================
-@auth_bp.route('/logout', methods=['DELETE'])
+@auth_bp.route("/logout", methods=["DELETE"])
 @jwt_required()
 def logout():
     """
@@ -196,7 +198,7 @@ def logout():
     """
     try:
         # Get the JWT ID from the token
-        jti = get_jwt()['jti']
+        jti = get_jwt()["jti"]
 
         # Check if the token already exists in the blacklist
         if BlacklistToken.query.filter_by(token=jti).first():
@@ -220,7 +222,7 @@ def logout():
 # ============================================================================
 # FORGOT PASSWORD
 # ============================================================================
-@auth_bp.route('/forgot-password', methods=['POST'])
+@auth_bp.route("/forgot-password", methods=["POST"])
 def forgot_password():
     """
     Initiate password reset process
@@ -236,7 +238,7 @@ def forgot_password():
         500: Server error
     """
     try:
-        email = request.json.get('email')
+        email = request.json.get("email")
 
         if not email:
             return jsonify(format_response(False, None, "Email is required")), 400
@@ -249,11 +251,16 @@ def forgot_password():
 
         # Always return success to prevent email enumeration
         if not user:
-            return jsonify(format_response(True, None, "If that email exists, we've sent a reset link")), 200
+            return (
+                jsonify(
+                    format_response(True, None, "If that email exists, we've sent a reset link")
+                ),
+                200,
+            )
 
         try:
             # Generate reset token
-            token = _get_serializer().dumps(email, salt='password-reset')
+            token = _get_serializer().dumps(email, salt="password-reset")
             reset_url = f"{os.getenv('FRONTEND_URL')}/reset-password/{token}"
             logger.info(f"Password reset link: {reset_url}")
             logger.info(f"Email: {email}")
@@ -272,7 +279,8 @@ def forgot_password():
 
             if not email_result.get("success"):
                 logger.error(
-                    f"Failed to send password reset email to {email}: {email_result.get('error')}")
+                    f"Failed to send password reset email to {email}: {email_result.get('error')}"
+                )
                 return jsonify(format_response(False, None, "Failed to send reset email")), 500
 
             logger.info(f"Password reset email sent to: {email}")
@@ -282,7 +290,10 @@ def forgot_password():
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error in password reset process: {str(e)}")
-            return jsonify(format_response(False, None, "An error occurred processing your request")), 500
+            return (
+                jsonify(format_response(False, None, "An error occurred processing your request")),
+                500,
+            )
 
     except Exception as e:
         logger.error(f"Unexpected error in forgot password: {str(e)}")
@@ -292,7 +303,7 @@ def forgot_password():
 # ============================================================================
 # RESET PASSWORD
 # ============================================================================
-@auth_bp.route('/reset-password/<token>', methods=['POST'])
+@auth_bp.route("/reset-password/<token>", methods=["POST"])
 def reset_password(token):
     """
     Reset password with token
@@ -308,21 +319,24 @@ def reset_password(token):
         500: Server error
     """
     try:
-        if not request.json or 'password' not in request.json:
+        if not request.json or "password" not in request.json:
             return jsonify(format_response(False, None, "New password is required")), 400
 
-        new_password = request.json.get('password')
+        new_password = request.json.get("password")
 
         # Validate password length
         if len(new_password) < 8:
-            return jsonify(format_response(False, None, "Password must be at least 8 characters long")), 400
+            return (
+                jsonify(
+                    format_response(False, None, "Password must be at least 8 characters long")
+                ),
+                400,
+            )
 
         try:
             # Verify token
             email = _get_serializer().loads(
-                token,
-                salt='password-reset',
-                max_age=int(os.getenv("PASSWORD_RESET_TIMEOUT", 3600))
+                token, salt="password-reset", max_age=int(os.getenv("PASSWORD_RESET_TIMEOUT", 3600))
             )
         except Exception:
             return jsonify(format_response(False, None, "Invalid or expired token")), 400
@@ -345,9 +359,7 @@ def reset_password(token):
 
             # Create notification
             notification = Notification(
-                user_id=user.id,
-                message="Your password has been reset successfully.",
-                is_read=False
+                user_id=user.id, message="Your password has been reset successfully.", is_read=False
             )
             db.session.add(notification)
             db.session.commit()
@@ -369,7 +381,7 @@ def reset_password(token):
 # ============================================================================
 # ADMIN LOGIN
 # ============================================================================
-@auth_bp.route('/admin/login', methods=['POST'])
+@auth_bp.route("/admin/login", methods=["POST"])
 def admin_login():
     """
     Admin login endpoint
@@ -388,8 +400,8 @@ def admin_login():
     """
     try:
         data = request.get_json()
-        email = data.get('email')
-        password = data.get('password')
+        email = data.get("email")
+        password = data.get("password")
 
         if not email or not password:
             return jsonify(format_response(False, None, "Email and password are required")), 400
@@ -399,25 +411,29 @@ def admin_login():
         if admin and check_password_hash(admin.password_hash, password):
             # Create token with 2 hour expiration for admins
             access_token = create_access_token(
-                identity=str(admin.id),
-                expires_delta=timedelta(hours=2)
+                identity=str(admin.id), expires_delta=timedelta(hours=2)
             )
 
             logger.info(f"Admin logged in: {email}")
 
-            return jsonify(format_response(
-                True,
-                {
-                    "access_token": access_token,
-                    "user": {
-                        "id": admin.id,
-                        "name": admin.username,
-                        "email": admin.email,
-                        "role": "admin"
-                    }
-                },
-                "Login successful"
-            )), 200
+            return (
+                jsonify(
+                    format_response(
+                        True,
+                        {
+                            "access_token": access_token,
+                            "user": {
+                                "id": admin.id,
+                                "name": admin.username,
+                                "email": admin.email,
+                                "role": "admin",
+                            },
+                        },
+                        "Login successful",
+                    )
+                ),
+                200,
+            )
         else:
             return jsonify(format_response(False, None, "Invalid credentials!")), 401
 

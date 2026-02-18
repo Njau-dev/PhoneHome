@@ -1,12 +1,13 @@
 """
 JWT callbacks configuration
 """
+
 from app.models import BlacklistToken
 
 
 def is_token_blacklisted(jwt_payload):
     """Check if token JTI is in blacklist"""
-    jti = jwt_payload['jti']
+    jti = jwt_payload["jti"]
     return BlacklistToken.query.filter_by(token=jti).first() is not None
 
 
@@ -26,33 +27,21 @@ def setup_jwt_callbacks(jwt):
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
         """Handle expired tokens"""
-        return {
-            "error": "Token expired",
-            "message": "Please log in again"
-        }, 401
+        return {"error": "Token expired", "message": "Please log in again"}, 401
 
     @jwt.invalid_token_loader
     def invalid_token_callback(error):
         """Handle invalid/malformed tokens"""
-        return {
-            "error": "Invalid token",
-            "message": "Token is malformed or invalid"
-        }, 401
+        return {"error": "Invalid token", "message": "Token is malformed or invalid"}, 401
 
     @jwt.unauthorized_loader
     def missing_token_callback(error):
         """Handle missing tokens"""
-        return {
-            "error": "Authorization required",
-            "message": "Access token is missing"
-        }, 401
+        return {"error": "Authorization required", "message": "Access token is missing"}, 401
 
     @jwt.revoked_token_loader
     def revoked_token_callback(jwt_header, jwt_payload):
         """Handle revoked/blacklisted tokens"""
-        return {
-            "error": "Token revoked",
-            "message": "Token has been logged out"
-        }, 401
+        return {"error": "Token revoked", "message": "Token has been logged out"}, 401
 
     print("✅ JWT callbacks configured successfully")

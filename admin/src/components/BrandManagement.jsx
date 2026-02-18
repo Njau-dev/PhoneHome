@@ -37,7 +37,7 @@ const BrandManagement = () => {
     const fetchCategories = async () => {
         try {
             const response = await axios.get(backendUrl + '/categories');
-            setCategories(response.data.categories);
+            setCategories(response.data.data.categories);
         } catch (error) {
             console.error('Error fetching categories:', error);
             toast.error('Failed to fetch categories');
@@ -45,9 +45,15 @@ const BrandManagement = () => {
     };
 
     const fetchBrandsByCategory = async () => {
+        if (!token) return;
         try {
-            const response = await axios.get(backendUrl + '/brands');
-            const brands = response.data;
+            const response = await axios.get(backendUrl + '/brands/all', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const brands = response.data.data.brands;
+            console.log('Fetched brands:', brands);
 
             // Group brands by category (now each brand can have multiple categories)
             const grouped = {};

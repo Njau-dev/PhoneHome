@@ -16,16 +16,15 @@ from app.services.product_service import ProductService
 
 __all__ = [
     # New services
-    'NotificationService',
-    'create_notification',
-    'CloudinaryService',
-    'upload_image',
-    'upload_images',
-    'ProductService',
-    'CartService',
-    'OrderService',
-
+    "NotificationService",
+    "create_notification",
+    "CloudinaryService",
+    "upload_image",
+    "upload_images",
+    "ProductService",
+    "CartService",
+    "OrderService",
     # Existing services
-    'EmailService',
-    'MpesaService',
+    "EmailService",
+    "MpesaService",
 ]

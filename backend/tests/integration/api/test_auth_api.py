@@ -1,5 +1,3 @@
-
-
 def _assert_response_shape(payload):
     assert {"success", "data", "message"}.issubset(payload.keys())
 

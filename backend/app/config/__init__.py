@@ -1,4 +1,5 @@
 """Configuration loader"""
+
 from .base import ENVIRONMENT
 from .development import DevelopmentConfig
 from .production import ProductionConfig
@@ -11,10 +12,10 @@ def get_config(config_name=None):
         config_name = ENVIRONMENT
 
     config_map = {
-        'development': DevelopmentConfig,
-        'production': ProductionConfig,
-        'testing': TestingConfig,
-        'default': DevelopmentConfig
+        "development": DevelopmentConfig,
+        "production": ProductionConfig,
+        "testing": TestingConfig,
+        "default": DevelopmentConfig,
     }
 
     print(f"Loading configuration for: {config_name}")

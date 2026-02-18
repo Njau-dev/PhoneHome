@@ -2,6 +2,7 @@
 Wishlist Routes Blueprint
 Handles: viewing wishlist, adding/removing products
 """
+
 import logging
 
 from flask import Blueprint, jsonify, request
@@ -14,13 +15,13 @@ from app.utils.response_formatter import format_response
 logger = logging.getLogger(__name__)
 
 # Create blueprint
-wishlist_bp = Blueprint('wishlist', __name__)
+wishlist_bp = Blueprint("wishlist", __name__)
 
 
 # ============================================================================
 # GET WISHLIST
 # ============================================================================
-@wishlist_bp.route('/', methods=['GET'])
+@wishlist_bp.route("/", methods=["GET"])
 @jwt_required()
 def get_wishlist():
     """
@@ -54,21 +55,29 @@ def get_wishlist():
                 "image_url": product.image_urls[0] if product.image_urls else None,
                 "price": float(product.price),
                 "brand": product.brand.name if product.brand else "N/A",
-                "category": product.category.name if product.category else "N/A"
+                "category": product.category.name if product.category else "N/A",
             }
             wishlist_items.append(item_data)
 
-        return jsonify(format_response(True, {"wishlist": wishlist_items}, "Wishlist fetched successfully")), 200
+        return (
+            jsonify(
+                format_response(True, {"wishlist": wishlist_items}, "Wishlist fetched successfully")
+            ),
+            200,
+        )
 
     except Exception as e:
         logger.error(f"Error fetching wishlist: {str(e)}")
-        return jsonify(format_response(False, None, "An error occurred while fetching wishlist")), 500
+        return (
+            jsonify(format_response(False, None, "An error occurred while fetching wishlist")),
+            500,
+        )
 
 
 # ============================================================================
 # ADD TO WISHLIST
 # ============================================================================
-@wishlist_bp.route('/', methods=['POST'])
+@wishlist_bp.route("/", methods=["POST"])
 @jwt_required()
 def add_to_wishlist():
     """
@@ -93,11 +102,11 @@ def add_to_wishlist():
         data = request.get_json()
 
         # Validate request
-        if not data or 'product_id' not in data:
+        if not data or "product_id" not in data:
             return jsonify(format_response(False, None, "Product ID is required")), 400
 
         try:
-            product_id = int(data['product_id'])
+            product_id = int(data["product_id"])
         except (TypeError, ValueError):
             return jsonify(format_response(False, None, "Invalid product ID format")), 400
 
@@ -121,20 +130,22 @@ def add_to_wishlist():
         wishlist.products.append(product)
         db.session.commit()
 
-        logger.info(
-            f"User {current_user_id} added product {product_id} to wishlist")
+        logger.info(f"User {current_user_id} added product {product_id} to wishlist")
         return jsonify(format_response(True, None, "Product added to wishlist!")), 200
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error adding to wishlist: {str(e)}")
-        return jsonify(format_response(False, None, "An error occurred while adding to wishlist")), 500
+        return (
+            jsonify(format_response(False, None, "An error occurred while adding to wishlist")),
+            500,
+        )
 
 
 # ============================================================================
 # REMOVE FROM WISHLIST
 # ============================================================================
-@wishlist_bp.route('/<int:product_id>', methods=['DELETE'])
+@wishlist_bp.route("/<int:product_id>", methods=["DELETE"])
 @jwt_required()
 def remove_from_wishlist(product_id):
     """
@@ -171,11 +182,13 @@ def remove_from_wishlist(product_id):
         wishlist.products.remove(product)
         db.session.commit()
 
-        logger.info(
-            f"User {current_user_id} removed product {product_id} from wishlist")
+        logger.info(f"User {current_user_id} removed product {product_id} from wishlist")
         return jsonify(format_response(True, None, "Product removed from wishlist!")), 200
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error removing from wishlist: {str(e)}")
-        return jsonify(format_response(False, None, "An error occurred while removing from wishlist")), 500
+        return (
+            jsonify(format_response(False, None, "An error occurred while removing from wishlist")),
+            500,
+        )

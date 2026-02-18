@@ -30,7 +30,9 @@ def test_get_profile_stats_empty_dataset(client, auth_headers):
 
     assert response.status_code == 200
     _assert_response_shape(body)
-    assert {"order_count", "total_payment", "wishlist_count", "review_count"}.issubset(body["data"]["stats"].keys())
+    assert {"order_count", "total_payment", "wishlist_count", "review_count"}.issubset(
+        body["data"]["stats"].keys()
+    )
 
 
 def test_profile_requires_authentication(client):

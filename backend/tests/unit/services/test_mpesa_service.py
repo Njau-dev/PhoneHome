@@ -25,7 +25,6 @@ class MockResponse:
         return self.payload
 
 
-
 def _mpesa_config():
     return {
         "MPESA_CONSUMER_KEY": "key",
@@ -34,7 +33,6 @@ def _mpesa_config():
         "MPESA_PASSKEY": "passkey",
         "BACKEND_URL": "https://backend.test",
     }
-
 
 
 def test_get_access_token_success(monkeypatch):
@@ -51,7 +49,6 @@ def test_get_access_token_success(monkeypatch):
     assert error is None
 
 
-
 def test_get_access_token_timeout_maps_error(monkeypatch):
     service = MpesaService(_mpesa_config())
 
@@ -66,7 +63,6 @@ def test_get_access_token_timeout_maps_error(monkeypatch):
     assert "Failed to get access token" in error
 
 
-
 def test_get_access_token_missing_payload_field_maps_error(monkeypatch):
     service = MpesaService(_mpesa_config())
 
@@ -79,7 +75,6 @@ def test_get_access_token_missing_payload_field_maps_error(monkeypatch):
 
     assert token is None
     assert error == "Failed to retrieve access token"
-
 
 
 def test_initiate_payment_success_response_mapping(monkeypatch):
@@ -113,7 +108,6 @@ def test_initiate_payment_success_response_mapping(monkeypatch):
     assert captured["json"]["PhoneNumber"] == "254712345678"
 
 
-
 def test_initiate_payment_4xx_and_no_retry(monkeypatch):
     service = MpesaService(_mpesa_config())
     monkeypatch.setattr(service, "get_access_token", lambda: ("token", None))
@@ -134,7 +128,6 @@ def test_initiate_payment_4xx_and_no_retry(monkeypatch):
     assert attempts["count"] == 1
 
 
-
 def test_initiate_payment_malformed_response_maps_mpesa_error(monkeypatch):
     service = MpesaService(_mpesa_config())
     monkeypatch.setattr(service, "get_access_token", lambda: ("token", None))
@@ -149,7 +142,6 @@ def test_initiate_payment_malformed_response_maps_mpesa_error(monkeypatch):
 
     assert result["success"] is False
     assert result["error"] == "M-Pesa error: STK Push failed"
-
 
 
 def test_process_callback_complete_payload_success():
@@ -175,7 +167,6 @@ def test_process_callback_complete_payload_success():
     assert result["success"] is True
     assert result["data"]["metadata"]["Amount"] == 1500
     assert result["data"]["checkout_request_id"] == "checkout-complete"
-
 
 
 def test_process_callback_partial_payload_failure_mapping():

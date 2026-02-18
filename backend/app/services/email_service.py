@@ -2,6 +2,7 @@
 Email Service
 Handles sending various types of emails (order confirmations, password resets, etc.)
 """
+
 import base64
 import logging
 from datetime import UTC, datetime, timedelta
@@ -103,14 +104,11 @@ class EmailService:
 
     def _load_config(self):
         """Load and validate email configuration"""
-        self.brevo_api_key = self.config.get('BREVO_API_KEY')
-        self.brevo_sender_email = self.config.get(
-            'BREVO_SENDER_EMAIL', 'no-reply@phonehome.co.ke')
-        self.brevo_sender_name = self.config.get(
-            'BREVO_SENDER_NAME', 'Phone Home')
-        self.secret_key = self.config.get('SECRET_KEY')
-        self.backend_url = self.config.get(
-            'BACKEND_URL', 'http://localhost:5000')
+        self.brevo_api_key = self.config.get("BREVO_API_KEY")
+        self.brevo_sender_email = self.config.get("BREVO_SENDER_EMAIL", "no-reply@phonehome.co.ke")
+        self.brevo_sender_name = self.config.get("BREVO_SENDER_NAME", "Phone Home")
+        self.secret_key = self.config.get("SECRET_KEY")
+        self.backend_url = self.config.get("BACKEND_URL", "http://localhost:5000")
 
         # Validate required config
         self._validate_config()
@@ -159,23 +157,17 @@ class EmailService:
         try:
             if not self.brevo_api_key:
                 logger.error("BREVO_API_KEY not configured")
-                return {
-                    "success": False,
-                    "error": "Email service not configured"
-                }
+                return {"success": False, "error": "Email service not configured"}
 
             # Configure Brevo API
             brevo_config = Configuration()
-            brevo_config.api_key['api-key'] = self.brevo_api_key
+            brevo_config.api_key["api-key"] = self.brevo_api_key
 
             api_client = ApiClient(brevo_config)
             api_instance = TransactionalEmailsApi(api_client)
 
             # Setup sender and recipient
-            sender = SendSmtpEmailTo(
-                email=self.brevo_sender_email,
-                name=self.brevo_sender_name
-            )
+            sender = SendSmtpEmailTo(email=self.brevo_sender_email, name=self.brevo_sender_name)
             recipient = [SendSmtpEmailTo(email=to_email)]
 
             # Create email object
@@ -183,7 +175,7 @@ class EmailService:
                 "to": recipient,
                 "sender": sender,
                 "subject": subject,
-                "html_content": html_content
+                "html_content": html_content,
             }
 
             if attachments:
@@ -199,10 +191,7 @@ class EmailService:
 
         except Exception as e:
             logger.error(f"Failed to send email to {to_email}: {str(e)}")
-            return {
-                "success": False,
-                "error": f"Failed to send email: {str(e)}"
-            }
+            return {"success": False, "error": f"Failed to send email: {str(e)}"}
 
     def _generate_pdf(self, content, filename):
         """
@@ -227,7 +216,7 @@ class EmailService:
             # Get PDF content and encode
             pdf_buffer.seek(0)
             pdf_content = pdf_buffer.getvalue()
-            pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
+            pdf_base64 = base64.b64encode(pdf_content).decode("utf-8")
 
             # Create attachment object
             attachment = SendSmtpEmailAttachment(
@@ -254,8 +243,8 @@ class EmailService:
         """
         try:
             # Ensure current_year is in context
-            if 'current_year' not in context:
-                context['current_year'] = datetime.now(UTC).year
+            if "current_year" not in context:
+                context["current_year"] = datetime.now(UTC).year
 
             return render_template_string(source=template, **context)
         except Exception as e:
@@ -287,17 +276,11 @@ class EmailService:
 
             # Render email template
             html = self._render_template(
-                template=self.BASE_TEMPLATE,
-                subject=subject,
-                content=content
+                template=self.BASE_TEMPLATE, subject=subject, content=content
             )
 
             # Send email
-            result = self._send_email(
-                to_email=user_email,
-                subject=subject,
-                html_content=html
-            )
+            result = self._send_email(to_email=user_email, subject=subject, html_content=html)
 
             if result["success"]:
                 logger.info(f"Password reset email sent to {user_email}")
@@ -305,12 +288,8 @@ class EmailService:
             return result
 
         except Exception as e:
-            logger.error(
-                f"Error sending password reset to {user_email}: {str(e)}")
-            return {
-                "success": False,
-                "error": f"Failed to send password reset email: {str(e)}"
-            }
+            logger.error(f"Error sending password reset to {user_email}: {str(e)}")
+            return {"success": False, "error": f"Failed to send password reset email: {str(e)}"}
 
     def send_order_confirmation(self, order):
         """
@@ -328,10 +307,7 @@ class EmailService:
         try:
             # Get recipient email from order address
             if not order.address or not order.address.email:
-                return {
-                    "success": False,
-                    "error": "Order has no email address"
-                }
+                return {"success": False, "error": "Order has no email address"}
 
             recipient_email = order.address.email
             subject = f"Order Confirmation #{order.order_reference}"
@@ -340,8 +316,11 @@ class EmailService:
             items_html = ""
             for item in order.order_items:
                 try:
-                    price = float(item.variation_price if item.variation_price is not None
-                                  else item.product.price)
+                    price = float(
+                        item.variation_price
+                        if item.variation_price is not None
+                        else item.product.price
+                    )
                     items_html += f"""
                     <div class="order-item">
                         <p><strong>{item.product.name}</strong> (Qty: {item.quantity})</p>
@@ -380,13 +359,12 @@ class EmailService:
 
             # Render email template
             html = self._render_template(
-                template=self.BASE_TEMPLATE,
-                subject=subject,
-                content=content
+                template=self.BASE_TEMPLATE, subject=subject, content=content
             )
 
             # Generate PDF invoice
-            invoice_content = self._render_template("""
+            invoice_content = self._render_template(
+                """
             <!DOCTYPE html>
             <html>
             <head>
@@ -427,10 +405,11 @@ class EmailService:
                 </div>
             </body>
             </html>
-            """, order=order)
+            """,
+                order=order,
+            )
 
-            pdf_attachment = self._generate_pdf(
-                invoice_content, f"invoice_{order.order_reference}")
+            pdf_attachment = self._generate_pdf(invoice_content, f"invoice_{order.order_reference}")
 
             attachments = [pdf_attachment] if pdf_attachment else None
 
@@ -439,21 +418,17 @@ class EmailService:
                 to_email=recipient_email,
                 subject=subject,
                 html_content=html,
-                attachments=attachments
+                attachments=attachments,
             )
 
             if result["success"]:
-                logger.info(
-                    f"Order confirmation sent for order #{order.order_reference}")
+                logger.info(f"Order confirmation sent for order #{order.order_reference}")
 
             return result
 
         except Exception as e:
             logger.error(f"Error sending order confirmation: {str(e)}")
-            return {
-                "success": False,
-                "error": f"Failed to send order confirmation: {str(e)}"
-            }
+            return {"success": False, "error": f"Failed to send order confirmation: {str(e)}"}
 
     def send_payment_notification(self, payment):
         """
@@ -471,10 +446,7 @@ class EmailService:
         try:
             order = payment.order
             if not order.address or not order.address.email:
-                return {
-                    "success": False,
-                    "error": "Order has no email address"
-                }
+                return {"success": False, "error": "Order has no email address"}
 
             recipient_email = order.address.email
             subject = f"Payment {payment.status} - Order #{order.order_reference}"
@@ -492,20 +464,19 @@ class EmailService:
             """
 
             if payment.transaction_id:
-                content += f'<p><strong>Transaction ID:</strong> {payment.transaction_id}</p>'
+                content += f"<p><strong>Transaction ID:</strong> {payment.transaction_id}</p>"
 
             if payment.mpesa_receipt:
-                content += f'<p><strong>M-Pesa Receipt:</strong> {payment.mpesa_receipt}</p>'
+                content += f"<p><strong>M-Pesa Receipt:</strong> {payment.mpesa_receipt}</p>"
 
             # Render email template
             html = self._render_template(
-                template=self.BASE_TEMPLATE,
-                subject=subject,
-                content=content
+                template=self.BASE_TEMPLATE, subject=subject, content=content
             )
 
             # Generate receipt PDF
-            receipt_content = self._render_template("""
+            receipt_content = self._render_template(
+                """
             <!DOCTYPE html>
             <html>
             <head>
@@ -541,10 +512,12 @@ class EmailService:
                 </div>
             </body>
             </html>
-            """, order=order, payment=payment)
+            """,
+                order=order,
+                payment=payment,
+            )
 
-            pdf_attachment = self._generate_pdf(
-                receipt_content, f"receipt_{order.order_reference}")
+            pdf_attachment = self._generate_pdf(receipt_content, f"receipt_{order.order_reference}")
 
             attachments = [pdf_attachment] if pdf_attachment else None
 
@@ -553,21 +526,17 @@ class EmailService:
                 to_email=recipient_email,
                 subject=subject,
                 html_content=html,
-                attachments=attachments
+                attachments=attachments,
             )
 
             if result["success"]:
-                logger.info(
-                    f"Payment notification sent for order #{order.order_reference}")
+                logger.info(f"Payment notification sent for order #{order.order_reference}")
 
             return result
 
         except Exception as e:
             logger.error(f"Error sending payment notification: {str(e)}")
-            return {
-                "success": False,
-                "error": f"Failed to send payment notification: {str(e)}"
-            }
+            return {"success": False, "error": f"Failed to send payment notification: {str(e)}"}
 
     def send_shipment_update(self, order, old_status, new_status):
         """
@@ -586,10 +555,7 @@ class EmailService:
         """
         try:
             if not order.address or not order.address.email:
-                return {
-                    "success": False,
-                    "error": "Order has no email address"
-                }
+                return {"success": False, "error": "Order has no email address"}
 
             recipient_email = order.address.email
             subject = f"Shipment Update for Order #{order.order_reference}"
@@ -604,39 +570,28 @@ class EmailService:
 
             # Add estimated delivery for shipped orders
             if new_status.lower() in ["shipped", "out for delivery"]:
-                delivery_date = (datetime.now() +
-                                 timedelta(days=3)).strftime('%B %d, %Y')
-                content += f'<p><strong>Estimated Delivery:</strong> {delivery_date}</p>'
+                delivery_date = (datetime.now() + timedelta(days=3)).strftime("%B %d, %Y")
+                content += f"<p><strong>Estimated Delivery:</strong> {delivery_date}</p>"
 
             if new_status.lower() == "delivered":
-                content += '<p>Your order has been delivered successfully. Thank you for shopping with us!</p>'
+                content += "<p>Your order has been delivered successfully. Thank you for shopping with us!</p>"
 
             # Render email template
             html = self._render_template(
-                template=self.BASE_TEMPLATE,
-                subject=subject,
-                content=content
+                template=self.BASE_TEMPLATE, subject=subject, content=content
             )
 
             # Send email
-            result = self._send_email(
-                to_email=recipient_email,
-                subject=subject,
-                html_content=html
-            )
+            result = self._send_email(to_email=recipient_email, subject=subject, html_content=html)
 
             if result["success"]:
-                logger.info(
-                    f"Shipment update sent for order #{order.order_reference}")
+                logger.info(f"Shipment update sent for order #{order.order_reference}")
 
             return result
 
         except Exception as e:
             logger.error(f"Error sending shipment update: {str(e)}")
-            return {
-                "success": False,
-                "error": f"Failed to send shipment update: {str(e)}"
-            }
+            return {"success": False, "error": f"Failed to send shipment update: {str(e)}"}
 
     def send_review_request(self, order_item):
         """
@@ -654,10 +609,7 @@ class EmailService:
         try:
             order = order_item.order
             if not order.address or not order.address.email:
-                return {
-                    "success": False,
-                    "error": "Order has no email address"
-                }
+                return {"success": False, "error": "Order has no email address"}
 
             recipient_email = order.address.email
             product_name = order_item.product.name
@@ -676,17 +628,11 @@ class EmailService:
 
             # Render email template
             html = self._render_template(
-                template=self.BASE_TEMPLATE,
-                subject=subject,
-                content=content
+                template=self.BASE_TEMPLATE, subject=subject, content=content
             )
 
             # Send email
-            result = self._send_email(
-                to_email=recipient_email,
-                subject=subject,
-                html_content=html
-            )
+            result = self._send_email(to_email=recipient_email, subject=subject, html_content=html)
 
             if result["success"]:
                 logger.info(f"Review request sent for product {product_name}")
@@ -695,7 +641,4 @@ class EmailService:
 
         except Exception as e:
             logger.error(f"Error sending review request: {str(e)}")
-            return {
-                "success": False,
-                "error": f"Failed to send review request: {str(e)}"
-            }
+            return {"success": False, "error": f"Failed to send review request: {str(e)}"}

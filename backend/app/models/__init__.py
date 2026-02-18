@@ -30,43 +30,36 @@ from .wishlist import Compare, CompareItem, WishList, wishlist_products
 # Export all models for easy importing
 __all__ = [
     # User
-    'User',
-    'Admin',
-    'BlacklistToken',
-
+    "User",
+    "Admin",
+    "BlacklistToken",
     # Catalog
-    'Category',
-    'Brand',
-    'brand_categories',
-
+    "Category",
+    "Brand",
+    "brand_categories",
     # Products
-    'Product',
-    'ProductVariation',
-    'Phone',
-    'Laptop',
-    'Tablet',
-    'Audio',
-
+    "Product",
+    "ProductVariation",
+    "Phone",
+    "Laptop",
+    "Tablet",
+    "Audio",
     # Shopping
-    'Cart',
-    'CartItem',
-    'WishList',
-    'Compare',
-    'CompareItem',
-    'wishlist_products',
-
+    "Cart",
+    "CartItem",
+    "WishList",
+    "Compare",
+    "CompareItem",
+    "wishlist_products",
     # Orders
-    'Order',
-    'OrderItem',
-    'Address',
-
+    "Order",
+    "OrderItem",
+    "Address",
     # Payment
-    'Payment',
-
+    "Payment",
     # Reviews
-    'Review',
-
+    "Review",
     # Notifications
-    'Notification',
-    'AuditLog',
+    "Notification",
+    "AuditLog",
 ]

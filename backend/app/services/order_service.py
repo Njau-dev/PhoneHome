@@ -2,6 +2,7 @@
 Order Service
 Handles order creation, management, and status updates
 """
+
 import logging
 
 from app.extensions import db
@@ -23,7 +24,7 @@ class OrderService:
         "Delivered",
         "Canceled",
         "Pending Payment",
-        "Payment Failed"
+        "Payment Failed",
     ]
 
     @staticmethod
@@ -47,31 +48,29 @@ class OrderService:
             if not cart or not cart.items:
                 return None, "Cart is empty"
 
-            address_data = order_data.get('address') or {}
-            required_address_fields = [
-                'firstName', 'lastName', 'email', 'phone', 'city', 'street'
-            ]
+            address_data = order_data.get("address") or {}
+            required_address_fields = ["firstName", "lastName", "email", "phone", "city", "street"]
             missing_fields = [
-                field for field in required_address_fields
-                if not address_data.get(field)
+                field for field in required_address_fields if not address_data.get(field)
             ]
             if missing_fields:
                 return None, f"Invalid address: missing {', '.join(missing_fields)}"
 
             computed_total = 0
             for cart_item in cart.items:
-                unit_price = cart_item.variation_price if cart_item.variation_price else (
-                    cart_item.product.price if cart_item.product else 0
+                unit_price = (
+                    cart_item.variation_price
+                    if cart_item.variation_price
+                    else (cart_item.product.price if cart_item.product else 0)
                 )
                 computed_total += float(unit_price) * cart_item.quantity
 
-            requested_total = float(order_data.get('total_amount') or 0)
+            requested_total = float(order_data.get("total_amount") or 0)
             if round(requested_total, 2) != round(computed_total, 2):
                 return None, "Total amount does not match cart total"
 
             # Create address
-            address = OrderService._create_address(
-                user_id, address_data)
+            address = OrderService._create_address(user_id, address_data)
             if not address:
                 return None, "Failed to create address"
 
@@ -81,16 +80,17 @@ class OrderService:
             # Create payment record
             payment = Payment(
                 order_reference=order_reference,
-                amount=order_data.get('total_amount'),
-                payment_method=order_data.get('payment_method'),
-                status='Pending'
+                amount=order_data.get("total_amount"),
+                payment_method=order_data.get("payment_method"),
+                status="Pending",
             )
             db.session.add(payment)
             db.session.flush()  # Get payment ID
 
             # Determine initial order status
-            initial_status = 'Order Placed' if order_data.get(
-                'payment_method') == 'COD' else 'Pending Payment'
+            initial_status = (
+                "Order Placed" if order_data.get("payment_method") == "COD" else "Pending Payment"
+            )
 
             # Create order
             order = Order(
@@ -98,8 +98,8 @@ class OrderService:
                 order_reference=order_reference,
                 address_id=address.id,
                 payment_id=payment.id,
-                total_amount=order_data.get('total_amount'),
-                status=initial_status
+                total_amount=order_data.get("total_amount"),
+                status=initial_status,
             )
             db.session.add(order)
             db.session.flush()  # Get order ID
@@ -111,7 +111,7 @@ class OrderService:
                     product_id=cart_item.product_id,
                     quantity=cart_item.quantity,
                     variation_name=cart_item.variation_name,
-                    variation_price=cart_item.variation_price
+                    variation_price=cart_item.variation_price,
                 )
                 db.session.add(order_item)
 
@@ -124,8 +124,10 @@ class OrderService:
             db.session.commit()
 
             # Create notification
-            if order_data.get('payment_method') == 'COD':
-                message = f"Order #{order.order_reference} placed successfully. Payment on delivery."
+            if order_data.get("payment_method") == "COD":
+                message = (
+                    f"Order #{order.order_reference} placed successfully. Payment on delivery."
+                )
             else:
                 message = f"Order #{order.order_reference} created. Please complete M-Pesa payment."
 
@@ -148,13 +150,13 @@ class OrderService:
 
             address = Address(
                 user_id=user_id,
-                first_name=address_data.get('firstName'),
-                last_name=address_data.get('lastName'),
-                email=address_data.get('email'),
-                phone=address_data.get('phone'),
-                city=address_data.get('city'),
-                street=address_data.get('street'),
-                additional_info=address_data.get('additionalInfo')
+                first_name=address_data.get("firstName"),
+                last_name=address_data.get("lastName"),
+                email=address_data.get("email"),
+                phone=address_data.get("phone"),
+                city=address_data.get("city"),
+                street=address_data.get("street"),
+                additional_info=address_data.get("additionalInfo"),
             )
             db.session.add(address)
             db.session.flush()
@@ -176,9 +178,7 @@ class OrderService:
             List of order dictionaries
         """
         try:
-            orders = Order.query.filter_by(user_id=user_id).order_by(
-                Order.created_at.desc()
-            ).all()
+            orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).all()
 
             return [OrderService._serialize_order(order) for order in orders]
 
@@ -232,11 +232,17 @@ class OrderService:
             {
                 "product_id": item.product_id,
                 "name": item.product.name if item.product else None,
-                "image_url": item.product.image_urls[0] if item.product and item.product.image_urls else None,
+                "image_url": (
+                    item.product.image_urls[0] if item.product and item.product.image_urls else None
+                ),
                 "brand": item.product.brand.name if item.product and item.product.brand else None,
                 "quantity": item.quantity,
                 "variation_name": item.variation_name,
-                "price": float(item.variation_price) if item.variation_price else float(item.product.price) if item.product else 0
+                "price": (
+                    float(item.variation_price)
+                    if item.variation_price
+                    else float(item.product.price) if item.product else 0
+                ),
             }
             for item in order.order_items
         ]
@@ -249,7 +255,7 @@ class OrderService:
                 "failure_reason": order.payment.failure_reason,
                 "checkout_request_id": order.payment.checkout_request_id,
                 "transaction_id": order.payment.transaction_id,
-                "mpesa_receipt": order.payment.mpesa_receipt
+                "mpesa_receipt": order.payment.mpesa_receipt,
             }
 
         # Add detailed info if requested
@@ -261,7 +267,7 @@ class OrderService:
                 "phone": order.address.phone,
                 "city": order.address.city,
                 "street": order.address.street,
-                "additional_info": order.address.additional_info
+                "additional_info": order.address.additional_info,
             }
 
         return data
@@ -282,7 +288,10 @@ class OrderService:
         try:
             # Validate status
             if new_status not in OrderService.ORDER_STATUSES:
-                return False, f"Invalid status. Must be one of: {', '.join(OrderService.ORDER_STATUSES)}"
+                return (
+                    False,
+                    f"Invalid status. Must be one of: {', '.join(OrderService.ORDER_STATUSES)}",
+                )
 
             order = Order.query.get(order_id)
             if not order:
@@ -305,7 +314,7 @@ class OrderService:
 
                 create_notification(
                     order.user_id,
-                    f"Payment for Order #{order.order_reference} confirmed. Check your email for receipt."
+                    f"Payment for Order #{order.order_reference} confirmed. Check your email for receipt.",
                 )
 
             db.session.commit()
@@ -313,7 +322,7 @@ class OrderService:
             # Send notifications
             create_notification(
                 order.user_id,
-                f"Order #{order.order_reference} status updated to {new_status}. Check your email for details."
+                f"Order #{order.order_reference} status updated to {new_status}. Check your email for details.",
             )
 
             # Send email update (best-effort; should not fail order status update)
@@ -326,7 +335,8 @@ class OrderService:
                 )
 
             logger.info(
-                f"Order {order.order_reference} status updated: {old_status} -> {new_status}")
+                f"Order {order.order_reference} status updated: {old_status} -> {new_status}"
+            )
             return True, f"Order status updated to {new_status}"
 
         except Exception as e:
@@ -367,21 +377,20 @@ class OrderService:
             tuple: (success: bool, message: str)
         """
         try:
-            order = Order.query.filter_by(
-                order_reference=order_reference).first()
+            order = Order.query.filter_by(order_reference=order_reference).first()
             if not order or not order.payment:
                 return False, "Order or payment not found"
 
             payment = order.payment
-            payment.status = payment_data.get('status', 'Failed')
-            payment.transaction_id = payment_data.get('transaction_id')
-            payment.mpesa_receipt = payment_data.get('mpesa_receipt')
-            payment.result_code = payment_data.get('result_code')
-            payment.result_desc = payment_data.get('result_desc')
+            payment.status = payment_data.get("status", "Failed")
+            payment.transaction_id = payment_data.get("transaction_id")
+            payment.mpesa_receipt = payment_data.get("mpesa_receipt")
+            payment.result_code = payment_data.get("result_code")
+            payment.result_desc = payment_data.get("result_desc")
 
-            if payment.status == 'Success':
+            if payment.status == "Success":
                 # Update order status
-                order.status = 'Order Placed'
+                order.status = "Order Placed"
 
                 # Send confirmation email (best-effort)
                 try:
@@ -393,20 +402,19 @@ class OrderService:
 
                 create_notification(
                     order.user_id,
-                    f"Payment successful for Order #{order.order_reference}. Receipt: {payment.mpesa_receipt}"
+                    f"Payment successful for Order #{order.order_reference}. Receipt: {payment.mpesa_receipt}",
                 )
             else:
-                order.status = 'Payment Failed'
+                order.status = "Payment Failed"
 
                 create_notification(
                     order.user_id,
-                    f"Payment failed for Order #{order.order_reference}. {payment.result_desc}"
+                    f"Payment failed for Order #{order.order_reference}. {payment.result_desc}",
                 )
 
             db.session.commit()
 
-            logger.info(
-                f"Payment status updated for order {order_reference}: {payment.status}")
+            logger.info(f"Payment status updated for order {order_reference}: {payment.status}")
             return True, "Payment status updated"
 
         except Exception as e:
