@@ -12,6 +12,7 @@ import {
     LogOut,
     Package,
     Phone,
+    Shield,
     SquareStack,
     Store,
     Tag,
@@ -30,10 +31,12 @@ interface MobileMenuProps {
 }
 
 const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
-    const { isAuthenticated, logout } = useAuth();
+    const { user, isAuthenticated, logout } = useAuth();
     const [openCategory, setOpenCategory] = useState<string | null>(null);
     const [showCategories, setShowCategories] = useState(false);
     const pathname = usePathname();
+    const adminPanelUrl =
+        process.env.NEXT_PUBLIC_ADMIN_PANEL_URL || "https://admin.phonehome.co.ke";
 
     const handleCloseMenu = () => {
         setShowCategories(false);
@@ -78,6 +81,16 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
             { label: "Profile", href: "/profile", icon: <User className="h-4 w-4" /> },
             { label: "Orders", href: "/orders", icon: <Package className="h-4 w-4" /> },
             { label: "Contact", href: "/contact", icon: <Phone className="h-4 w-4" /> },
+            ...(user?.role === "admin"
+                ? [
+                    {
+                        label: "Admin Panel",
+                        href: adminPanelUrl,
+                        icon: <Shield className="h-4 w-4" />,
+                        external: true,
+                    },
+                ]
+                : []),
         ]
         : [
             { label: "Home", href: "/", icon: <Home className="h-4 w-4" /> },
@@ -234,22 +247,28 @@ const MobileMenu = ({ isOpen, onClose }: MobileMenuProps) => {
 
                         {/* Navigation Links */}
                         <div className="space-y-2">
-                            {customerLinks.map((link) => (
-                                <Link
-                                    key={link.href}
-                                    href={link.href}
-                                    onClick={handleCloseMenu}
-                                    className={cn(
-                                        "flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-border/50 transition-colors",
-                                        pathname === link.href
-                                            ? "text-accent border-accent/30 bg-accent/5"
-                                            : "text-primary hover:text-accent"
-                                    )}
-                                >
-                                    {link.icon}
-                                    <span className="text-sm font-medium">{link.label}</span>
-                                </Link>
-                            ))}
+                            {customerLinks.map((link) => {
+                                const isExternal = "external" in link && link.external;
+
+                                return (
+                                    <Link
+                                        key={link.href}
+                                        href={link.href}
+                                        onClick={handleCloseMenu}
+                                        target={isExternal ? "_blank" : undefined}
+                                        rel={isExternal ? "noopener noreferrer" : undefined}
+                                        className={cn(
+                                            "flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-border/50 transition-colors",
+                                            pathname === link.href
+                                                ? "text-accent border-accent/30 bg-accent/5"
+                                                : "text-primary hover:text-accent"
+                                        )}
+                                    >
+                                        {link.icon}
+                                        <span className="text-sm font-medium">{link.label}</span>
+                                    </Link>
+                                );
+                            })}
                         </div>
                     </div>
 

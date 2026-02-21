@@ -41,7 +41,7 @@ const Users = () => {
         cancelText: 'Cancel'
     });
 
-    const usersPerPage = 25;
+    const usersPerPage = 10;
     const { backendUrl } = useApp();
     const { token } = useAuth();
 
@@ -130,6 +130,7 @@ const Users = () => {
     const toggleAdminStatus = async (id, currentStatus) => {
         const user = usersList.find(u => u.id === id);
         const action = currentStatus ? 'remove admin privileges from' : 'grant admin privileges to';
+        const targetRole = currentStatus ? 'user' : 'admin';
 
         showModal({
             title: currentStatus ? 'Remove Admin Privileges' : 'Grant Admin Privileges',
@@ -142,7 +143,7 @@ const Users = () => {
                     setIsLoading(true);
                     const response = await axios.put(
                         backendUrl + '/admin/users/' + id + '/promote',
-                        { is_admin: !currentStatus },
+                        { role: targetRole },
                         {
                             headers: {
                                 Authorization: `Bearer ${token}`
@@ -170,8 +171,8 @@ const Users = () => {
     // Function to extract roles and count users in each
     const processRoles = (users) => {
         // Count users by role
-        const adminCount = users.filter(user => user.is_admin).length;
-        const customerCount = users.filter(user => !user.is_admin).length;
+        const adminCount = users.filter(user => user.role === 'admin').length;
+        const customerCount = users.filter(user => user.role !== 'admin').length;
 
         const stats = [
             {
@@ -405,21 +406,21 @@ const Users = () => {
                                                 {user.phone_number || "-"}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_admin
+                                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin'
                                                     ? "bg-purple-500/10 text-purple-500"
                                                     : "bg-blue-500/10 text-blue-500"
                                                     }`}>
-                                                    {user.is_admin ? "Admin" : "Customer"}
+                                                    {user.role === 'admin' ? "Admin" : "Customer"}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-right flex justify-center gap-2">
-                                                <Link to={`/users/edit/${user.id}`} className={`${user.is_admin
+                                                <Link to={`/users/edit/${user.id}`} className={`${user.role === 'admin'
                                                     ? "hidden" : "p-2 bg-blue-500/10 text-blue-500 rounded-md hover:bg-blue-500/20 transition-colors"}`}>
                                                     <Edit className="h-4 w-4" />
                                                 </Link>
                                                 <button
-                                                    onClick={() => toggleAdminStatus(user.id, user.is_admin)}
-                                                    className={`p-2 rounded-md transition-colors ${user.is_admin
+                                                    onClick={() => toggleAdminStatus(user.id, user.role === 'admin')}
+                                                    className={`p-2 rounded-md transition-colors ${user.role === 'admin'
                                                         ? "bg-gray-500/10 text-gray-500 hover:bg-gray-500/20"
                                                         : "bg-purple-500/10 text-purple-500 hover:bg-purple-500/20"
                                                         }`}

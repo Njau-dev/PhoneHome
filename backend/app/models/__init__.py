@@ -24,14 +24,13 @@ from .product import Audio, Laptop, Phone, Product, ProductVariation, Tablet
 
 # Review models
 from .review import Review
-from .user import Admin, BlacklistToken, User
+from .user import BlacklistToken, User
 from .wishlist import Compare, CompareItem, WishList, wishlist_products
 
 # Export all models for easy importing
 __all__ = [
     # User
     "User",
-    "Admin",
     "BlacklistToken",
     # Catalog
     "Category",

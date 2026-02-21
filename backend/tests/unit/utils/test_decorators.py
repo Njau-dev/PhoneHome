@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required
 
 from app.extensions import db
-from app.models import Admin
+from app.models import User
 from app.utils.decorators import admin_required, validate_json
 
 
@@ -71,7 +71,14 @@ def test_admin_required_allows_admin_token():
     app = _create_test_app()
 
     with app.app_context():
-        admin = Admin(id=1, username="admin", email="admin@test.com", password_hash="hashed")
+        admin = User(
+            id=1,
+            username="admin",
+            email="admin@test.com",
+            phone_number="0712345678",
+            password_hash="hashed",
+            role="admin",
+        )
         db.session.add(admin)
         db.session.commit()
         token = create_access_token(identity="1")

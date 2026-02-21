@@ -8,7 +8,7 @@ from flask import jsonify, request
 from flask_jwt_extended import get_jwt_identity
 
 from app.extensions import db
-from app.models import Admin
+from app.models import User
 
 
 def admin_required(f):
@@ -26,9 +26,14 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         current_user_id = get_jwt_identity()
-        admin = db.session.get(Admin, current_user_id)
+        try:
+            current_user_id = int(current_user_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "Admin privileges required"}), 403
 
-        if not admin:
+        user = db.session.get(User, current_user_id)
+
+        if not user or (user.role or "").lower() != "admin":
             return jsonify({"error": "Admin privileges required"}), 403
 
         return f(*args, **kwargs)

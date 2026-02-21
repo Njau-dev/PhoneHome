@@ -12,7 +12,6 @@ from app import create_app
 from app.extensions import db as _db
 from app.models import (
     Address,
-    Admin,
     Brand,
     Cart,
     CartItem,
@@ -99,16 +98,6 @@ def admin_user(db):
         role="admin",
     )
     db.session.add(admin)
-    db.session.commit()
-
-    # Also create Admin record
-    admin_record = Admin(
-        id=admin.id,
-        username="admin",
-        email="admin@example.com",
-        password_hash=generate_password_hash("admin123"),
-    )
-    db.session.add(admin_record)
     db.session.commit()
 
     return admin
@@ -402,12 +391,13 @@ def create_user(db):
     """Factory function to create users dynamically"""
 
     def _create_user(username="testuser", email="test@example.com", **kwargs):
+        role = kwargs.get("role", "user")
         user = User(
             username=username,
             email=email,
             phone_number=kwargs.get("phone_number", "0712345678"),
             password_hash=generate_password_hash(kwargs.get("password", "password123")),
-            role=kwargs.get("role", "user"),
+            role=role,
         )
         db.session.add(user)
         db.session.commit()

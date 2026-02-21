@@ -40,7 +40,8 @@ def get_all_users():
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
-                "is_admin": user.is_admin,
+                "phone_number": user.phone_number,
+                "role": (user.role or "user").lower(),
             }
             for user in users
         ]
@@ -78,14 +79,31 @@ def promote_user_to_admin(user_id):
         if not user:
             return jsonify(format_response(False, None, "User not found")), 404
 
-        user.is_admin = True
+        data = request.get_json(silent=True) or {}
+
+        target_role = "admin"
+        if data:
+            if "role" not in data:
+                return jsonify(format_response(False, None, "role is required in request body")), 400
+
+            requested_role = str(data.get("role", "")).strip().lower()
+            if requested_role not in {"admin", "user"}:
+                return jsonify(format_response(False, None, "Invalid role value")), 400
+            target_role = requested_role
+
+        user.role = target_role
         db.session.commit()
 
         # Log the admin action
         current_admin_id = get_jwt_identity()
-        log_admin_action(current_admin_id, f"Promoted user {user_id} to admin")
+        if target_role == "admin":
+            log_admin_action(current_admin_id, f"Promoted user {user_id} to admin")
+            message = f"User {user_id} promoted to admin"
+        else:
+            log_admin_action(current_admin_id, f"Demoted user {user_id} to user")
+            message = f"User {user_id} demoted to user"
 
-        return jsonify(format_response(True, None, f"User {user_id} promoted to admin")), 200
+        return jsonify(format_response(True, None, message)), 200
 
     except Exception as e:
         logger.error(f"Error promoting user to admin: {str(e)}")
@@ -224,9 +242,10 @@ def log_admin_action(admin_id, action):
         action: Description of the action
     """
     try:
-        audit_log = AuditLog(admin_id=admin_id, action=action)
+        audit_log = AuditLog(admin_id=int(admin_id), action=action)
         db.session.add(audit_log)
         db.session.commit()
 
     except Exception as e:
+        db.session.rollback()
         logger.error(f"Error logging admin action: {str(e)}")
