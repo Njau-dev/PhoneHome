@@ -14,7 +14,7 @@ from itsdangerous import URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
-from app.models import Admin, BlacklistToken, Notification, User
+from app.models import BlacklistToken, Notification, User
 from app.services.email_service import EmailService
 from app.utils.response_formatter import format_response
 
@@ -138,7 +138,7 @@ def login():
         500: Server error
     """
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         email = data.get("email")
         password = data.get("password")
 
@@ -406,12 +406,14 @@ def admin_login():
         if not email or not password:
             return jsonify(format_response(False, None, "Email and password are required")), 400
 
-        admin = Admin.query.filter_by(email=email).first()
+        user = User.query.filter_by(email=email).first()
 
-        if admin and check_password_hash(admin.password_hash, password):
+        if user and (user.role or "").lower() == "admin" and check_password_hash(
+            user.password_hash, password
+        ):
             # Create token with 2 hour expiration for admins
             access_token = create_access_token(
-                identity=str(admin.id), expires_delta=timedelta(hours=2)
+                identity=str(user.id), expires_delta=timedelta(hours=6)
             )
 
             logger.info(f"Admin logged in: {email}")
@@ -421,11 +423,12 @@ def admin_login():
                     format_response(
                         True,
                         {
-                            "access_token": access_token,
+                            "token": access_token,
                             "user": {
-                                "id": admin.id,
-                                "name": admin.username,
-                                "email": admin.email,
+                                "id": user.id,
+                                "name": user.username,
+                                "username": user.username,
+                                "email": user.email,
                                 "role": "admin",
                             },
                         },

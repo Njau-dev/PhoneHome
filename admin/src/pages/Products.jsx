@@ -24,7 +24,7 @@ const List = () => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [productToDelete, setProductToDelete] = useState(null);
 
-    const productsPerPage = 25;
+    const productsPerPage = 10;
     const { backendUrl, currency } = useApp();
     const { token } = useAuth();
 

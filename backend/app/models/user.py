@@ -1,5 +1,5 @@
 """
-User, Admin, and authentication related models
+User and authentication related models
 """
 
 from datetime import datetime
@@ -10,7 +10,7 @@ from app.extensions import db
 
 
 class User(db.Model):
-    """User model for customers"""
+    """User model for all authenticated users"""
 
     __tablename__ = "users"
 
@@ -21,7 +21,6 @@ class User(db.Model):
     address = db.Column(db.String(255), nullable=True)
     password_hash = db.Column(db.String(450), nullable=False)
     role = db.Column(db.String(50), default="user")
-    is_admin = db.Column(db.Boolean, nullable=False, default=False)
     reset_token = db.Column(db.String(256))
     reset_token_expiration = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -46,6 +45,7 @@ class User(db.Model):
     notifications = db.relationship(
         "Notification", backref="user", lazy=True, cascade="all, delete-orphan"
     )
+    audit_logs = db.relationship("AuditLog", backref="admin_user", lazy=True)
     addresses = db.relationship("Address", backref="user", lazy=True, cascade="all, delete-orphan")
 
     def set_password(self, password):
@@ -58,34 +58,6 @@ class User(db.Model):
 
     def __repr__(self):
         return f"<User {self.username}>"
-
-
-class Admin(db.Model):
-    """Admin model for administrative users"""
-
-    __tablename__ = "admins"
-
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False, index=True)
-    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(450), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # Relationships
-    audit_logs = db.relationship(
-        "AuditLog", backref="admin", lazy=True, cascade="all, delete-orphan"
-    )
-
-    def set_password(self, password):
-        """Hash and set password"""
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        """Verify password"""
-        return check_password_hash(self.password_hash, password)
-
-    def __repr__(self):
-        return f"<Admin {self.username}>"
 
 
 class BlacklistToken(db.Model):

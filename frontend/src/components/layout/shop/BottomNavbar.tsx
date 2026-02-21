@@ -11,9 +11,11 @@ import { cn } from "@/lib/utils/cn";
 
 const BottomNavbar = () => {
     const pathname = usePathname();
-    const { isAuthenticated, logout } = useAuth();
+    const { user, isAuthenticated, logout } = useAuth();
     const { getCompareCount, hasHydrated } = useCompare();
     const compareCount = hasHydrated ? getCompareCount() : 0;
+    const adminPanelUrl =
+        process.env.NEXT_PUBLIC_ADMIN_PANEL_URL || "https://admin.phonehome.co.ke";
 
     const { data: categories = [] } = useQuery({
         queryKey: ["categories"],
@@ -142,6 +144,18 @@ const BottomNavbar = () => {
                         />
                     </Link>
                 ))}
+
+                {user?.role === "admin" && (
+                    <Link
+                        href={adminPanelUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="relative text-[15px] font-medium text-nav-text transition-colors group px-1 hover:text-accent"
+                    >
+                        Admin Panel
+                        <span className="absolute -bottom-3 left-0 h-0.5 bg-accent transition-all duration-400 ease-out w-0 group-hover:w-full" />
+                    </Link>
+                )}
             </div>
 
             <div className="flex gap-4">

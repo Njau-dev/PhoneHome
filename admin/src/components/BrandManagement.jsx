@@ -53,7 +53,6 @@ const BrandManagement = () => {
                 },
             });
             const brands = response.data.data.brands;
-            console.log('Fetched brands:', brands);
 
             // Group brands by category (now each brand can have multiple categories)
             const grouped = {};

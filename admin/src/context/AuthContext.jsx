@@ -10,21 +10,40 @@ export const AuthContext = createContext();
 // Create a custom hook for using auth context
 export const useAuth = () => useContext(AuthContext);
 
+const getStoredUser = () => {
+    const rawUser = localStorage.getItem('user');
+    if (!rawUser) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(rawUser);
+    } catch (error) {
+        console.error('Failed to parse stored user:', error);
+        localStorage.removeItem('user');
+        return null;
+    }
+};
+
 export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(localStorage.getItem('token') || '');
-    const [user, setUser] = useState(localStorage.getItem('user') || '');
+    const [user, setUser] = useState(getStoredUser);
     const [loading, setLoading] = useState(false);
     const { backendUrl } = useApp()
     const navigate = useNavigate();
 
     // Update localStorage when token changes
     useEffect(() => {
-        localStorage.setItem('token', token);
-        if (user) {
+        if (token) {
+            localStorage.setItem('token', token);
+        } else {
+            localStorage.removeItem('token');
+        }
+
+        if (user && token) {
             localStorage.setItem('user', JSON.stringify(user));
         } else {
             localStorage.removeItem('user');
-            localStorage.removeItem('token');
         }
     }, [token, user]);
 
@@ -37,9 +56,12 @@ export const AuthProvider = ({ children }) => {
                 password
             });
 
-            if (response.data.data.access_token) {
-                setToken(response.data.data.access_token);
-                setUser(response.data.data.user);
+            const accessToken = response.data?.data?.token;
+            const userData = response.data?.data?.user;
+
+            if (accessToken && userData?.role === 'admin') {
+                setToken(accessToken);
+                setUser(userData);
 
                 toast.success('Login successful!');
                 navigate('/dashboard');
@@ -49,7 +71,7 @@ export const AuthProvider = ({ children }) => {
                 return false;
             }
         } catch (error) {
-            const errorMessage = error.response?.data?.error || 'An unexpected error occurred';
+            const errorMessage = error.response?.data?.message || error.response?.data?.error || 'An unexpected error occurred';
             console.error('Login error:', errorMessage);
             toast.error(errorMessage);
             return false;
@@ -81,7 +103,7 @@ export const AuthProvider = ({ children }) => {
     // Logout function
     const logout = () => {
         setToken('');
-        setUser('');
+        setUser(null);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
 
@@ -95,7 +117,7 @@ export const AuthProvider = ({ children }) => {
 
     // Check if user is authenticated
     const isAuthenticated = () => {
-        return !!token;
+        return !!token && user?.role === 'admin';
     };
 
     const value = {
