@@ -9,8 +9,8 @@ export const useApp = () => useContext(AppContext);
 
 export const AppProvider = ({ children }) => {
     // App-wide settings
-    // const backendUrl = 'https://api.phonehome.co.ke/api';
-    const backendUrl = 'http://localhost:5000/api';
+    const backendUrl = 'https://api.phonehome.co.ke/api';
+    // const backendUrl = 'http://localhost:5000/api';
     const currency = 'Kshs';
 
     // Notification helpers
