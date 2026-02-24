@@ -188,8 +188,7 @@ class TestCheckoutAndOrderFailureScenarios:
         admin_login = client.post(
             "/api/auth/admin/login", json={"email": admin_user.email, "password": "admin123"}
         )
-        admin_headers = {
-            "Authorization": f"Bearer {admin_login.json['data']['token']}"}
+        admin_headers = {"Authorization": f"Bearer {admin_login.json['data']['token']}"}
 
         order_response = client.post(
             "/api/payments/mpesa/initiate",

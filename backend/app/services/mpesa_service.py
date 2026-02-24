@@ -35,7 +35,8 @@ class MpesaService:
         """Load and validate M-Pesa configuration"""
         self.consumer_key = self.config.get("MPESA_CONSUMER_KEY")
         self.consumer_secret = self.config.get("MPESA_CONSUMER_SECRET")
-        self.till_number = self.config.get("MPESA_BUSINESS_SHORTCODE")
+        self.till_number = self.config.get("MPESA_TILL_NUMBER")
+        self.shortcode = self.config.get("MPESA_BUSINESS_SHORTCODE")
         self.passkey = self.config.get("MPESA_PASSKEY")
         self.environment = self.config.get("MPESA_ENVIRONMENT", "sandbox").lower()
         self.callback_base_url = self.config.get("BACKEND_URL", "http://localhost:5000")
@@ -57,7 +58,8 @@ class MpesaService:
         required_configs = [
             ("MPESA_CONSUMER_KEY", self.consumer_key),
             ("MPESA_CONSUMER_SECRET", self.consumer_secret),
-            ("MPESA_BUSINESS_SHORTCODE", self.till_number),
+            ("MPESA_BUSINESS_SHORTCODE", self.shortcode),
+            ("MPESA_TILL_NUMBER", self.till_number),
             ("MPESA_PASSKEY", self.passkey),
         ]
 
@@ -118,7 +120,7 @@ class MpesaService:
             tuple: (password, timestamp)
         """
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        password_string = f"{self.till_number}{self.passkey}{timestamp}"
+        password_string = f"{self.shortcode}{self.passkey}{timestamp}"
         password = base64.b64encode(password_string.encode()).decode()
         return password, timestamp
 
@@ -185,7 +187,7 @@ class MpesaService:
 
             # Prepare payload
             payload = {
-                "BusinessShortCode": self.till_number,
+                "BusinessShortCode": self.shortcode,
                 "Password": password,
                 "Timestamp": timestamp,
                 "TransactionType": "CustomerBuyGoodsOnline",

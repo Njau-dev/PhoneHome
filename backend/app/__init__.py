@@ -5,13 +5,27 @@ Creates and configures the Flask application
 
 import logging
 import os
+import time
 from importlib import import_module
 
-from flask import Flask
+from flask import Flask, Response, request
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
 from app.config import get_config
 from app.extensions import cors, db, jwt, migrate
 from app.utils.jwt.callbacks import setup_jwt_callbacks
+
+REQUEST_COUNT = Counter(
+    "flask_http_request_total",
+    "Total HTTP Requests",
+    ["method", "endpoint", "http_status"],
+)
+
+REQUEST_LATENCY = Histogram(
+    "flask_http_request_duration_seconds",
+    "Request latency",
+    ["endpoint"],
+)
 
 
 def create_app(config_name=None):
@@ -43,6 +57,8 @@ def create_app(config_name=None):
 
     initialize_extensions(app)
 
+    register_metrics(app)
+
     register_healthcheck(app)
 
     register_blueprints(app)
@@ -56,6 +72,33 @@ def create_app(config_name=None):
     app.logger.info(f"App created with config: {config_name}")
 
     return app
+
+
+def register_metrics(app):
+    """Register Prometheus metrics endpoint and request instrumentation."""
+
+    @app.before_request
+    def before_request():
+        request.start_time = time.time()
+
+    @app.after_request
+    def after_request(response):
+        start_time = getattr(request, "start_time", None)
+        if start_time is None:
+            return response
+
+        endpoint = request.url_rule.rule if request.url_rule else request.path
+        REQUEST_LATENCY.labels(endpoint=endpoint).observe(time.time() - start_time)
+        REQUEST_COUNT.labels(
+            method=request.method,
+            endpoint=endpoint,
+            http_status=str(response.status_code),
+        ).inc()
+        return response
+
+    @app.get("/metrics")
+    def metrics():
+        return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 
 def register_healthcheck(app):

@@ -96,13 +96,66 @@ services:
       timeout: 3s
       retries: 5
 
+  # -------------------------
+  # Node exporter for monitoring
+  # -------------------------
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: phk-node-exporter
+    pid: host
+    restart: unless-stopped
+    networks:
+      - phk-network
+
+  # -------------------------
+  # cAdvisor for container monitoring
+  # -------------------------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: phk-cadvisor
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    restart: unless-stopped
+    networks:
+      - phk-network
+
+  # -------------------------
+  # Monitoring (Prometheus)
+  # -------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: phk-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Grafana for monitoring visualization
+  # -------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: phk-grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - phk-network
+    restart: unless-stopped
+
 # -------------------------
 # Volumes & Network
 # -------------------------
 volumes:
   postgres_data:
   redis_data:
-
+  grafana_data:
+  prometheus_data:
 
 networks:
   phk-network:

@@ -30,6 +30,7 @@ def _mpesa_config():
         "MPESA_CONSUMER_KEY": "key",
         "MPESA_CONSUMER_SECRET": "secret",
         "MPESA_BUSINESS_SHORTCODE": "123456",
+        "MPESA_TILL_NUMBER": "123456",
         "MPESA_PASSKEY": "passkey",
         "BACKEND_URL": "https://backend.test",
     }

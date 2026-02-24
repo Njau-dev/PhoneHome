@@ -408,8 +408,10 @@ def admin_login():
 
         user = User.query.filter_by(email=email).first()
 
-        if user and (user.role or "").lower() == "admin" and check_password_hash(
-            user.password_hash, password
+        if (
+            user
+            and (user.role or "").lower() == "admin"
+            and check_password_hash(user.password_hash, password)
         ):
             # Create token with 2 hour expiration for admins
             access_token = create_access_token(

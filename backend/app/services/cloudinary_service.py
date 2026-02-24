@@ -7,31 +7,62 @@ import logging
 
 import cloudinary
 import cloudinary.uploader
-from flask import current_app
+from flask import current_app, has_app_context
 
 logger = logging.getLogger(__name__)
 
-# Allowed image extensions
-ALLOWED_EXTENSIONS = current_app.config.get("ALLOWED_EXTENSIONS")
+# Kept at module scope so tests can monkeypatch it directly.
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "avif", "webp"}
 
 
 class CloudinaryService:
     """Service for handling image uploads"""
 
-    @staticmethod
-    def configure():
+    @classmethod
+    def configure(cls, config=None):
         """
         Configure Cloudinary with credentials from app config
         Should be called during app initialization
         """
+        if config is None and has_app_context():
+            config = current_app.config
+        elif config is None:
+            config = {}
+
+        global ALLOWED_EXTENSIONS
+        config_allowed_extensions = config.get("ALLOWED_EXTENSIONS")
+        if config_allowed_extensions:
+            ALLOWED_EXTENSIONS = config_allowed_extensions
+
+        cloud_name = config.get("CLOUDINARY_CLOUD_NAME")
+        api_key = config.get("CLOUDINARY_API_KEY")
+        api_secret = config.get("CLOUDINARY_API_SECRET")
+
+        missing = [
+            name
+            for name, value in (
+                ("CLOUDINARY_CLOUD_NAME", cloud_name),
+                ("CLOUDINARY_API_KEY", api_key),
+                ("CLOUDINARY_API_SECRET", api_secret),
+            )
+            if not value
+        ]
+
+        if missing:
+            logger.warning(
+                "Cloudinary configuration skipped; missing values: %s", ", ".join(missing)
+            )
+            return False
+
         cloudinary.config(
-            cloud_name=current_app.config.get("CLOUDINARY_CLOUD_NAME"),
-            api_key=current_app.config.get("CLOUDINARY_API_KEY"),
-            api_secret=current_app.config.get("CLOUDINARY_API_SECRET"),
+            cloud_name=cloud_name,
+            api_key=api_key,
+            api_secret=api_secret,
             debug=True,
             secure=True,
         )
         logger.info("Cloudinary configured")
+        return True
 
     @staticmethod
     def allowed_file(filename):
@@ -44,7 +75,8 @@ class CloudinaryService:
         Returns:
             True if allowed, False otherwise
         """
-        return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+        allowed_extensions = ALLOWED_EXTENSIONS
+        return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions
 
     @staticmethod
     def upload_image(image_file):
@@ -63,14 +95,11 @@ class CloudinaryService:
                 return False, "No image file provided"
 
             if not CloudinaryService.allowed_file(image_file.filename):
-                return False, f"Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+                allowed_extensions = sorted(ALLOWED_EXTENSIONS)
+                return False, f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
 
-            # Upload to Cloudinary
-            logger.info(f"Uploading {image_file.filename} to Cloudinary...")
             result = cloudinary.uploader.upload(image_file)
-
             secure_url = result.get("secure_url")
-            logger.info(f"Upload successful: {secure_url}")
 
             return True, secure_url
 

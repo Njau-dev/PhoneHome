@@ -2,6 +2,7 @@
 WSGI entry point for production (Gunicorn)
 """
 import os
+
 from app import create_app
 
 # Get environment from environment variable
