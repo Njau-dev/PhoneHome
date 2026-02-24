@@ -39,6 +39,7 @@ def app():
     os.environ.setdefault("MPESA_CONSUMER_SECRET", "test")
     os.environ.setdefault("MPESA_BUSINESS_SHORTCODE", "123456")
     os.environ.setdefault("MPESA_PASSKEY", "passkey")
+    os.environ.setdefault("MPESA_TILL_NUMBER", "123456")
 
     app = create_app("testing")
 

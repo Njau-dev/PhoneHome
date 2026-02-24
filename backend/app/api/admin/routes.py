@@ -84,7 +84,10 @@ def promote_user_to_admin(user_id):
         target_role = "admin"
         if data:
             if "role" not in data:
-                return jsonify(format_response(False, None, "role is required in request body")), 400
+                return (
+                    jsonify(format_response(False, None, "role is required in request body")),
+                    400,
+                )
 
             requested_role = str(data.get("role", "")).strip().lower()
             if requested_role not in {"admin", "user"}:

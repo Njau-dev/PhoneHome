@@ -3,6 +3,7 @@ Development server runner
 Run with: python run.py
 """
 import os
+
 from app import create_app
 
 # Force development environment
