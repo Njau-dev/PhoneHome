@@ -7,10 +7,10 @@ import logging
 import os
 import time
 from importlib import import_module
-from pythonjsonlogger import jsonlogger
 
 from flask import Flask, Response, request
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from pythonjsonlogger import jsonlogger
 
 from app.config import get_config
 from app.extensions import cors, db, jwt, migrate
@@ -189,9 +189,7 @@ def setup_logging(app):
         os.makedirs("logs")
 
     # Configure JSON logging format
-    formatter = jsonlogger.JsonFormatter(
-        "%(asctime)s %(levelname)s %(name)s %(message)s"
-    )
+    formatter = jsonlogger.JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s")
 
     # File handler
     file_handler = logging.FileHandler("logs/app.log")
