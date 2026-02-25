@@ -94,9 +94,11 @@ jobs:
             set -e
             cd "${{ env.SSH_PATH }}"
             mkdir -p monitoring
-            if [ -d monitoring/prometheus.yml ]; then
-              rm -rf monitoring/prometheus.yml
-            fi
+            for cfg in prometheus.yml loki-config.yml promtail-config.yml; do
+              if [ -d "monitoring/$cfg" ]; then
+                rm -rf "monitoring/$cfg"
+              fi
+            done
 
       - name: Sync deployment files to VPS
         uses: appleboy/scp-action@v0.1.7
@@ -104,7 +106,7 @@ jobs:
           host: ${{ env.SSH_HOST }}
           username: ${{ env.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.prod.yml,monitoring/prometheus.yml"
+          source: "docker-compose.prod.yml,monitoring/prometheus.yml,monitoring/loki-config.yml,monitoring/promtail-config.yml"
           target: ${{ env.SSH_PATH }}
           overwrite: true
 

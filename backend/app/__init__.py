@@ -10,6 +10,7 @@ from importlib import import_module
 
 from flask import Flask, Response, request
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from pythonjsonlogger import jsonlogger
 
 from app.config import get_config
 from app.extensions import cors, db, jwt, migrate
@@ -187,8 +188,8 @@ def setup_logging(app):
     if not os.path.exists("logs"):
         os.makedirs("logs")
 
-    # Configure logging format
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    # Configure JSON logging format
+    formatter = jsonlogger.JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s")
 
     # File handler
     file_handler = logging.FileHandler("logs/app.log")
@@ -208,5 +209,7 @@ def setup_logging(app):
     # Also configure Gunicorn logger if it exists
     gunicorn_logger = logging.getLogger("gunicorn.error")
     if gunicorn_logger.handlers:
+        for handler in gunicorn_logger.handlers:
+            handler.setFormatter(formatter)
         app.logger.handlers = gunicorn_logger.handlers
         app.logger.setLevel(gunicorn_logger.level)

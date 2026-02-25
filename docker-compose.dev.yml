@@ -7,7 +7,7 @@ services:
     build: ./nginx
     container_name: phk-nginx
     ports:
-      - "80:80"
+      - "81:80"
     depends_on:
       - frontend
       - admin
@@ -69,7 +69,7 @@ services:
       - phk-network
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -143,6 +143,36 @@ services:
       - "3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Loki for log aggregation
+  # -------------------------
+  loki:
+    image: grafana/loki:latest
+    container_name: phk-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Promtail for log shipping
+  # -------------------------
+  promtail:
+    image: grafana/promtail:latest
+    container_name: phk-promtail
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
     networks:
       - phk-network
     restart: unless-stopped

@@ -124,7 +124,7 @@ services:
       - phk-network
 
   # -------------------------
-  # Monitoring (Prometheus)
+  # Prometheus for monitoring
   # -------------------------
   prometheus:
     image: prom/prometheus:latest
@@ -148,6 +148,39 @@ services:
       - phk-network
     restart: unless-stopped
 
+
+  # -------------------------
+  # Loki for log aggregation
+  # -------------------------
+  loki:
+    image: grafana/loki:latest
+    container_name: phk-loki
+    volumes:
+      - loki_data:/loki
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml:ro
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - phk-network
+    restart: unless-stopped
+
+  # -------------------------
+  # Promtail for log shipping
+  # -------------------------
+  promtail:
+    image: grafana/promtail:latest
+    container_name: phk-promtail
+    depends_on:
+      loki:
+        condition: service_started
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./monitoring/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+    command: -config.file=/etc/promtail/promtail-config.yml
+    networks:
+      - phk-network
+    restart: unless-stopped
+
 # -------------------------
 # Volumes & Network
 # -------------------------
@@ -156,6 +189,7 @@ volumes:
   redis_data:
   grafana_data:
   prometheus_data:
+  loki_data:
 
 networks:
   phk-network:
