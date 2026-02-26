@@ -122,8 +122,13 @@ def register_sentry_user_context(app: Flask) -> None:
         clear_sentry_user()
 
         try:
-            verify_jwt_in_request(optional=True, skip_revocation_check=True)
+            verification_result = verify_jwt_in_request(optional=True, skip_revocation_check=True)
         except Exception:
+            return
+
+        # For exempt methods (e.g. OPTIONS) and optional requests with no token,
+        # flask-jwt-extended returns None and may not set request JWT context.
+        if verification_result is None:
             return
 
         set_sentry_user_from_claims(get_jwt())
