@@ -15,6 +15,7 @@ from pythonjsonlogger import jsonlogger
 from app.config import get_config
 from app.extensions import cors, db, jwt, migrate
 from app.utils.jwt.callbacks import setup_jwt_callbacks
+from app.utils.sentry import initialize_sentry, register_sentry_user_context
 
 REQUEST_COUNT = Counter(
     "flask_http_request_total",
@@ -53,6 +54,8 @@ def create_app(config_name=None):
 
     # Register logger and error handlers
     setup_logging(app)
+    initialize_sentry()
+    register_sentry_user_context(app)
 
     register_error_handlers(app)
 
