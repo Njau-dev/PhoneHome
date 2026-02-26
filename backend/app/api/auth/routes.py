@@ -17,6 +17,7 @@ from app.extensions import db
 from app.models import BlacklistToken, Notification, User
 from app.services.email_service import EmailService
 from app.utils.response_formatter import format_response
+from app.utils.sentry import clear_sentry_user, set_sentry_user
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,24 @@ def _get_serializer():
     if not secret_key:
         raise RuntimeError("SECRET_KEY is not configured")
     return URLSafeTimedSerializer(secret_key)
+
+
+def _jwt_claims_for_user(user):
+    """Return standard JWT claims for user context."""
+    return {
+        "email": user.email,
+        "username": user.username,
+        "role": user.role or "user",
+    }
+
+
+def _issue_access_token(user, expires_delta):
+    """Issue a JWT with identity and user context claims."""
+    return create_access_token(
+        identity=str(user.id),
+        additional_claims=_jwt_claims_for_user(user),
+        expires_delta=expires_delta,
+    )
 
 
 # ============================================================================
@@ -90,7 +109,8 @@ def signup():
         db.session.commit()
 
         # Generate token
-        token = create_access_token(identity=str(new_user.id), expires_delta=timedelta(days=1))
+        token = _issue_access_token(new_user, timedelta(days=1))
+        set_sentry_user(new_user)
 
         logger.info(f"New user registered: {email}")
 
@@ -150,7 +170,8 @@ def login():
 
         # Verify credentials
         if user and check_password_hash(user.password_hash, password):
-            token = create_access_token(identity=str(user.id), expires_delta=timedelta(days=1))
+            token = _issue_access_token(user, timedelta(days=1))
+            set_sentry_user(user)
 
             logger.info(f"User logged in: {email}")
 
@@ -208,6 +229,7 @@ def logout():
         blacklisted_token = BlacklistToken(token=jti)
         db.session.add(blacklisted_token)
         db.session.commit()
+        clear_sentry_user()
 
         logger.info("User logged out successfully")
 
@@ -414,9 +436,8 @@ def admin_login():
             and check_password_hash(user.password_hash, password)
         ):
             # Create token with 2 hour expiration for admins
-            access_token = create_access_token(
-                identity=str(user.id), expires_delta=timedelta(hours=6)
-            )
+            access_token = _issue_access_token(user, timedelta(hours=6))
+            set_sentry_user(user)
 
             logger.info(f"Admin logged in: {email}")
 
